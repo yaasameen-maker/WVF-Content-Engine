@@ -1,0 +1,50 @@
+name: Backend E2E Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-e2e.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-e2e.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check that Alembic migrations match the models
+        run: |
+          alembic upgrade head
+          alembic check
+
+      - name: Run E2E API test suite
+        run: pytest -v
+
+      - name: Confirm the app boots and every route resolves
+        run: |
+          python -c "
+          from app.main import app
+          routes = [(r.path, sorted(r.methods)) for r in app.routes if hasattr(r, 'methods')]
+          assert routes, 'no routes registered'
+          for path, methods in routes:
+              print(methods, path)
+          print(f'{len(routes)} routes OK')
+          "
