@@ -1,7 +1,17 @@
--- WVF Content Engine — Database Schema
+-- WVF Content Engine — Database Schema (target design)
 -- Matches the project ERD (see docs/PROJECT_CONTEXT.md for the full design
--- rationale). Written for PostgreSQL. Not yet applied to a live database —
--- see CLAUDE.md Status section.
+-- rationale). Written for PostgreSQL.
+--
+-- KNOWN DRIFT: this describes the target design, not what's actually
+-- applied. The live SQLAlchemy models (backend/app/models/content.py,
+-- migrated via backend/alembic/versions/) use Integer primary keys and a
+-- Text `body` column, not the UUID/JSONB shape below — that's the source
+-- of truth for `events`/`content_items` today (decision: keep Integer IDs,
+-- see CLAUDE.md Status). `structure_variant` on content_items IS live
+-- (added via migration a1f3c9d2e6b4). `users`, `key_makers`, and
+-- `newsletter_blocks` below are NOT built yet — no SQLAlchemy models, no
+-- migrations, no auth. Reconcile this file with the real schema when those
+-- tables get built (Day 2-3 newsletter blocks work).
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto"; -- for gen_random_uuid()
 

@@ -114,8 +114,14 @@ def client(db_session_factory, monkeypatch):
 
     app.dependency_overrides[get_db] = override_get_db
 
-    async def fake_generate_all_content(event):
-        return FAKE_GENERATED_CONTENT
+    async def fake_generate_all_content(
+        event,
+        social_post_variant_selection="generate_new",
+        newsletter_variant_selection="generate_new",
+        recent_social_post_variants=None,
+        recent_newsletter_variants=None,
+    ):
+        return FAKE_GENERATED_CONTENT, "standard", "standard"
 
     monkeypatch.setattr(
         "app.routers.generate.generate_all_content", fake_generate_all_content

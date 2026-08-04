@@ -39,7 +39,8 @@ async def main():
     print("🔄 Generating content (calling Claude API concurrently)...\n")
     
     try:
-        result = await generate_all_content(SAMPLE_EVENT)
+        result, social_post_variant, newsletter_variant = await generate_all_content(SAMPLE_EVENT)
+        print(f"🎲 Social post variant: {social_post_variant} | Newsletter variant: {newsletter_variant}\n")
         
         print("=" * 60)
         print("✅ SOCIAL POST")

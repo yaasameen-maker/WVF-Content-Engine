@@ -20,7 +20,7 @@ from app.schemas import (
     NewsletterOutput,
     SocialPostOutput,
 )
-from app.services.prompts import get_all_prompts
+from app.services.prompts import get_all_prompts, resolve_variant
 
 
 def get_anthropic_client() -> anthropic.Anthropic:
@@ -166,13 +166,41 @@ async def generate_calendar(client: anthropic.Anthropic, prompt: str) -> Content
     return ContentCalendarOutput(**tool_use_block.input)
 
 
-async def generate_all_content(event: EventInput) -> GeneratedContentResponse:
+async def generate_all_content(
+    event: EventInput,
+    social_post_variant_selection: str = "generate_new",
+    newsletter_variant_selection: str = "generate_new",
+    recent_social_post_variants: list[str] | None = None,
+    recent_newsletter_variants: list[str] | None = None,
+) -> tuple[GeneratedContentResponse, str, str]:
     """
     Generate all content types concurrently.
     This is the main entry point for content generation.
+
+    social_post_variant_selection / newsletter_variant_selection accept the
+    same values as the frontend dropdown: "generate_new", "avoid_recent", or
+    an explicit variant key (see app/services/prompts.resolve_variant).
+    `recent_*_variants` should be recent structure_variant history for this
+    event/content type when selection is "avoid_recent" — pass None until
+    the database is wired up (falls back to "generate_new" behavior).
+
+    Returns the generated content plus the two resolved variant keys, so
+    callers can persist which variant was actually used.
     """
     client = get_anthropic_client()
-    prompts = get_all_prompts(event)
+
+    social_post_variant = resolve_variant(
+        "social_post", social_post_variant_selection, recent_social_post_variants
+    )
+    newsletter_variant = resolve_variant(
+        "newsletter", newsletter_variant_selection, recent_newsletter_variants
+    )
+
+    prompts = get_all_prompts(
+        event,
+        social_post_variant=social_post_variant,
+        newsletter_variant=newsletter_variant,
+    )
 
     # Run all generations concurrently
     social_post, hashtags, newsletter, flyer, calendar = await asyncio.gather(
@@ -183,10 +211,11 @@ async def generate_all_content(event: EventInput) -> GeneratedContentResponse:
         generate_calendar(client, prompts["calendar"]),
     )
 
-    return GeneratedContentResponse(
+    result = GeneratedContentResponse(
         social_post=social_post,
         hashtags=hashtags,
         newsletter=newsletter,
         flyer=flyer,
         calendar=calendar,
     )
+    return result, social_post_variant, newsletter_variant

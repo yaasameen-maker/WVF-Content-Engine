@@ -88,6 +88,9 @@ class ContentItem(Base):
     content_type = Column(SQLEnum(ContentType), nullable=False, index=True)
     platform = Column(String(50), nullable=True)  # Future: 'instagram', 'linkedin', 'facebook', etc.
     status = Column(SQLEnum(ContentStatus), default=ContentStatus.DRAFT, nullable=False, index=True)
+    # Which structural variant was used (see app/services/prompts.py
+    # VARIANT_REGISTRY). Null for content types with no variants yet.
+    structure_variant = Column(String(50), nullable=True)
     
     # Content data (stored as JSON string)
     # For social_post: {"caption": "...", "hashtags": [...], "cta": "...", "suggested_image_prompt": "..."}
