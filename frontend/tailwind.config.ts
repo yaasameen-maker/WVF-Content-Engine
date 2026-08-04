@@ -5,9 +5,12 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // WVF Content Engine style kit — confirmed from the logo/site
-        navy: "#1B2A5E",
-        "sky-blue": "#6FA8DC",
+        // Estimated from a screenshot of WVF's real July 2026 newsletter
+        // (docs/PROJECT_CONTEXT.md Brand Assets) — not pixel-picked from a
+        // source file, so treat as close-but-approximate. Replace with
+        // exact values once the team exports real logo/brand files.
+        navy: "#4A7EBB",
+        "sky-blue": "#87ACD1",
       },
     },
   },

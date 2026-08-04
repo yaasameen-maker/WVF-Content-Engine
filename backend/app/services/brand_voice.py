@@ -78,9 +78,11 @@ Missed it? Access the recording: [link]
 ]
 
 # Visual/design conventions (for future image generation)
-# Hex values confirmed from the official logo/site (WVF Content Engine style kit).
+# Hex values estimated from a screenshot of WVF's real July 2026 newsletter —
+# not pixel-picked from a source file. Update once the team exports real
+# logo/brand files (see docs/PROJECT_CONTEXT.md Brand Assets).
 VISUAL_STYLE = """
-- Brand colors: Navy blue primary (#1B2A5E), sky/steel blue secondary (#6FA8DC), white background/contrast (#FFFFFF)
+- Brand colors: Navy blue primary (#4A7EBB), sky/steel blue secondary (#87ACD1), white background/contrast (#FFFFFF)
 - Concentric circle texture pattern as a subtle recurring background motif
 - Leaf/sprout icon (three-leaf plant growing upward) as a recurring brand mark
 - Bold, blocky sans-serif for headlines; clean sans-serif for body/nav

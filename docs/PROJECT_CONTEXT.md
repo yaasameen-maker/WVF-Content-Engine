@@ -130,12 +130,15 @@ are generated or stored by this tool.
 
 ## Brand Assets
 
-- Real WVF logo files obtained via Canva: leaf-on-white and inverted
-  white-on-navy versions. **Not yet in the repo** — hex values in
-  `frontend/tailwind.config.ts` (`navy: #1B2A5E`, `sky-blue: #6FA8DC`) are
-  still approximations pending the real files.
-- Real newsletter/eblast sample reviewed — used as the structure/tone
-  reference (see Content Structure Guide above)
+- Real WVF logo files (leaf-on-white and inverted white-on-navy versions)
+  **not yet in the repo** — still waiting on an actual exported PNG/SVG
+  from the team (a Canva editor link doesn't count; need a real Share →
+  Download export).
+- Real newsletter/eblast sample screenshot reviewed — used to estimate
+  `frontend/tailwind.config.ts` hex values (`navy: #4A7EBB`,
+  `sky-blue: #87ACD1`) and `backend/app/services/brand_voice.py`'s
+  VISUAL_STYLE. These are screenshot-estimated, not pixel-picked from a
+  source file — replace with exact values once real brand files arrive.
 - No formal brand kit exists — WVF's consistency is "through repetition,"
   not a documented style guide. `brand_voice.py` is effectively the first
   documented brand reference WVF has had.
