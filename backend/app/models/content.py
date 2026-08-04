@@ -107,3 +107,57 @@ class ContentItem(Base):
     
     def __repr__(self):
         return f"<ContentItem(id={self.id}, type={self.content_type}, status={self.status})>"
+
+
+class KeyMaker(Base):
+    """
+    WVF's 10 client testimonial subjects for the Member Spotlight newsletter
+    block (see docs/PROJECT_CONTEXT.md — distinct from Felix's 4 GHL
+    personas). Only public-facing fields live here: business name, owner
+    name, business type, and public website/social links WVF already
+    publishes about these clients. Personal phone numbers, personal emails,
+    and unconfirmed addresses are deliberately NOT modeled here — see
+    backend/seed_key_makers_public.py and CLAUDE.md for why.
+    """
+    __tablename__ = "key_makers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    business_name = Column(String(255), nullable=False)
+    owner_name = Column(String(255), nullable=False)
+    business_type = Column(String(255), nullable=True)
+    website = Column(String(500), nullable=True)
+    social_media = Column(Text, nullable=True)  # freeform: "Instagram: ...; Facebook: ..."
+    testimonial_quote = Column(Text, nullable=True)  # placeholder until Nancy sends real quotes
+    video_link = Column(String(500), nullable=True)
+    photo_url = Column(String(500), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f"<KeyMaker(id={self.id}, business_name='{self.business_name}')>"
+
+
+class KeyMakerPrivate(Base):
+    """
+    Sensitive Key Maker contact/coordination data (phone, email, address,
+    internal team notes) kept in a SEPARATE table from KeyMaker so the
+    public model/seed file never touches PII. This table's schema is
+    committed to git (it's just column definitions), but it is only ever
+    populated by backend/seed_key_makers_private.py, which is gitignored
+    and must never be committed. See CLAUDE.md for the reasoning.
+    """
+    __tablename__ = "key_makers_private"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key_maker_id = Column(Integer, ForeignKey("key_makers.id"), nullable=False, unique=True, index=True)
+    phone = Column(String(50), nullable=True)
+    email = Column(String(255), nullable=True)
+    address = Column(Text, nullable=True)
+    team_notes = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f"<KeyMakerPrivate(id={self.id}, key_maker_id={self.key_maker_id})>"

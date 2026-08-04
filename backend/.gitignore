@@ -13,3 +13,8 @@ ENV/
 .vscode/
 *.db
 *.sqlite3
+
+# Never commit: contains real client PII (phone/email/address) for WVF's
+# Key Makers. Keep local only — see seed_key_makers_public.py for the
+# git-safe counterpart with public fields only.
+seed_key_makers_private.py
