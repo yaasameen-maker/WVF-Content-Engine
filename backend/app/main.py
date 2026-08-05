@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from sqlalchemy import text
 
 from app.database import engine
-from app.routers import content, generate
+from app.routers import content, generate, newsletter_blocks
 
 # Load environment variables
 load_dotenv()
@@ -31,6 +31,7 @@ app.add_middleware(
 # Register routers
 app.include_router(generate.router)
 app.include_router(content.router)
+app.include_router(newsletter_blocks.router)
 
 
 @app.get("/")

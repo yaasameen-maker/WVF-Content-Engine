@@ -42,6 +42,20 @@ class ContentType(str, enum.Enum):
     FLYER = "flyer"  # Future
     IMAGE_PROMPT = "image_prompt"  # Future
     CALENDAR = "calendar"  # Future
+    NEWSLETTER_BLOCK = "newsletter_block"
+
+
+class NewsletterBlockType(str, enum.Enum):
+    """
+    The 6 modular newsletter sections, per docs/PROJECT_CONTEXT.md Content
+    Structure Guide. Only set when content_type == NEWSLETTER_BLOCK.
+    """
+    FEATURE_ARTICLE = "feature_article"
+    EVENTS_LIST = "events_list"
+    GRANT_FLYER = "grant_flyer"
+    TIPS_CTA = "tips_cta"
+    MEMBER_SPOTLIGHT = "member_spotlight"
+    BOILERPLATE = "boilerplate"
 
 
 class Event(Base):
@@ -80,31 +94,42 @@ class ContentItem(Base):
     - Stores content as JSON for structured data
     """
     __tablename__ = "content_items"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    event_id = Column(Integer, ForeignKey("events.id"), nullable=False, index=True)
-    
+    # Nullable: most content_items are generated "for" one event, but some
+    # newsletter_block rows (boilerplate, grant_flyer, member_spotlight)
+    # are reused across issues and aren't tied to a single event.
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True, index=True)
+    # Only set when content_type == NEWSLETTER_BLOCK and block_type ==
+    # MEMBER_SPOTLIGHT — which real Key Maker this spotlight is about.
+    key_maker_id = Column(Integer, ForeignKey("key_makers.id"), nullable=True, index=True)
+
     # Content metadata
     content_type = Column(SQLEnum(ContentType), nullable=False, index=True)
+    # Only set when content_type == NEWSLETTER_BLOCK — which of the 6
+    # modular newsletter sections this row is (see NewsletterBlockType).
+    block_type = Column(SQLEnum(NewsletterBlockType), nullable=True, index=True)
     platform = Column(String(50), nullable=True)  # Future: 'instagram', 'linkedin', 'facebook', etc.
     status = Column(SQLEnum(ContentStatus), default=ContentStatus.DRAFT, nullable=False, index=True)
     # Which structural variant was used (see app/services/prompts.py
     # VARIANT_REGISTRY). Null for content types with no variants yet.
     structure_variant = Column(String(50), nullable=True)
-    
+
     # Content data (stored as JSON string)
     # For social_post: {"caption": "...", "hashtags": [...], "cta": "...", "suggested_image_prompt": "..."}
     # For newsletter: {"subject_line": "...", "preview_text": "...", "body": "...", "cta_text": "...", "cta_link": "..."}
     # For hashtags: {"primary_hashtags": [...], "topic_hashtags": [...], "rationale": "..."}
+    # For newsletter_block: shape varies by block_type — see app/schemas/content.py
     body = Column(Text, nullable=False)  # JSON serialized content
-    
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    
+
     # Relationships
     event = relationship("Event", back_populates="content_items")
-    
+    key_maker = relationship("KeyMaker")
+
     def __repr__(self):
         return f"<ContentItem(id={self.id}, type={self.content_type}, status={self.status})>"
 

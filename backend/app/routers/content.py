@@ -18,7 +18,9 @@ def _serialize_content_item(item: ContentItem) -> ContentItemResponse:
     return ContentItemResponse(
         id=item.id,
         event_id=item.event_id,
+        key_maker_id=item.key_maker_id,
         content_type=item.content_type.value,
+        block_type=item.block_type.value if item.block_type else None,
         platform=item.platform,
         status=item.status.value,
         body=json.loads(item.body),

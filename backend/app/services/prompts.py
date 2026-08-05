@@ -200,6 +200,170 @@ Your task: Write flyer copy for this event (text only — no image will be gener
 Return structured JSON matching the FlyerOutput schema."""
 
 
+# ---------------------------------------------------------------------
+# Newsletter blocks — the 6 modular sections from docs/PROJECT_CONTEXT.md
+# Content Structure Guide. Each block is generated independently so staff
+# can regenerate one section without touching the others, and so blocks
+# can be swapped/dropped/reordered per issue per the PRD's flexibility
+# note. See app/schemas/content.py for each block's output shape.
+# ---------------------------------------------------------------------
+
+
+def build_feature_article_prompt(event: EventInput) -> str:
+    """Long-form educational article block, e.g. 'Contracting With the Government'."""
+    brand_context = get_brand_voice_context()
+
+    return f"""You are an editorial writer for Women's Venture Fund (WVF)'s newsletter, a NYC-based CDFI supporting women entrepreneurs.
+
+{brand_context}
+
+Your task: Write a long-form, educational feature article related to this event/topic:
+
+**Event Details:**
+- Title: {event.title}
+- Description: {event.description}
+- Target Audience: {event.audience}
+
+**Requirements:**
+- Headline: clear, benefit-forward
+- Body: educational, long-form tone (like "Contracting With the Government") — teach the reader something useful related to the event topic, not just promote the event
+- CTA text: short "Read More" style prompt
+- Include a CTA link only if {event.registration_link} is directly relevant to the article; otherwise omit it
+
+Return structured JSON matching the FeatureArticleBlock schema."""
+
+
+def build_events_list_prompt(event: EventInput) -> str:
+    """Bulleted upcoming-events block, sourced from event input data."""
+    return f"""You are formatting an upcoming-events list for Women's Venture Fund (WVF)'s newsletter.
+
+Your task: Create one events_list entry from this event's details (this block is designed to hold multiple events across a real newsletter issue — for this generation, produce exactly one entry for the event given):
+
+**Event Details:**
+- Title: {event.title}
+- Date: {event.date}
+- Speaker: {event.speaker}
+- Registration: {event.registration_link}
+
+**Requirements:**
+- title: use the event title as given, cleaned up for scannability if needed
+- date: extract just the date portion
+- time: extract the time portion if present in the date string, otherwise omit
+- registration_link: use the registration link as given
+
+Return structured JSON matching the EventsListBlock schema, with `entries` containing exactly one item for this event."""
+
+
+def build_grant_flyer_prompt(event: EventInput) -> str:
+    """Repeatable grant/flyer entries block — where flyer copy actually lives."""
+    brand_context = get_brand_voice_context()
+
+    return f"""You are writing grant/funding opportunity copy for Women's Venture Fund (WVF)'s newsletter.
+
+{brand_context}
+
+Your task: Based on this event's context, draft ONE plausible, realistic grant/funding opportunity entry relevant to WVF's audience (NYC women entrepreneurs). If the event itself is about a specific grant or funding program, describe that one; otherwise draft a generic small-business grant opportunity consistent with WVF's mission.
+
+**Event Context:**
+- Title: {event.title}
+- Description: {event.description}
+- Audience: {event.audience}
+
+**Requirements:**
+- name: grant/program name
+- amount: dollar amount or range
+- deadline: a specific or relative deadline (e.g. "Rolling", "August 31, 2026")
+- eligibility: 1 short sentence on who qualifies
+- details_link: only include if {event.registration_link} is directly relevant, otherwise omit
+
+Return structured JSON matching the GrantFlyerBlock schema, with `entries` containing exactly one item. NOTE: staff should replace this with real, verified grant details before publishing — this is a draft starting point, not verified funding information."""
+
+
+def build_tips_cta_prompt(event: EventInput) -> str:
+    """Short promotional headline + pitch block, reusable across issues."""
+    brand_context = get_brand_voice_context()
+
+    return f"""You are writing a short promotional tips/CTA block for Women's Venture Fund (WVF)'s newsletter.
+
+{brand_context}
+
+Your task: Write a short, benefit-forward promotional block encouraging readers to take advantage of WVF's business resources (training, mentorship, financial resources), tying in loosely with this event's theme where natural:
+
+**Event Context:**
+- Title: {event.title}
+- Description: {event.description}
+
+**Requirements:**
+- headline: short, punchy promotional headline
+- pitch: 1-2 sentence benefit-forward pitch
+- image_prompt: describe an accompanying image matching WVF's visual pattern (navy/sky-blue block, bold white headline, logo watermark)
+
+Return structured JSON matching the TipsCtaBlock schema."""
+
+
+def build_member_spotlight_prompt(
+    event: EventInput,
+    key_maker_business_name: str | None = None,
+    key_maker_owner_name: str | None = None,
+    key_maker_business_type: str | None = None,
+) -> str:
+    """
+    Key Maker testimonial block. Pass real Key Maker fields (from the
+    key_makers table) when available; falls back to a clearly-labeled
+    placeholder client when none is provided, per docs/PROJECT_CONTEXT.md
+    ("build against placeholder data now, swap in real quotes once
+    available" — testimonial quotes specifically still need Nancy's input
+    even for real Key Makers, since none have been provided yet).
+    """
+    brand_context = get_brand_voice_context()
+
+    if key_maker_business_name:
+        client_context = f"""**Key Maker (real WVF client):**
+- Business: {key_maker_business_name}
+- Owner: {key_maker_owner_name or "N/A"}
+- Business type: {key_maker_business_type or "N/A"}
+
+NOTE: Write a plausible, respectful placeholder testimonial story for this real client. Do NOT invent specific quotes, dollar figures, or personal details attributed to them — use general, warm language about their business journey that Nancy/the client can review and replace with their actual testimonial."""
+    else:
+        client_context = """**Key Maker:** No specific client provided — write a generic, clearly-placeholder Key Maker spotlight (e.g. "A WVF Key Maker") that staff will swap with a real client's story."""
+
+    return f"""You are writing a Member/Key Maker Spotlight block for Women's Venture Fund (WVF)'s newsletter — a feature on one of WVF's client success stories.
+
+{brand_context}
+
+{client_context}
+
+**Event Context (for tone/theme alignment only):**
+- Title: {event.title}
+- Description: {event.description}
+
+**Requirements:**
+- headline: client story headline (e.g. "From Passion to Performance: [Business] Continues to Inspire")
+- body: warm, community-focused story about the client's journey with WVF support — keep it general/placeholder as instructed above
+- cta_text: short "Read More" style CTA
+
+Return structured JSON matching the MemberSpotlightBlock schema."""
+
+
+def build_boilerplate_prompt() -> str:
+    """Static 'About WVF' + footer block — low generation priority, mostly reused across issues."""
+    brand_context = get_brand_voice_context()
+
+    return f"""You are writing the standard "About WVF" boilerplate footer block for Women's Venture Fund (WVF)'s newsletter.
+
+{brand_context}
+
+Your task: Write a short, reusable "About WVF" blurb (2-3 sentences) describing WVF's mission, suitable for reuse across every newsletter issue without changes.
+
+**Requirements:**
+- about_blurb: 2-3 sentence mission statement, warm and professional
+- phone: use "(212) 563-0499" (WVF's published contact number)
+- email: use "info@wvf-ny.org" (placeholder — confirm real contact email before publishing)
+- website: use "www.womenventurefund.org" (placeholder — confirm real URL before publishing)
+
+Return structured JSON matching the BoilerplateBlock schema."""
+
+
 def build_calendar_prompt(event: EventInput, weeks: int = 2) -> str:
     """
     Build prompt for a multi-week content calendar promoting this event.

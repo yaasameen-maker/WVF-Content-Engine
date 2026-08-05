@@ -11,6 +11,15 @@ from .content import (
     EventResponse,
     EventWithContentResponse,
     ContentItemUpdate,
+    FeatureArticleBlock,
+    EventListEntry,
+    EventsListBlock,
+    GrantEntry,
+    GrantFlyerBlock,
+    TipsCtaBlock,
+    MemberSpotlightBlock,
+    BoilerplateBlock,
+    NEWSLETTER_BLOCK_SCHEMAS,
 )
 
 __all__ = [
@@ -26,4 +35,13 @@ __all__ = [
     "EventResponse",
     "EventWithContentResponse",
     "ContentItemUpdate",
+    "FeatureArticleBlock",
+    "EventListEntry",
+    "EventsListBlock",
+    "GrantEntry",
+    "GrantFlyerBlock",
+    "TipsCtaBlock",
+    "MemberSpotlightBlock",
+    "BoilerplateBlock",
+    "NEWSLETTER_BLOCK_SCHEMAS",
 ]

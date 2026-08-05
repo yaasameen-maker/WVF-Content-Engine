@@ -21,13 +21,21 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from app.database import Base, get_db
 from app.main import app
 from app.schemas import (
+    BoilerplateBlock,
     CalendarPostEntry,
     ContentCalendarOutput,
+    EventListEntry,
+    EventsListBlock,
+    FeatureArticleBlock,
     FlyerOutput,
     GeneratedContentResponse,
+    GrantEntry,
+    GrantFlyerBlock,
     HashtagsOutput,
+    MemberSpotlightBlock,
     NewsletterOutput,
     SocialPostOutput,
+    TipsCtaBlock,
 )
 
 
@@ -78,6 +86,50 @@ FAKE_GENERATED_CONTENT = GeneratedContentResponse(
     ),
 )
 
+FAKE_NEWSLETTER_BLOCKS = {
+    "feature_article": FeatureArticleBlock(
+        headline="Contracting With the Government: An Overview",
+        body="If your goal is to do business with the government, this briefing is for you.",
+        cta_text="Read More",
+    ),
+    "events_list": EventsListBlock(
+        entries=[
+            EventListEntry(
+                title="Money & Credit",
+                date="2026-08-15",
+                time="2:00 PM ET",
+                registration_link="https://wvf.org/register",
+            )
+        ]
+    ),
+    "grant_flyer": GrantFlyerBlock(
+        entries=[
+            GrantEntry(
+                name="AT&T Small Business Contest",
+                amount="$50,000",
+                deadline="July 31, 2026",
+                eligibility="Small business owners",
+            )
+        ]
+    ),
+    "tips_cta": TipsCtaBlock(
+        headline="Take Advantage of Our Business Resources",
+        pitch="Training, mentorship, and financial resources for every stage of your journey.",
+        image_prompt="Navy and sky-blue banner with WVF logo watermark",
+    ),
+    "member_spotlight": MemberSpotlightBlock(
+        headline="From Passion to Performance",
+        body="A WVF Key Maker's journey from idea to thriving business.",
+        cta_text="Read More",
+    ),
+    "boilerplate": BoilerplateBlock(
+        about_blurb="WVF has served more than 17,000 firms across NYC.",
+        phone="(212) 563-0499",
+        email="info@wvf-ny.org",
+        website="www.womenventurefund.org",
+    ),
+}
+
 SAMPLE_EVENT = {
     "title": "Money & Credit",
     "date": "2026-08-15",
@@ -125,6 +177,20 @@ def client(db_session_factory, monkeypatch):
 
     monkeypatch.setattr(
         "app.routers.generate.generate_all_content", fake_generate_all_content
+    )
+
+    async def fake_generate_newsletter_blocks(
+        event,
+        block_types,
+        key_maker_business_name=None,
+        key_maker_owner_name=None,
+        key_maker_business_type=None,
+    ):
+        return {bt: FAKE_NEWSLETTER_BLOCKS[bt] for bt in block_types}
+
+    monkeypatch.setattr(
+        "app.routers.newsletter_blocks.generate_newsletter_blocks",
+        fake_generate_newsletter_blocks,
     )
 
     from fastapi.testclient import TestClient

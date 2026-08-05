@@ -70,11 +70,93 @@ class GeneratedContentResponse(BaseModel):
     calendar: ContentCalendarOutput
 
 
+# ---------------------------------------------------------------------
+# Newsletter blocks — the 6 modular sections from docs/PROJECT_CONTEXT.md
+# Content Structure Guide. Each has its own output shape; content_type is
+# always 'newsletter_block' on the persisted ContentItem, with block_type
+# distinguishing which of these six it is.
+# ---------------------------------------------------------------------
+
+
+class FeatureArticleBlock(BaseModel):
+    """Long-form educational article block"""
+    headline: str = Field(..., description="Article headline")
+    body: str = Field(..., description="Article body copy")
+    cta_text: str = Field(..., description="'Read More' style CTA text")
+    cta_link: Optional[str] = Field(None, description="CTA destination URL, if any")
+
+
+class EventListEntry(BaseModel):
+    """A single entry in the events_list block"""
+    title: str
+    date: str
+    time: Optional[str] = None
+    registration_link: Optional[str] = None
+
+
+class EventsListBlock(BaseModel):
+    """Bulleted upcoming-events block, sourced from event input data"""
+    entries: list[EventListEntry] = Field(..., description="Upcoming events, most imminent first")
+
+
+class GrantEntry(BaseModel):
+    """A single repeatable grant/flyer entry"""
+    name: str
+    amount: str
+    deadline: str
+    eligibility: str
+    details_link: Optional[str] = None
+
+
+class GrantFlyerBlock(BaseModel):
+    """Repeatable grant/flyer entries — where flyer copy actually lives"""
+    entries: list[GrantEntry] = Field(..., description="Grant/flyer opportunities")
+
+
+class TipsCtaBlock(BaseModel):
+    """Short promotional headline + pitch block"""
+    headline: str = Field(..., description="Promotional headline")
+    pitch: str = Field(..., description="Short benefit-forward pitch")
+    image_prompt: Optional[str] = Field(
+        None, description="Text description of the accompanying image, matching WVF's visual pattern"
+    )
+
+
+class MemberSpotlightBlock(BaseModel):
+    """Key Maker testimonial block"""
+    key_maker_id: Optional[int] = Field(None, description="Linked KeyMaker row, once real data is available")
+    headline: str = Field(..., description="Client story headline")
+    body: str = Field(..., description="Testimonial/story body copy")
+    cta_text: str = Field(..., description="'Read More' style CTA text")
+    cta_link: Optional[str] = Field(None, description="CTA destination URL, if any")
+
+
+class BoilerplateBlock(BaseModel):
+    """Static 'About WVF' + footer block — low generation priority, mostly reused"""
+    about_blurb: str = Field(..., description="'About WVF' boilerplate text")
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    website: Optional[str] = None
+
+
+# Maps block_type string -> its output schema, for generic validation.
+NEWSLETTER_BLOCK_SCHEMAS: dict[str, type[BaseModel]] = {
+    "feature_article": FeatureArticleBlock,
+    "events_list": EventsListBlock,
+    "grant_flyer": GrantFlyerBlock,
+    "tips_cta": TipsCtaBlock,
+    "member_spotlight": MemberSpotlightBlock,
+    "boilerplate": BoilerplateBlock,
+}
+
+
 class ContentItemResponse(BaseModel):
     """A single persisted content item, as returned by CRUD endpoints"""
     id: int
-    event_id: int
+    event_id: Optional[int] = None
+    key_maker_id: Optional[int] = None
     content_type: str
+    block_type: Optional[str] = None
     platform: Optional[str] = None
     status: str
     body: dict

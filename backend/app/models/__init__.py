@@ -8,6 +8,7 @@ from app.models.content import (
     ContentItem,
     ContentStatus,
     ContentType,
+    NewsletterBlockType,
     KeyMaker,
     KeyMakerPrivate,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "ContentItem",
     "ContentStatus",
     "ContentType",
+    "NewsletterBlockType",
     "KeyMaker",
     "KeyMakerPrivate",
 ]
