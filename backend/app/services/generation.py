@@ -368,6 +368,7 @@ async def generate_all_content(
     newsletter_variant_selection: str = "generate_new",
     recent_social_post_variants: list[str] | None = None,
     recent_newsletter_variants: list[str] | None = None,
+    keymakers_stage_key: str | None = None,
 ) -> tuple[GeneratedContentResponse, str, str]:
     """
     Generate all content types concurrently.
@@ -380,22 +381,34 @@ async def generate_all_content(
     event/content type when selection is "avoid_recent" — pass None until
     the database is wired up (falls back to "generate_new" behavior).
 
+    keymakers_stage_key, when set, switches the newsletter into Keymakers
+    recruitment-copy mode (see prompts.build_newsletter_prompt /
+    keymakers_campaign.py) — newsletter_variant_selection is ignored in
+    that case, since the reference message supplies its own structure.
+    Only the newsletter is affected.
+
     Returns the generated content plus the two resolved variant keys, so
-    callers can persist which variant was actually used.
+    callers can persist which variant was actually used. When
+    keymakers_stage_key is set, the returned newsletter_variant is that
+    stage key (so the caller can persist which Keymakers stage was used,
+    the same way structure_variant is persisted for the non-Keymakers path).
     """
     client = get_anthropic_client()
 
     social_post_variant = resolve_variant(
         "social_post", social_post_variant_selection, recent_social_post_variants
     )
-    newsletter_variant = resolve_variant(
-        "newsletter", newsletter_variant_selection, recent_newsletter_variants
+    newsletter_variant = (
+        keymakers_stage_key
+        if keymakers_stage_key
+        else resolve_variant("newsletter", newsletter_variant_selection, recent_newsletter_variants)
     )
 
     prompts = get_all_prompts(
         event,
         social_post_variant=social_post_variant,
         newsletter_variant=newsletter_variant,
+        keymakers_stage_key=keymakers_stage_key,
     )
 
     # Run all generations concurrently

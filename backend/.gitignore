@@ -18,3 +18,7 @@ ENV/
 # Key Makers. Keep local only — see seed_key_makers_public.py for the
 # git-safe counterpart with public fields only.
 seed_key_makers_private.py
+
+# Throwaway local-only script — fabricated placeholder data for visually
+# reviewing UI, not real WVF content. Delete once no longer needed.
+_seed_calendar_preview.py

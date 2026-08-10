@@ -120,9 +120,21 @@ function LabeledInput({
 function SocialPostCard({ content }: { content: GeneratedContentResponse }) {
   const [caption, setCaption] = useState(content.social_post.caption);
   const [cta, setCta] = useState(content.social_post.cta);
+  const [platformLabel, setPlatformLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPlatformLabel(sessionStorage.getItem("wvf_social_post_platform_label"));
+  }, []);
 
   return (
     <Card title="Social Media Post">
+      {platformLabel && (
+        <div className="rounded-md border border-sky-blue bg-sky-blue/10 px-3 py-2 text-xs text-navy">
+          <span className="font-bold uppercase tracking-wide">Platform template</span>
+          <span className="mx-1">·</span>
+          {platformLabel}
+        </div>
+      )}
       <LabeledTextArea label="Caption" value={caption} onChange={setCaption} rows={5} />
       <LabeledInput label="Call to Action" value={cta} onChange={setCta} />
       <div>
@@ -165,15 +177,76 @@ function NewsletterCard({ content }: { content: GeneratedContentResponse }) {
   const [subject, setSubject] = useState(content.newsletter.subject_line);
   const [preview, setPreview] = useState(content.newsletter.preview_text);
   const [body, setBody] = useState(content.newsletter.body);
+  const [bodyPlainText, setBodyPlainText] = useState(content.newsletter.body_plain_text);
   const [ctaText, setCtaText] = useState(content.newsletter.cta_text);
+  const [keymakersStageLabel, setKeymakersStageLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    setKeymakersStageLabel(sessionStorage.getItem("wvf_keymakers_stage_label"));
+  }, []);
 
   return (
     <Card title="Newsletter">
+      {keymakersStageLabel && (
+        <div className="rounded-md border border-sky-blue bg-sky-blue/10 px-3 py-2 text-xs text-navy">
+          <span className="font-bold uppercase tracking-wide">Keymakers recruitment copy</span>
+          <span className="mx-1">·</span>
+          {keymakersStageLabel}
+          <span className="block text-[11px] font-normal text-gray-600">
+            Still needs Maria&apos;s approval before sending.
+          </span>
+        </div>
+      )}
       <LabeledInput label="Subject Line" value={subject} onChange={setSubject} />
       <LabeledInput label="Preview Text" value={preview} onChange={setPreview} />
-      <LabeledTextArea label="Body" value={body} onChange={setBody} rows={6} />
+      <div>
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Body (HTML)
+          </span>
+          <CopyButton value={body} />
+        </div>
+        <textarea
+          rows={6}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-sky-blue focus:outline-none focus:ring-2 focus:ring-sky-blue/30"
+        />
+      </div>
+      <div>
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Body (Plain Text) — for ESP export
+          </span>
+          <CopyButton value={bodyPlainText} />
+        </div>
+        <textarea
+          rows={6}
+          value={bodyPlainText}
+          onChange={(e) => setBodyPlainText(e.target.value)}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm focus:border-sky-blue focus:outline-none focus:ring-2 focus:ring-sky-blue/30"
+        />
+      </div>
       <LabeledInput label="CTA Text" value={ctaText} onChange={setCtaText} />
     </Card>
+  );
+}
+
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard.writeText(value);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="text-xs font-semibold text-sky-blue hover:underline"
+    >
+      {copied ? "Copied!" : "Copy"}
+    </button>
   );
 }
 

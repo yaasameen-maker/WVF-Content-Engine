@@ -25,7 +25,11 @@ TONE_GUIDELINES = """
 - Direct and benefit-forward — lead with what the audience gets
 - Inclusive, warm, but professional (not overly casual)
 - CTA-driven: every post ends with "Register Now", "Apply Today", "Learn More", etc.
-- Uses emojis sparingly: 🚨 for urgency, 📅 for dates, 🎯 for goals
+- Emoji usage varies by platform — real WVF Facebook posts use emoji heavily and structurally
+  (a checkmark on every checklist line, an emoji label on every logistics line: 📅 date, 🕐 time,
+  📍 location, 💻 virtual), not just as rare urgency/date/goal markers. Match the density shown
+  in the platform-specific examples/instructions for the content type being generated — do not
+  default to using emoji sparingly unless the specific platform/format calls for it.
 - Emphasizes accessibility: free events, bilingual services, no credit score requirements
 - Community-focused: highlights partners, success stories, and collective growth
 """

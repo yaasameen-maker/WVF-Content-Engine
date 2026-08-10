@@ -130,10 +130,17 @@ are generated or stored by this tool.
 
 ## Brand Assets
 
-- Real WVF logo files (leaf-on-white and inverted white-on-navy versions)
-  **not yet in the repo** — still waiting on an actual exported PNG/SVG
-  from the team (a Canva editor link doesn't count; need a real Share →
-  Download export).
+- One real WVF logo file received August 7, 2026 (`WVF Logo.svg` — a
+  genuine vector export, not a Canva link). **Not yet in the repo** — still
+  needs to be added under `frontend/public/` and wired into the frontend.
+  Only one variant arrived; the leaf-on-white + inverted white-on-navy
+  pair originally requested is still incomplete — confirm with WVF whether
+  this SVG covers both or if the inverted version is still needed.
+  Color is applied via SVG mask/filter compositing rather than plain
+  fills, so hex values could not be cleanly extracted from the file
+  automatically — `navy: #4A7EBB` / `sky-blue: #87ACD1` below remain
+  screenshot-estimated until someone opens the file in a design tool and
+  reads the color picker directly.
 - Real newsletter/eblast sample screenshot reviewed — used to estimate
   `frontend/tailwind.config.ts` hex values (`navy: #4A7EBB`,
   `sky-blue: #87ACD1`) and `backend/app/services/brand_voice.py`'s
@@ -142,6 +149,23 @@ are generated or stored by this tool.
 - No formal brand kit exists — WVF's consistency is "through repetition,"
   not a documented style guide. `brand_voice.py` is effectively the first
   documented brand reference WVF has had.
+
+### Keymakers sub-brand (separate from main WVF colors)
+
+Real Keymakers campaign assets received August 7, 2026 — a gold/tan
+illustrated key icon (leaf-sprout motif in the bow, "KEY" lettering on the
+shaft) and an email mockup (`letter1.pdf`) using **purple** as an accent
+color (button fills, tag borders) alongside white and light-lavender
+panel backgrounds. This does not match the main navy/sky-blue WVF palette
+anywhere in the current codebase.
+
+**Treated as a distinct visual identity for Keymakers-branded content
+specifically — not merged into `tailwind.config.ts` or `brand_voice.py`'s
+VISUAL_STYLE**, both of which stay untouched. If/when Keymakers-branded
+output (the recruitment eblast campaign, a future Keymakers-specific UI)
+gets built, it should reference its own palette rather than WVF's main
+one — exact purple/gold hex values not yet extracted; needs the same
+design-tool color-picker step as the main logo above.
 
 ---
 
@@ -278,14 +302,34 @@ embed before that point.
 ## Action Items (rolling — update as resolved)
 
 - [ ] Confirm full-newsletter-vs-individual-blocks generation model with Nancy/Felix
-- [ ] Confirm "Key Makers" definition before tagging audience fields
-- [ ] Request Key Makers identifying details (names, business names, photos,
-      testimonial quotes/video links) — slots into the Member Spotlight block
-- [x] Provision Postgres (Railway) — done; `DATABASE_URL` wiring to backend
-      service in progress
-- [ ] Apply `docs/SCHEMA.sql` via Alembic once `DATABASE_URL` is confirmed
+- [ ] Confirm "Key Makers" definition before tagging audience fields —
+      still open: Nancy's 10 real Key Makers (seeded) vs. Felix's 4 GHL
+      personas remain two different concepts, not reconciled
+- [x] Request Key Makers identifying details — done; all 10 seeded with
+      real business/owner/type (`seed_key_makers_public.py`) and private
+      contact info (`seed_key_makers_private.py`, gitignored), August 3,
+      2026. Testimonial quotes still placeholder pending Nancy.
+- [x] Provision Postgres (Railway) — done; `DATABASE_URL` wired to backend
+      service (private network reference), Alembic runs automatically
+      before app start
+- [x] Apply `docs/SCHEMA.sql` via Alembic — done (live schema has since
+      diverged intentionally per documented decisions; see SCHEMA.sql's
+      own drift note)
 - [ ] Build auth/user system (schema has `users.role`, no login yet)
-- [ ] Await Maria's budget sign-off (expected Wednesday call) — blocks
-      adding `ANTHROPIC_API_KEY` to any hosted environment
-- [ ] Obtain real logo files in-repo (`frontend/public/` or similar) and
-      extract accurate hex values
+- [ ] Await Maria's budget sign-off — blocks adding `ANTHROPIC_API_KEY`
+      to any hosted environment
+- [x] Obtain real logo file — one arrived August 7, 2026 (`WVF Logo.svg`,
+      genuine vector export). Not yet added to `frontend/public/`; hex
+      values NOT extracted (color applied via SVG mask/filter
+      compositing, not plain fills — needs a design-tool color picker,
+      not automated extraction). Inverted white-on-navy variant still
+      unconfirmed as received.
+- [ ] New: reconcile Keymakers sub-brand purple/gold palette (from
+      Keymakers-branded assets received August 7, 2026) — separate from
+      main WVF navy/sky-blue; needs its own hex extraction if/when
+      Keymakers-specific UI or content gets built
+- [ ] New: get Nancy/Maria's approval on the Keymakers recruitment
+      drip campaign copy seeded as reference material August 7, 2026
+      (`backend/app/services/keymakers_campaign.py`) — source `.docx`
+      files are marked "still needs approval from Maria"; this is
+      reference copy for tone/structure, not send-ready output

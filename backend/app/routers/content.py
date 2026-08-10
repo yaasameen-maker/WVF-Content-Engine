@@ -23,6 +23,7 @@ def _serialize_content_item(item: ContentItem) -> ContentItemResponse:
         block_type=item.block_type.value if item.block_type else None,
         platform=item.platform,
         status=item.status.value,
+        structure_variant=item.structure_variant,
         body=json.loads(item.body),
         created_at=item.created_at,
         updated_at=item.updated_at,

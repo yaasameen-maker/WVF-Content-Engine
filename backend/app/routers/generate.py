@@ -14,6 +14,7 @@ from app.database import get_db
 from app.models import ContentItem, ContentType, Event
 from app.schemas import EventInput, GeneratedContentResponse
 from app.services.generation import generate_all_content
+from app.services.keymakers_campaign import list_keymakers_stages
 from app.services.prompts import list_variants
 
 router = APIRouter(prefix="/api", tags=["generation"])
@@ -27,10 +28,16 @@ class GenerateRequest(EventInput):
     plus optional variant selections, so existing callers posting a bare
     EventInput still work unchanged. Selection values: "generate_new"
     (default), "avoid_recent", or an explicit variant key from
-    GET /api/variants/{content_type}."""
+    GET /api/variants/{content_type}.
+
+    keymakers_stage_key: optional. When set, the newsletter is generated
+    by adapting the selected real Keymakers recruitment reference message
+    (see GET /api/keymakers-stages) instead of the normal event-promotion
+    newsletter — newsletter_variant is ignored when this is set."""
 
     social_post_variant: str = Field(default="generate_new")
     newsletter_variant: str = Field(default="generate_new")
+    keymakers_stage_key: Optional[str] = Field(default=None)
 
 
 @router.get("/variants/{content_type}")
@@ -38,6 +45,13 @@ def get_variants(content_type: str) -> dict[str, str]:
     """List available structure variants for a content type, for a frontend
     dropdown. Returns {} for content types with no variants yet."""
     return list_variants(content_type)
+
+
+@router.get("/keymakers-stages")
+def get_keymakers_stages() -> dict[str, str]:
+    """List available Keymakers recruitment-campaign stages ({stage_key:
+    label}), for the newsletter form's Keymakers toggle dropdown."""
+    return list_keymakers_stages()
 
 
 def _recent_variants(db: Session, content_type: ContentType, limit: int) -> list[str]:
@@ -69,7 +83,11 @@ async def generate_content(
        recording which structure_variant was used where applicable
     4. Returns the structured JSON with all generated content
     """
-    event = EventInput(**request.model_dump(exclude={"social_post_variant", "newsletter_variant"}))
+    event = EventInput(
+        **request.model_dump(
+            exclude={"social_post_variant", "newsletter_variant", "keymakers_stage_key"}
+        )
+    )
 
     recent_social = _recent_variants(db, ContentType.SOCIAL_POST, RECENT_VARIANT_LOOKBACK)
     recent_newsletter = _recent_variants(db, ContentType.NEWSLETTER, RECENT_VARIANT_LOOKBACK)
@@ -81,8 +99,9 @@ async def generate_content(
             newsletter_variant_selection=request.newsletter_variant,
             recent_social_post_variants=recent_social,
             recent_newsletter_variants=recent_newsletter,
+            keymakers_stage_key=request.keymakers_stage_key,
         )
-    except ValueError as e:
+    except (ValueError, KeyError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")

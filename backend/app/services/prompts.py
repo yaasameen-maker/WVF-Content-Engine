@@ -38,7 +38,47 @@ SOCIAL_POST_VARIANTS: dict[str, dict[str, str]] = {
 - End with a clear CTA
 - Keep total caption under 150 words""",
     },
+    # --- Per-platform variants below ---
+    # Grounded in real WVF Facebook/Instagram/LinkedIn post screenshots
+    # (provided August 2026), not generic assumptions. Each platform has an
+    # observably distinct real pattern — see docs/CONTENT_SCOPE.md for the
+    # sourcing note. These override the generic "emojis sparingly" guidance
+    # in build_social_post_prompt() where the real platform pattern
+    # actually uses emoji heavily (Facebook).
+    "instagram": {
+        "label": "Instagram",
+        "instructions": """- Short, punchy caption — 2-4 short lines, not paragraphs
+- Lead with a bold, short hook (title-case or caps style, e.g. "MONEY & CREDIT", "ARE YOU READY?")
+- 1-2 sentences of context max — Instagram captions get skimmed, not read
+- End with a clear, brief CTA ("Register Now", "Save Your Spot")
+- Keep total caption under 80 words — shorter than other platforms""",
+    },
+    "linkedin": {
+        "label": "LinkedIn",
+        "instructions": """- Professional framing — address the reader as a business owner/entrepreneur, not a general audience
+- Open with a direct statement of the business problem or opportunity (e.g. "Small businesses are the #1 target for cyberattacks")
+- 1-2 short paragraphs of context — can be slightly more detailed/credential-forward than Instagram (mention speaker expertise, program track record)
+- Include concrete takeaways as a short list where relevant
+- End with a clear CTA and a professional sign-off tone
+- Keep total caption under 130 words""",
+    },
+    "facebook": {
+        "label": "Facebook",
+        "instructions": """- Open with an emoji-led hook line (e.g. "🚨WVF is FUNDING🚨", "Ready to become LOAN READY?")
+- Follow with 1-2 sentences of context/invitation
+- Structure key takeaways as a checklist using ✔ before each line (this is WVF's real observed Facebook pattern — do NOT use plain bullets here)
+- Include logistics as labeled lines with emoji markers: 📅 for date, 🕐 for time, 📍 for location, 💻 for virtual/Zoom
+- If applicable, add urgency framing (e.g. "⚠️ONLY 10 SPACES REMAINING", "Apply today before registration closes")
+- End with 🔗 Register Now: [link] style CTA
+- This is the one platform where heavier emoji use matches WVF's real voice — do not sparingly use emojis here
+- Total caption can run longer than Instagram/LinkedIn — up to 180 words, matching WVF's real Facebook post length""",
+    },
 }
+
+# Platform-keyed variants specifically — for a frontend "which platform"
+# selector, distinct from the tone-keyed variants (standard/listicle/
+# quote_style) which apply within any platform.
+SOCIAL_POST_PLATFORM_VARIANTS = ("instagram", "linkedin", "facebook")
 
 
 def build_social_post_prompt(event: EventInput, variant: str = "standard") -> str:
@@ -46,12 +86,25 @@ def build_social_post_prompt(event: EventInput, variant: str = "standard") -> st
     Build prompt for social media post generation.
     Target: under 150 words, includes CTA, uses brand hashtags.
 
-    `variant` selects a structural shape from SOCIAL_POST_VARIANTS — see
+    `variant` selects a structural shape from SOCIAL_POST_VARIANTS — either
+    a tone variant (standard/listicle/quote_style) or a platform variant
+    (instagram/linkedin/facebook, see SOCIAL_POST_PLATFORM_VARIANTS). See
     resolve_variant() for how callers should choose one (generate new /
     avoid recent repeats / explicit pick).
     """
     brand_context = get_brand_voice_context()
     structure = SOCIAL_POST_VARIANTS[variant]["instructions"]
+    is_platform_variant = variant in SOCIAL_POST_PLATFORM_VARIANTS
+
+    # Tone variants (standard/listicle/quote_style) have no platform
+    # context to draw emoji density from, so they default to sparing use.
+    # Platform variants specify their own real, observed emoji usage
+    # directly in `structure` above (see SOCIAL_POST_VARIANTS) — the
+    # shared brand_voice.py guidance no longer contradicts this (fixed to
+    # say "match platform-specific density", not a blanket "sparingly").
+    emoji_guidance = (
+        "" if is_platform_variant else "\n- Use emojis sparingly (🚨 for urgency, 📅 for dates, ✅ for benefits)"
+    )
 
     return f"""You are a social media content creator for Women's Venture Fund (WVF), a NYC-based CDFI supporting women entrepreneurs.
 
@@ -71,8 +124,7 @@ Your task: Create a social media post for this event:
 {structure}
 - Suggest 5-7 hashtags from the brand list + topic-specific ones
 - Write a DALL-E style image prompt (describe a professional, engaging visual)
-- Match the tone from the examples: direct, benefit-forward, warm but professional
-- Use emojis sparingly (🚨 for urgency, 📅 for dates, ✅ for benefits)
+- Match the tone from the examples: direct, benefit-forward, warm but professional{emoji_guidance}
 
 Return structured JSON matching the SocialPostOutput schema."""
 
@@ -134,14 +186,56 @@ NEWSLETTER_VARIANTS: dict[str, dict[str, str]] = {
 }
 
 
-def build_newsletter_prompt(event: EventInput, variant: str = "standard") -> str:
+def build_newsletter_prompt(
+    event: EventInput, variant: str = "standard", keymakers_stage_key: str | None = None
+) -> str:
     """
     Build prompt for newsletter/email content.
     Follows nonprofit email best practices: clear subject, benefit-forward, scannable.
 
-    `variant` selects a structural shape from NEWSLETTER_VARIANTS.
+    `variant` selects a structural shape from NEWSLETTER_VARIANTS — ignored
+    when `keymakers_stage_key` is set, since the Keymakers reference
+    message supplies its own structure.
+
+    `keymakers_stage_key`, when set, switches this into Keymakers
+    recruitment-copy mode: Claude adapts the real Maria/WVF-approved
+    reference message (see keymakers_campaign.py) for this event's
+    specific details/audience, rather than writing generic event
+    promotion. Raises KeyError via get_keymakers_stage_context() if the
+    key is invalid, matching the pattern of unknown-variant errors below.
     """
     brand_context = get_brand_voice_context()
+
+    if keymakers_stage_key:
+        from app.services.keymakers_campaign import get_keymakers_stage_context
+
+        keymakers_context = get_keymakers_stage_context(keymakers_stage_key)
+
+        return f"""You are an email marketing specialist for Women's Venture Fund (WVF), a NYC CDFI supporting women entrepreneurs.
+
+{brand_context}
+
+{keymakers_context}
+
+Your task: Adapt the reference message above into newsletter content, tailored to these specific event/audience details (but keep the reference message's core structure, tone, and central "What was your key?" framing intact — this is real approved-pending WVF campaign copy, not a generic template):
+
+**Event/Audience Details:**
+- Title: {event.title}
+- Date: {event.date}
+- Speaker: {event.speaker}
+- Registration: {event.registration_link}
+- Target Audience: {event.audience}
+- Description: {event.description}
+
+**Requirements:**
+- Subject line: use one of the reference message's Subject options if provided, or write one in the same style if none were given
+- Preview text: 50-100 chars, expands on subject
+- Email body (HTML): adapt the reference message's body — same structure/flow, but weave in the event/audience details above where they fit naturally. Keep the [SHARE YOUR KEY] / [VISIT KEYMAKERS] style bracketed CTA markers as-is.
+- Plain-text body: the same adapted content, reformatted as plain text (no tags, CTA rendered as "CTA text: URL" on its own line)
+- Do NOT invent specifics the reference message and event details don't support (no fabricated stats, quotes, or dates)
+
+Return structured JSON matching the NewsletterOutput schema."""
+
     structure = NEWSLETTER_VARIANTS[variant]["instructions"]
 
     return f"""You are an email marketing specialist for Women's Venture Fund (WVF), a NYC CDFI supporting women entrepreneurs.
@@ -163,6 +257,7 @@ Your task: Write newsletter content for this event:
 - Preview text: 50-100 chars, expands on subject (shows in inbox preview)
 - Email body (HTML):
 {structure}
+- Plain-text body: the same content as the HTML body, reformatted as plain text (no tags, CTA rendered as "CTA text: URL" on its own line) — most ESPs require both an HTML and a plain-text part for deliverability
 - Tone: warm, professional, benefit-forward (matching the brand examples)
 - Keep total email under 200 words (people skim on mobile)
 
@@ -413,18 +508,36 @@ def list_variants(content_type: str) -> dict[str, str]:
     return {key: v["label"] for key, v in VARIANT_REGISTRY.get(content_type, {}).items()}
 
 
+# Variant keys excluded from "generate_new"/"avoid_recent" random pooling
+# per content type — these are a different SELECTION AXIS than the random
+# tone/structure rotation (e.g. platform for social_post: staff pick
+# Instagram/LinkedIn/Facebook deliberately via their own dropdown, not by
+# chance), so a random "generate new post" call should never silently land
+# on one. Still selectable via an explicit variant key, same as any other
+# variant — only the two random modes skip them.
+RANDOM_POOL_EXCLUDED: dict[str, tuple[str, ...]] = {
+    "social_post": SOCIAL_POST_PLATFORM_VARIANTS,
+}
+
+
 def resolve_variant(content_type: str, selection: str, recent_variants: list[str] | None = None) -> str:
     """
     Resolve a dropdown selection into a concrete variant key to pass into
     the matching build_*_prompt() function.
 
     `selection` is one of:
-    - "generate_new": pick any available variant at random
-    - "avoid_recent": pick randomly from variants NOT in `recent_variants`
-      (falls back to any variant if that would exclude all of them, e.g.
-      caller has no history yet — this happens for every event until the
+    - "generate_new": pick any available variant at random, EXCLUDING
+      keys listed in RANDOM_POOL_EXCLUDED for this content_type (e.g.
+      social_post's platform variants — those are a deliberate staff
+      choice, not something a random rotation should land on by chance)
+    - "avoid_recent": same random pool as "generate_new", further
+      excluding variants in `recent_variants` (falls back to the full
+      non-excluded pool if that would exclude all of them, e.g. caller
+      has no history yet — this happens for every event until the
       database is wired up, see CLAUDE.md Status)
-    - an explicit variant key (e.g. "listicle"): used as-is if valid
+    - an explicit variant key (e.g. "listicle", or "facebook"): used as-is
+      if valid, regardless of RANDOM_POOL_EXCLUDED — exclusion only
+      affects the two random modes above, never explicit selection
 
     Content types with no registered variants always resolve to "standard"
     regardless of `selection`, since build_*_prompt() for those types
@@ -435,13 +548,15 @@ def resolve_variant(content_type: str, selection: str, recent_variants: list[str
         return "standard"
 
     keys = list(variants.keys())
+    excluded = set(RANDOM_POOL_EXCLUDED.get(content_type, ()))
+    random_pool = [k for k in keys if k not in excluded] or keys  # never empty-pool a content type
 
     if selection == "generate_new":
-        return random.choice(keys)
+        return random.choice(random_pool)
 
     if selection == "avoid_recent":
-        candidates = [k for k in keys if k not in (recent_variants or [])]
-        return random.choice(candidates or keys)
+        candidates = [k for k in random_pool if k not in (recent_variants or [])]
+        return random.choice(candidates or random_pool)
 
     if selection in variants:
         return selection
@@ -456,17 +571,26 @@ def get_all_prompts(
     event: EventInput,
     social_post_variant: str = "standard",
     newsletter_variant: str = "standard",
+    keymakers_stage_key: str | None = None,
 ) -> dict[str, str]:
     """
     Returns all prompts for parallel generation.
 
     social_post_variant / newsletter_variant should already be resolved via
     resolve_variant() — this function does not do selection itself.
+
+    keymakers_stage_key, when set, switches the newsletter prompt into
+    Keymakers recruitment-copy mode (see build_newsletter_prompt) —
+    newsletter_variant is ignored in that case. Only the newsletter is
+    affected; social_post/hashtags/flyer/calendar are unchanged, since the
+    Keymakers reference copy is specifically an email/eblast campaign.
     """
     return {
         "social_post": build_social_post_prompt(event, social_post_variant),
         "hashtags": build_hashtags_prompt(event),
-        "newsletter": build_newsletter_prompt(event, newsletter_variant),
+        "newsletter": build_newsletter_prompt(
+            event, newsletter_variant, keymakers_stage_key=keymakers_stage_key
+        ),
         "flyer": build_flyer_prompt(event),
         "calendar": build_calendar_prompt(event),
     }

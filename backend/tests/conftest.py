@@ -55,6 +55,7 @@ FAKE_GENERATED_CONTENT = GeneratedContentResponse(
         subject_line="Money & Credit: Free Webinar This Month",
         preview_text="Build your credit, build your business.",
         body="<p>Join WVF for a free webinar on credit fundamentals.</p>",
+        body_plain_text="Join WVF for a free webinar on credit fundamentals.",
         cta_text="Register Today",
         cta_link="https://wvf.org/register",
     ),
@@ -172,8 +173,9 @@ def client(db_session_factory, monkeypatch):
         newsletter_variant_selection="generate_new",
         recent_social_post_variants=None,
         recent_newsletter_variants=None,
+        keymakers_stage_key=None,
     ):
-        return FAKE_GENERATED_CONTENT, "standard", "standard"
+        return FAKE_GENERATED_CONTENT, "standard", keymakers_stage_key or "standard"
 
     monkeypatch.setattr(
         "app.routers.generate.generate_all_content", fake_generate_all_content

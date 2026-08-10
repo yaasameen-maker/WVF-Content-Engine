@@ -61,17 +61,20 @@ cd frontend && npm install && npm run dev
 - ✅ Frontend event form + review UI (WVF-branded, no persistence yet —
   content lives in sessionStorage)
 - ✅ ERD / schema designed (@docs/SCHEMA.sql)
-- 🔄 Postgres provisioned on Railway; wiring `DATABASE_URL` into the backend
-  service and applying the Alembic migration is in progress
+- ✅ Postgres provisioned on Railway; `DATABASE_URL` wired to the backend
+  service (private network reference to the Postgres service) and Alembic
+  migrations run automatically before app start
+- ✅ Newsletter modular blocks (feature article, events list, grant/flyer,
+  tips/CTA, member spotlight, boilerplate) — schemas, generators, and
+  `newsletter_blocks` router built; see structure guide in PROJECT_CONTEXT.md
+- ✅ Key Makers real data seeded — `key_makers` (public fields) and
+  `key_makers_private` (PII, gitignored seed script) tables built and
+  populated with WVF's real 10 Key Makers
 - ⬜ Auth/user system not built — `users.role` exists in schema, no login yet
 - ⬜ Real WVF logo files not yet in the repo — `frontend/tailwind.config.ts`
   navy/sky-blue hex values are still approximations
-- ⬜ Newsletter modular blocks (feature article, grant/flyer, member
-  spotlight, etc.) not yet built — see structure guide in PROJECT_CONTEXT.md
 - ⬜ Full-newsletter-vs-individual-blocks generation model: **blocked on
   client decision**, see Open Questions in PROJECT_CONTEXT.md
-- ⬜ Key Makers real data not yet received — Member Spotlight block should
-  be built against placeholder data now, swapped in once available
 
 ## Ownership note
 

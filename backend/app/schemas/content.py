@@ -33,6 +33,9 @@ class NewsletterOutput(BaseModel):
     subject_line: str = Field(..., description="Email subject line")
     preview_text: str = Field(..., description="Preview text (50-100 chars)")
     body: str = Field(..., description="Full email body HTML")
+    body_plain_text: str = Field(
+        ..., description="Plain-text version of the email body, for ESPs that require both HTML and text parts"
+    )
     cta_text: str = Field(..., description="Primary CTA button text")
     cta_link: str = Field(..., description="CTA destination URL")
 
@@ -159,6 +162,7 @@ class ContentItemResponse(BaseModel):
     block_type: Optional[str] = None
     platform: Optional[str] = None
     status: str
+    structure_variant: Optional[str] = None
     body: dict
     created_at: datetime
     updated_at: datetime
