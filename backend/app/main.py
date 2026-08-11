@@ -2,6 +2,8 @@
 FastAPI application entry point.
 """
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -19,10 +21,20 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS middleware for frontend communication
+# CORS middleware for frontend communication.
+# Always includes the Next.js dev server; production frontend origins
+# (e.g. the Vercel deployment) are added via CORS_ALLOWED_ORIGINS on
+# Railway — comma-separated, no trailing slashes.
+_default_origins = ["http://localhost:3000"]
+_extra_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js dev server
+    allow_origins=_default_origins + _extra_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
