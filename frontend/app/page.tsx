@@ -31,6 +31,7 @@ export default function EventFormPage() {
   const [event, setEvent] = useState<EventInput>(EMPTY_EVENT);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const [socialPostPlatform, setSocialPostPlatform] = useState<SocialPostPlatform | "">("");
 
@@ -95,78 +96,99 @@ export default function EventFormPage() {
 
   return (
     <div>
-      <h2 className="mb-1 text-2xl font-bold text-navy">New Event Campaign</h2>
-      <p className="mb-6 text-sm text-gray-600">
-        Enter event details to generate a complete WVF-branded marketing campaign.
-      </p>
-
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div>
-          <span className="mb-2 block text-sm font-medium text-navy">
-            Tailor the social post for a platform, or generate Keymakers recruitment copy
-            <span className="ml-1 font-normal text-gray-500">(optional — leave all off for a normal rotating post)</span>
-          </span>
-          <div className="flex flex-wrap gap-3">
-            <PlatformToggleButton
-              label="Instagram"
-              active={socialPostPlatform === "instagram"}
-              onClick={() => togglePlatform("instagram")}
-              icon={<BrandSvgIcon icon={siInstagram} />}
-            />
-            <PlatformToggleButton
-              label="LinkedIn"
-              active={socialPostPlatform === "linkedin"}
-              onClick={() => togglePlatform("linkedin")}
-              icon={<LinkedInMonogramIcon />}
-            />
-            <PlatformToggleButton
-              label="Facebook"
-              active={socialPostPlatform === "facebook"}
-              onClick={() => togglePlatform("facebook")}
-              icon={<BrandSvgIcon icon={siFacebook} />}
-            />
-            <PlatformToggleButton
-              label="Keymakers Copy"
-              active={useKeymakersCopy}
-              onClick={() => setUseKeymakersCopy((v) => !v)}
-              disabled={keymakersDisabled}
-              icon={
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src="/wvf-logo.svg" alt="" className="h-5 w-auto" />
-              }
-            />
-          </div>
-
-          {socialPostPlatform && (
-            <p className="mt-2 text-xs text-gray-500">
-              Social post caption will be tailored to {PLATFORM_LABELS[socialPostPlatform]}
-              &apos;s real WVF style (e.g. Facebook uses emoji-labeled checklists; Instagram is short
-              and punchy).
-            </p>
-          )}
-
-          {useKeymakersCopy && (
-            <div className="mt-3 max-w-sm">
-              <span className="mb-1 block text-sm font-medium text-navy">Which Keymakers message?</span>
-              <select
-                value={keymakersStageKey}
-                onChange={(e) => setKeymakersStageKey(e.target.value)}
-                className="input"
-              >
-                {Object.entries(keymakersStages ?? {}).map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-gray-500">
-                Newsletter will adapt this real WVF recruitment message instead of standard event
-                promotion. Reference copy — still needs Maria&apos;s approval before sending.
-              </p>
-            </div>
-          )}
+      <div className="mb-6">
+        <span className="mb-2 block text-sm font-medium text-navy">
+          Tailor the social post for a platform, or generate Keymakers recruitment copy
+          <span className="ml-1 font-normal text-gray-500">(optional — leave all off for a normal rotating post)</span>
+        </span>
+        <div className="flex flex-wrap gap-3">
+          <PlatformToggleButton
+            label="Instagram"
+            active={socialPostPlatform === "instagram"}
+            onClick={() => togglePlatform("instagram")}
+            icon={<BrandSvgIcon icon={siInstagram} />}
+          />
+          <PlatformToggleButton
+            label="LinkedIn"
+            active={socialPostPlatform === "linkedin"}
+            onClick={() => togglePlatform("linkedin")}
+            icon={<LinkedInMonogramIcon />}
+          />
+          <PlatformToggleButton
+            label="Facebook"
+            active={socialPostPlatform === "facebook"}
+            onClick={() => togglePlatform("facebook")}
+            icon={<BrandSvgIcon icon={siFacebook} />}
+          />
+          <PlatformToggleButton
+            label="Keymakers Copy"
+            active={useKeymakersCopy}
+            onClick={() => setUseKeymakersCopy((v) => !v)}
+            disabled={keymakersDisabled}
+            icon={
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src="/wvf-logo.svg" alt="" className="h-5 w-auto" />
+            }
+          />
         </div>
 
+        {socialPostPlatform && (
+          <p className="mt-2 text-xs text-gray-500">
+            Social post caption will be tailored to {PLATFORM_LABELS[socialPostPlatform]}
+            &apos;s real WVF style (e.g. Facebook uses emoji-labeled checklists; Instagram is short
+            and punchy).
+          </p>
+        )}
+
+        {useKeymakersCopy && (
+          <div className="mt-3 max-w-sm">
+            <span className="mb-1 block text-sm font-medium text-navy">Which Keymakers message?</span>
+            <select
+              value={keymakersStageKey}
+              onChange={(e) => setKeymakersStageKey(e.target.value)}
+              className="input"
+            >
+              {Object.entries(keymakersStages ?? {}).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Newsletter will adapt this real WVF recruitment message instead of standard event
+              promotion. Reference copy — still needs Maria&apos;s approval before sending.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {!showForm && (
+        <button
+          type="button"
+          onClick={() => setShowForm(true)}
+          className="rounded-md bg-navy px-6 py-3 font-semibold text-white transition hover:bg-navy/90"
+        >
+          + New Event Campaign
+        </button>
+      )}
+
+      {showForm && (
+        <>
+          <div className="mb-1 flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-navy">New Event Campaign</h2>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="text-sm font-semibold text-gray-500 hover:text-navy"
+            >
+              Cancel
+            </button>
+          </div>
+          <p className="mb-6 text-sm text-gray-600">
+            Enter event details to generate a complete WVF-branded marketing campaign.
+          </p>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
         <Field label="Event Title">
           <input
             required
@@ -246,7 +268,9 @@ export default function EventFormPage() {
         >
           {isGenerating ? "Generating campaign…" : "Generate Campaign"}
         </button>
-      </form>
+          </form>
+        </>
+      )}
 
       <style jsx global>{`
         .input {
