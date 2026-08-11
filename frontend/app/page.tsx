@@ -96,6 +96,7 @@ export default function EventFormPage() {
 
   return (
     <div>
+      <InstagramGradientDef />
       <div className="mb-6">
         <span className="mb-2 block text-sm font-medium text-navy">
           Tailor the social post for a platform, or generate Keymakers recruitment copy
@@ -106,7 +107,7 @@ export default function EventFormPage() {
             label="Instagram"
             active={socialPostPlatform === "instagram"}
             onClick={() => togglePlatform("instagram")}
-            icon={<BrandSvgIcon icon={siInstagram} />}
+            icon={<BrandSvgIcon icon={siInstagram} fill={`url(#${IG_GRADIENT_ID})`} />}
           />
           <PlatformToggleButton
             label="LinkedIn"
@@ -118,7 +119,7 @@ export default function EventFormPage() {
             label="Facebook"
             active={socialPostPlatform === "facebook"}
             onClick={() => togglePlatform("facebook")}
-            icon={<BrandSvgIcon icon={siFacebook} />}
+            icon={<BrandSvgIcon icon={siFacebook} fill={`#${siFacebook.hex}`} />}
           />
           <PlatformToggleButton
             label="Keymakers Copy"
@@ -127,7 +128,7 @@ export default function EventFormPage() {
             disabled={keymakersDisabled}
             icon={
               // eslint-disable-next-line @next/next/no-img-element
-              <img src="/wvf-logo.svg" alt="" className="h-5 w-auto" />
+              <img src="/wvf-logo.svg" alt="" className="h-16 w-auto max-w-none" />
             }
           />
         </div>
@@ -318,13 +319,13 @@ function PlatformToggleButton({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
-      className={`flex flex-col items-center gap-1.5 rounded-lg border px-4 py-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`flex flex-col items-center gap-3 rounded-xl border-2 px-9 py-6 text-base font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
         active
           ? "border-navy bg-navy text-white"
           : "border-gray-200 bg-white text-gray-600 hover:border-sky-blue hover:text-navy"
       }`}
     >
-      <span className="flex h-6 w-6 items-center justify-center">{icon}</span>
+      <span className="flex h-14 w-14 items-center justify-center">{icon}</span>
       {label}
     </button>
   );
@@ -332,18 +333,43 @@ function PlatformToggleButton({
 
 /** Renders a simple-icons brand icon (real, properly-licensed SVG path
  * data — see simple-icons npm package, CC0/MIT licensed) at a fixed size,
- * colored to match the current text color via `fill="currentColor"` so it
- * follows the toggle button's active/inactive state automatically. */
-function BrandSvgIcon({ icon }: { icon: { path: string; title: string } }) {
+ * filled with the brand's own real color rather than `currentColor`, so
+ * it always reads in-brand regardless of the toggle button's
+ * active/inactive state. `fill` accepts either a flat hex or a gradient
+ * url(#id) reference — see IG_GRADIENT_ID below. */
+function BrandSvgIcon({
+  icon,
+  fill,
+}: {
+  icon: { path: string; title: string };
+  fill: string;
+}) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      role="img"
-      aria-label={icon.title}
-      className="h-5 w-5"
-      fill="currentColor"
-    >
+    <svg viewBox="0 0 24 24" role="img" aria-label={icon.title} className="h-14 w-14" fill={fill}>
       <path d={icon.path} />
+    </svg>
+  );
+}
+
+const IG_GRADIENT_ID = "ig-brand-gradient";
+
+/** Instagram's real mark is a gradient, not a flat color — simple-icons
+ * only ships a flat brand hex, so this defines the actual Instagram
+ * gradient stops (per Instagram's own brand assets) once, referenced by
+ * the Instagram <BrandSvgIcon> via fill="url(#ig-brand-gradient)". Must
+ * render once per page, not once per icon instance. */
+function InstagramGradientDef() {
+  return (
+    <svg width="0" height="0" className="absolute" aria-hidden="true">
+      <defs>
+        <linearGradient id={IG_GRADIENT_ID} x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#FEDA75" />
+          <stop offset="25%" stopColor="#FA7E1E" />
+          <stop offset="50%" stopColor="#D62976" />
+          <stop offset="75%" stopColor="#962FBF" />
+          <stop offset="100%" stopColor="#4F5BD5" />
+        </linearGradient>
+      </defs>
     </svg>
   );
 }
@@ -351,14 +377,18 @@ function BrandSvgIcon({ icon }: { icon: { path: string; title: string } }) {
 /** LinkedIn has no icon in the installed simple-icons version (removed
  * from the package — see LinkedIn's own trademark enforcement history).
  * Rather than fabricate an inaccurate logo shape from memory, this is a
- * plain generic "in" monogram — not LinkedIn's real brand mark. */
+ * plain generic "in" monogram on LinkedIn's real brand blue (#0A66C2) —
+ * not LinkedIn's real mark, but in its real color. Uses an inline color
+ * (not the `text-white` class) so the letterform renders true #FFFFFF,
+ * not a washed-out gray from anti-aliasing at small sizes. */
 function LinkedInMonogramIcon() {
   return (
     <span
       aria-label="LinkedIn"
-      className="flex h-5 w-5 items-center justify-center rounded-[3px] bg-current text-[10px] font-black leading-none"
+      style={{ backgroundColor: "#0A66C2", color: "#FFFFFF" }}
+      className="flex h-14 w-14 items-center justify-center rounded-lg text-2xl font-bold leading-none"
     >
-      <span className="text-white mix-blend-difference">in</span>
+      in
     </span>
   );
 }
