@@ -28,6 +28,25 @@ class HashtagsOutput(BaseModel):
     rationale: str = Field(..., description="Why these tags fit the event")
 
 
+class SocialPostVariant(BaseModel):
+    """One social post option within a 3-variant generation batch. Wraps
+    SocialPostOutput plus the structure_variant key it used (e.g.
+    "standard"/"listicle"/"quote_style", or a platform key when a platform
+    was explicitly selected), so the picked one can be persisted with the
+    same structure_variant tracking every other social_post gets."""
+    structure_variant: str
+    structure_label: str = Field(..., description="Human-readable label for the variant, e.g. 'Listicle'")
+    post: SocialPostOutput
+
+
+class HashtagsVariant(BaseModel):
+    """One hashtag-set option within a 3-variant generation batch, paired
+    1:1 by index with the SocialPostVariant it was generated alongside
+    (both draw on the same event details; hashtags aren't independently
+    keyed to a structure_variant the way social posts are)."""
+    hashtags: HashtagsOutput
+
+
 class NewsletterOutput(BaseModel):
     """Newsletter/email content output"""
     subject_line: str = Field(..., description="Email subject line")
@@ -65,9 +84,26 @@ class ContentCalendarOutput(BaseModel):
 
 
 class GeneratedContentResponse(BaseModel):
-    """Combined response from all content generators"""
-    social_post: SocialPostOutput
-    hashtags: HashtagsOutput
+    """Combined response from all content generators.
+
+    event_id: the persisted Event row this content was generated for.
+    None immediately after generate_all_content() runs (the Event row is
+    created by the /api/generate route handler afterward, using the
+    already-generated content) — the route handler sets this before
+    returning. Always non-None in the actual HTTP response; the caller
+    must pass it back to POST /api/content/select-social-variant once
+    staff picks a variant, since social_post/hashtags are NOT persisted as
+    ContentItems until that pick happens (see below).
+
+    social_post_variants / hashtags_variants are parallel lists (same
+    length, same index = generated together) — staff compares them on the
+    review page and picks one; only the picked pair gets persisted as a
+    ContentItem (see POST /api/content/select-social-variant). Every other
+    field here is still single-generation and persisted immediately, same
+    as before."""
+    event_id: Optional[int] = None
+    social_post_variants: list[SocialPostVariant]
+    hashtags_variants: list[HashtagsVariant]
     newsletter: NewsletterOutput
     flyer: FlyerOutput
     calendar: ContentCalendarOutput

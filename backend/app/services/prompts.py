@@ -81,7 +81,22 @@ SOCIAL_POST_VARIANTS: dict[str, dict[str, str]] = {
 SOCIAL_POST_PLATFORM_VARIANTS = ("instagram", "linkedin", "facebook")
 
 
-def build_social_post_prompt(event: EventInput, variant: str = "standard") -> str:
+# Used only when generating a 3-variant batch on a single, explicitly
+# selected platform (see generate_social_post_variants in generation.py) —
+# the platform's structural rules (SOCIAL_POST_VARIANTS[platform]) stay
+# fixed across all 3, but each gets a different opening-angle instruction
+# layered on top so the 3 results are genuinely different posts, not 3
+# near-identical rewrites of the same hook.
+SOCIAL_POST_ANGLE_HINTS: tuple[str, ...] = (
+    "Lead with the concrete benefit/outcome an attendee walks away with.",
+    "Lead with the problem or pain point this event solves for the reader.",
+    "Lead with urgency or social proof (e.g. limited spots, who else is attending/hosting).",
+)
+
+
+def build_social_post_prompt(
+    event: EventInput, variant: str = "standard", angle_hint: str | None = None
+) -> str:
     """
     Build prompt for social media post generation.
     Target: under 150 words, includes CTA, uses brand hashtags.
@@ -91,6 +106,10 @@ def build_social_post_prompt(event: EventInput, variant: str = "standard") -> st
     (instagram/linkedin/facebook, see SOCIAL_POST_PLATFORM_VARIANTS). See
     resolve_variant() for how callers should choose one (generate new /
     avoid recent repeats / explicit pick).
+
+    `angle_hint`, when set, adds one extra instruction on top of `variant`'s
+    fixed structure — used to differentiate posts within a 3-variant batch
+    that's pinned to one platform (see SOCIAL_POST_ANGLE_HINTS above).
     """
     brand_context = get_brand_voice_context()
     structure = SOCIAL_POST_VARIANTS[variant]["instructions"]
@@ -105,6 +124,7 @@ def build_social_post_prompt(event: EventInput, variant: str = "standard") -> st
     emoji_guidance = (
         "" if is_platform_variant else "\n- Use emojis sparingly (🚨 for urgency, 📅 for dates, ✅ for benefits)"
     )
+    angle_instruction = f"\n- {angle_hint}" if angle_hint else ""
 
     return f"""You are a social media content creator for Women's Venture Fund (WVF), a NYC-based CDFI supporting women entrepreneurs.
 
@@ -124,7 +144,7 @@ Your task: Create a social media post for this event:
 {structure}
 - Suggest 5-7 hashtags from the brand list + topic-specific ones
 - Write a DALL-E style image prompt (describe a professional, engaging visual)
-- Match the tone from the examples: direct, benefit-forward, warm but professional{emoji_guidance}
+- Match the tone from the examples: direct, benefit-forward, warm but professional{emoji_guidance}{angle_instruction}
 
 Return structured JSON matching the SocialPostOutput schema."""
 

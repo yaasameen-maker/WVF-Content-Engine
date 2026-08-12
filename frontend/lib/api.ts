@@ -16,10 +16,27 @@ export interface SocialPostOutput {
   cta: string;
 }
 
+/** One social post option within a 3-variant generation batch (see
+ * GeneratedContentResponse.social_post_variants). structure_variant is
+ * the raw key ("standard"/"listicle"/"quote_style", or a platform key) —
+ * pass it back as-is when persisting via selectSocialVariant(). */
+export interface SocialPostVariant {
+  structure_variant: string;
+  structure_label: string;
+  post: SocialPostOutput;
+}
+
 export interface HashtagsOutput {
   primary_hashtags: string[];
   topic_hashtags: string[];
   rationale: string;
+}
+
+/** One hashtag-set option, paired 1:1 by array index with the
+ * SocialPostVariant generated alongside it — see
+ * GeneratedContentResponse.hashtags_variants. */
+export interface HashtagsVariant {
+  hashtags: HashtagsOutput;
 }
 
 export interface NewsletterOutput {
@@ -53,8 +70,12 @@ export interface ContentCalendarOutput {
 }
 
 export interface GeneratedContentResponse {
-  social_post: SocialPostOutput;
-  hashtags: HashtagsOutput;
+  /** Pass back to selectSocialVariant() once staff picks a social post
+   * option — social_post/hashtags aren't persisted until that call. */
+  event_id: number;
+  /** Parallel arrays — same length, same index = generated together. */
+  social_post_variants: SocialPostVariant[];
+  hashtags_variants: HashtagsVariant[];
   newsletter: NewsletterOutput;
   flyer: FlyerOutput;
   calendar: ContentCalendarOutput;
@@ -132,8 +153,29 @@ export function generateContent(
         ? { keymakers_stage_key: options.keymakersStageKey }
         : {}),
       ...(options?.socialPostPlatform
-        ? { social_post_variant: options.socialPostPlatform }
+        ? { social_post_platform: options.socialPostPlatform }
         : {}),
+    }),
+  });
+}
+
+/** Persists the social post + hashtags option staff picked from the
+ * 3-variant batch generateContent() returned. Must be called exactly
+ * once per event, after generateContent() — social_post/hashtags
+ * ContentItems don't exist in the database until this runs. Returns the
+ * two newly-created ContentItemResponse rows (social post, then
+ * hashtags). */
+export function selectSocialVariant(
+  eventId: number,
+  socialPostVariant: SocialPostVariant,
+  hashtags: HashtagsOutput
+): Promise<ContentItemResponse[]> {
+  return request<ContentItemResponse[]>("/api/content/select-social-variant", {
+    method: "POST",
+    body: JSON.stringify({
+      event_id: eventId,
+      social_post_variant: socialPostVariant,
+      hashtags,
     }),
   });
 }

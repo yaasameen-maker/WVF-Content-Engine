@@ -1,7 +1,9 @@
 from .content import (
     EventInput,
     SocialPostOutput,
+    SocialPostVariant,
     HashtagsOutput,
+    HashtagsVariant,
     NewsletterOutput,
     FlyerOutput,
     CalendarPostEntry,
@@ -25,7 +27,9 @@ from .content import (
 __all__ = [
     "EventInput",
     "SocialPostOutput",
+    "SocialPostVariant",
     "HashtagsOutput",
+    "HashtagsVariant",
     "NewsletterOutput",
     "FlyerOutput",
     "CalendarPostEntry",

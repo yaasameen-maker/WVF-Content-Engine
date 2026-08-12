@@ -29,14 +29,25 @@ def test_generate_returns_all_content_types(client):
     resp = client.post("/api/generate", json=SAMPLE_EVENT)
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert set(body.keys()) == {"social_post", "hashtags", "newsletter", "flyer", "calendar"}
+    assert set(body.keys()) == {
+        "event_id", "social_post_variants", "hashtags_variants", "newsletter", "flyer", "calendar",
+    }
+    assert isinstance(body["event_id"], int)
 
-    assert set(body["social_post"].keys()) == {
-        "caption", "hashtags", "suggested_image_prompt", "cta",
-    }
-    assert set(body["hashtags"].keys()) == {
-        "primary_hashtags", "topic_hashtags", "rationale",
-    }
+    # 3 options each, matching SOCIAL_POST_VARIANT_COUNT — see conftest.py.
+    assert len(body["social_post_variants"]) == 3
+    assert len(body["hashtags_variants"]) == 3
+    for variant in body["social_post_variants"]:
+        assert set(variant.keys()) == {"structure_variant", "structure_label", "post"}
+        assert set(variant["post"].keys()) == {
+            "caption", "hashtags", "suggested_image_prompt", "cta",
+        }
+    for variant in body["hashtags_variants"]:
+        assert set(variant.keys()) == {"hashtags"}
+        assert set(variant["hashtags"].keys()) == {
+            "primary_hashtags", "topic_hashtags", "rationale",
+        }
+
     assert set(body["newsletter"].keys()) == {
         "subject_line", "preview_text", "body", "body_plain_text", "cta_text", "cta_link",
     }
@@ -56,7 +67,10 @@ def test_generate_rejects_incomplete_event(client):
     assert resp.status_code == 422
 
 
-def test_generate_persists_event_and_all_content_items(client):
+def test_generate_persists_event_and_immediate_content_items(client):
+    """social_post/hashtags are NOT persisted at generate time — only
+    newsletter/flyer/calendar are (see POST /api/generate docstring and
+    POST /api/content/select-social-variant, exercised separately below)."""
     resp = client.post("/api/generate", json=SAMPLE_EVENT)
     assert resp.status_code == 200
 
@@ -73,11 +87,70 @@ def test_generate_persists_event_and_all_content_items(client):
         assert field in event, f"missing field '{field}' on event response"
 
     assert event["title"] == SAMPLE_EVENT["title"]
-    assert len(event["content_items"]) == 5
+    assert len(event["content_items"]) == 3
 
     content_types = {item["content_type"] for item in event["content_items"]}
-    assert content_types == {"social_post", "hashtags", "newsletter", "flyer", "calendar"}
+    assert content_types == {"newsletter", "flyer", "calendar"}
     assert all(item["status"] == "draft" for item in event["content_items"])
+
+
+def test_select_social_variant_persists_the_picked_pair(client):
+    gen_resp = client.post("/api/generate", json=SAMPLE_EVENT)
+    generated = gen_resp.json()
+    event_id = generated["event_id"]
+
+    picked_social_post = generated["social_post_variants"][1]  # "listicle" in the fake
+    picked_hashtags = generated["hashtags_variants"][1]["hashtags"]
+
+    select_resp = client.post(
+        "/api/content/select-social-variant",
+        json={
+            "event_id": event_id,
+            "social_post_variant": picked_social_post,
+            "hashtags": picked_hashtags,
+        },
+    )
+    assert select_resp.status_code == 200, select_resp.text
+    created = select_resp.json()
+    assert len(created) == 2
+    content_types = {item["content_type"] for item in created}
+    assert content_types == {"social_post", "hashtags"}
+
+    social_item = next(item for item in created if item["content_type"] == "social_post")
+    assert social_item["structure_variant"] == picked_social_post["structure_variant"]
+    assert social_item["body"]["caption"] == picked_social_post["post"]["caption"]
+
+    hashtags_item = next(item for item in created if item["content_type"] == "hashtags")
+    assert hashtags_item["body"]["primary_hashtags"] == picked_hashtags["primary_hashtags"]
+
+    # Now the event should carry all 5 content items — the 3 from
+    # generate time plus the 2 just persisted by the pick.
+    event = client.get(f"/api/events/{event_id}").json()
+    assert len(event["content_items"]) == 5
+    assert {item["content_type"] for item in event["content_items"]} == {
+        "social_post", "hashtags", "newsletter", "flyer", "calendar",
+    }
+
+
+def test_select_social_variant_404s_for_missing_event(client):
+    resp = client.post(
+        "/api/content/select-social-variant",
+        json={
+            "event_id": 999999,
+            "social_post_variant": {
+                "structure_variant": "standard",
+                "structure_label": "Standard",
+                "post": {
+                    "caption": "x",
+                    "hashtags": [],
+                    "suggested_image_prompt": "x",
+                    "cta": "x",
+                },
+            },
+            "hashtags": {"primary_hashtags": [], "topic_hashtags": [], "rationale": "x"},
+        },
+    )
+    assert resp.status_code == 404
 
 
 def test_keymakers_stages_endpoint_lists_all_stages(client):
@@ -146,7 +219,9 @@ def test_get_single_event_matches_list_response(client):
     resp = client.get(f"/api/events/{event_id}")
     assert resp.status_code == 200
     assert resp.json()["id"] == event_id
-    assert len(resp.json()["content_items"]) == 5
+    # 3 at generate time (newsletter/flyer/calendar) — social_post/hashtags
+    # aren't persisted until select-social-variant, see that test above.
+    assert len(resp.json()["content_items"]) == 3
 
 
 def test_get_content_item_returns_404_when_missing(client):

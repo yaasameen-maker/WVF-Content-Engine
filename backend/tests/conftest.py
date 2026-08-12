@@ -32,25 +32,81 @@ from app.schemas import (
     GrantEntry,
     GrantFlyerBlock,
     HashtagsOutput,
+    HashtagsVariant,
     MemberSpotlightBlock,
     NewsletterOutput,
     SocialPostOutput,
+    SocialPostVariant,
     TipsCtaBlock,
 )
 
 
+# 3 distinct fake options, matching SOCIAL_POST_VARIANT_COUNT — real
+# generate_social_post_variants()/generate_hashtags_variants() always
+# return exactly this many, so the fake mirrors that shape rather than
+# collapsing to one, keeping the E2E test honest about the real API
+# contract the frontend picker relies on.
+FAKE_SOCIAL_POST_VARIANTS = [
+    SocialPostVariant(
+        structure_variant="standard",
+        structure_label="Standard",
+        post=SocialPostOutput(
+            caption="Join us for Money & Credit! Learn to build a strong financial foundation.",
+            hashtags=["#WomensVentureFund", "#CreditEducation"],
+            suggested_image_prompt="Navy and sky-blue banner with event title, WVF logo",
+            cta="Register Now",
+        ),
+    ),
+    SocialPostVariant(
+        structure_variant="listicle",
+        structure_label="Listicle",
+        post=SocialPostOutput(
+            caption="3 things you'll learn at Money & Credit:\n1. Credit basics\n2. Building your score\n3. Avoiding common mistakes",
+            hashtags=["#WomensVentureFund", "#CreditEducation"],
+            suggested_image_prompt="Navy and sky-blue banner with a numbered list overlay",
+            cta="Save Your Spot",
+        ),
+    ),
+    SocialPostVariant(
+        structure_variant="quote_style",
+        structure_label="Quote-style",
+        post=SocialPostOutput(
+            caption='"Your credit score shouldn\'t be a mystery." Join WVF for a free webinar on credit fundamentals.',
+            hashtags=["#WomensVentureFund", "#CreditEducation"],
+            suggested_image_prompt="Navy and sky-blue banner with a pull-quote overlay",
+            cta="Register Today",
+        ),
+    ),
+]
+
+FAKE_HASHTAGS_VARIANTS = [
+    HashtagsVariant(
+        hashtags=HashtagsOutput(
+            primary_hashtags=["#WomensVentureFund", "#WVFCDFI"],
+            topic_hashtags=["#CreditEducation", "#FinancialLiteracy"],
+            rationale="Matches event topic and WVF's core brand hashtags.",
+        )
+    ),
+    HashtagsVariant(
+        hashtags=HashtagsOutput(
+            primary_hashtags=["#WomensVentureFund", "#WVFCDFI"],
+            topic_hashtags=["#CreditScore", "#SmallBusinessNYC"],
+            rationale="Alternate topic-specific angle for the same event.",
+        )
+    ),
+    HashtagsVariant(
+        hashtags=HashtagsOutput(
+            primary_hashtags=["#WomensVentureFund", "#WVFCDFI"],
+            topic_hashtags=["#BuildYourCredit", "#WomenInBusiness"],
+            rationale="Third alternate angle, pairs with the quote-style caption.",
+        )
+    ),
+]
+
 FAKE_GENERATED_CONTENT = GeneratedContentResponse(
-    social_post=SocialPostOutput(
-        caption="Join us for Money & Credit! Learn to build a strong financial foundation.",
-        hashtags=["#WomensVentureFund", "#CreditEducation"],
-        suggested_image_prompt="Navy and sky-blue banner with event title, WVF logo",
-        cta="Register Now",
-    ),
-    hashtags=HashtagsOutput(
-        primary_hashtags=["#WomensVentureFund", "#WVFCDFI"],
-        topic_hashtags=["#CreditEducation", "#FinancialLiteracy"],
-        rationale="Matches event topic and WVF's core brand hashtags.",
-    ),
+    event_id=1,
+    social_post_variants=FAKE_SOCIAL_POST_VARIANTS,
+    hashtags_variants=FAKE_HASHTAGS_VARIANTS,
     newsletter=NewsletterOutput(
         subject_line="Money & Credit: Free Webinar This Month",
         preview_text="Build your credit, build your business.",
@@ -169,13 +225,12 @@ def client(db_session_factory, monkeypatch):
 
     async def fake_generate_all_content(
         event,
-        social_post_variant_selection="generate_new",
+        social_post_platform=None,
         newsletter_variant_selection="generate_new",
-        recent_social_post_variants=None,
         recent_newsletter_variants=None,
         keymakers_stage_key=None,
     ):
-        return FAKE_GENERATED_CONTENT, "standard", keymakers_stage_key or "standard"
+        return FAKE_GENERATED_CONTENT, keymakers_stage_key or "standard"
 
     monkeypatch.setattr(
         "app.routers.generate.generate_all_content", fake_generate_all_content

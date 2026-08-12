@@ -59,6 +59,12 @@ export default function EventFormPage() {
 
   function togglePlatform(platform: SocialPostPlatform) {
     setSocialPostPlatform((prev) => (prev === platform ? "" : platform));
+    setUseKeymakersCopy(false);
+  }
+
+  function toggleKeymakersCopy() {
+    setUseKeymakersCopy((prev) => !prev);
+    setSocialPostPlatform("");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -124,7 +130,7 @@ export default function EventFormPage() {
           <PlatformToggleButton
             label="Keymakers Copy"
             active={useKeymakersCopy}
-            onClick={() => setUseKeymakersCopy((v) => !v)}
+            onClick={toggleKeymakersCopy}
             disabled={keymakersDisabled}
             icon={
               // eslint-disable-next-line @next/next/no-img-element

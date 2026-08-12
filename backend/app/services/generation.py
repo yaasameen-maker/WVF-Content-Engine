@@ -21,21 +21,41 @@ from app.schemas import (
     GeneratedContentResponse,
     GrantFlyerBlock,
     HashtagsOutput,
+    HashtagsVariant,
     MemberSpotlightBlock,
     NewsletterOutput,
     SocialPostOutput,
+    SocialPostVariant,
     TipsCtaBlock,
 )
 from app.services.prompts import (
+    SOCIAL_POST_ANGLE_HINTS,
+    SOCIAL_POST_VARIANTS,
     build_boilerplate_prompt,
+    build_calendar_prompt,
     build_events_list_prompt,
     build_feature_article_prompt,
+    build_flyer_prompt,
     build_grant_flyer_prompt,
+    build_hashtags_prompt,
     build_member_spotlight_prompt,
+    build_newsletter_prompt,
+    build_social_post_prompt,
     build_tips_cta_prompt,
-    get_all_prompts,
     resolve_variant,
 )
+
+# How many social post / hashtag options staff compares on the review page
+# before picking one — see GeneratedContentResponse.social_post_variants.
+SOCIAL_POST_VARIANT_COUNT = 3
+
+# The 3 tone variants used for a batch when no platform was explicitly
+# selected — deliberately the non-platform keys from SOCIAL_POST_VARIANTS,
+# since those are 3 genuinely distinct shapes (not 3 near-identical
+# rewrites). Kept as its own tuple rather than reusing
+# RANDOM_POOL_EXCLUDED's complement so this list is explicit and stable
+# even if the variant registry grows later.
+DEFAULT_BATCH_TONE_VARIANTS: tuple[str, ...] = ("standard", "listicle", "quote_style")
 
 
 def get_anthropic_client() -> anthropic.Anthropic:
@@ -108,8 +128,70 @@ async def generate_hashtags(client: anthropic.Anthropic, prompt: str) -> Hashtag
     tool_use_block = next((block for block in response.content if block.type == "tool_use"), None)
     if not tool_use_block:
         raise ValueError("Claude did not return a tool use block")
-    
+
     return HashtagsOutput(**tool_use_block.input)
+
+
+def _resolve_batch_variants(social_post_platform: str | None) -> list[tuple[str, str | None]]:
+    """
+    Returns SOCIAL_POST_VARIANT_COUNT (structure_variant, angle_hint) pairs
+    for one generation batch.
+
+    - No platform selected: use the 3 fixed tone variants
+      (DEFAULT_BATCH_TONE_VARIANTS) — each is already a genuinely distinct
+      shape, so no angle_hint is needed.
+    - Platform explicitly selected: keep that platform's structure fixed
+      across all 3 (staff deliberately chose it), and instead vary the
+      opening angle via SOCIAL_POST_ANGLE_HINTS so the 3 results are
+      different posts, not near-identical rewrites of the same hook.
+    """
+    if social_post_platform:
+        return [
+            (social_post_platform, angle)
+            for angle in SOCIAL_POST_ANGLE_HINTS[:SOCIAL_POST_VARIANT_COUNT]
+        ]
+    return [(variant, None) for variant in DEFAULT_BATCH_TONE_VARIANTS[:SOCIAL_POST_VARIANT_COUNT]]
+
+
+async def generate_social_post_variants(
+    client: anthropic.Anthropic, event: EventInput, social_post_platform: str | None = None
+) -> list[SocialPostVariant]:
+    """
+    Generate SOCIAL_POST_VARIANT_COUNT distinct social post options
+    concurrently, for staff to compare and pick from on the review page —
+    see GeneratedContentResponse.social_post_variants. See
+    _resolve_batch_variants for how the 3 are differentiated.
+    """
+    batch = _resolve_batch_variants(social_post_platform)
+
+    async def run_one(structure_variant: str, angle_hint: str | None) -> SocialPostVariant:
+        prompt = build_social_post_prompt(event, structure_variant, angle_hint=angle_hint)
+        post = await generate_social_post(client, prompt)
+        return SocialPostVariant(
+            structure_variant=structure_variant,
+            structure_label=SOCIAL_POST_VARIANTS[structure_variant]["label"],
+            post=post,
+        )
+
+    return list(await asyncio.gather(*(run_one(sv, angle) for sv, angle in batch)))
+
+
+async def generate_hashtags_variants(
+    client: anthropic.Anthropic, event: EventInput, count: int = SOCIAL_POST_VARIANT_COUNT
+) -> list[HashtagsVariant]:
+    """
+    Generate `count` hashtag-set options concurrently, paired 1:1 by index
+    with generate_social_post_variants()'s output on the review page. Each
+    call uses the same hashtags prompt (hashtags aren't keyed to a
+    structure_variant) — Claude's own sampling gives 3 distinct-enough
+    real sets without needing an artificial angle hint.
+    """
+    prompt = build_hashtags_prompt(event)
+
+    async def run_one() -> HashtagsVariant:
+        return HashtagsVariant(hashtags=await generate_hashtags(client, prompt))
+
+    return list(await asyncio.gather(*(run_one() for _ in range(count))))
 
 
 async def generate_newsletter(client: anthropic.Anthropic, prompt: str) -> NewsletterOutput:
@@ -364,22 +446,31 @@ async def generate_newsletter_blocks(
 
 async def generate_all_content(
     event: EventInput,
-    social_post_variant_selection: str = "generate_new",
+    social_post_platform: str | None = None,
     newsletter_variant_selection: str = "generate_new",
-    recent_social_post_variants: list[str] | None = None,
     recent_newsletter_variants: list[str] | None = None,
     keymakers_stage_key: str | None = None,
-) -> tuple[GeneratedContentResponse, str, str]:
+) -> tuple[GeneratedContentResponse, str]:
     """
     Generate all content types concurrently.
     This is the main entry point for content generation.
 
-    social_post_variant_selection / newsletter_variant_selection accept the
-    same values as the frontend dropdown: "generate_new", "avoid_recent", or
-    an explicit variant key (see app/services/prompts.resolve_variant).
-    `recent_*_variants` should be recent structure_variant history for this
-    event/content type when selection is "avoid_recent" — pass None until
-    the database is wired up (falls back to "generate_new" behavior).
+    social_post_platform: when set (instagram/linkedin/facebook — an
+    explicit staff choice, not random), all SOCIAL_POST_VARIANT_COUNT
+    social post options in the batch stay on that platform, varying only
+    the opening angle (see generate_social_post_variants). When None, the
+    batch uses the 3 fixed tone variants instead. Social posts and
+    hashtags are no longer single-generation/single-persisted — see
+    GeneratedContentResponse.social_post_variants /
+    .hashtags_variants and POST /api/content/select-social-variant for
+    the pick-then-persist flow.
+
+    newsletter_variant_selection accepts the same values as the frontend
+    dropdown: "generate_new", "avoid_recent", or an explicit variant key
+    (see app/services/prompts.resolve_variant). `recent_newsletter_variants`
+    should be recent structure_variant history for the newsletter content
+    type when selection is "avoid_recent" — pass None until the database is
+    wired up (falls back to "generate_new" behavior).
 
     keymakers_stage_key, when set, switches the newsletter into Keymakers
     recruitment-copy mode (see prompts.build_newsletter_prompt /
@@ -387,44 +478,41 @@ async def generate_all_content(
     that case, since the reference message supplies its own structure.
     Only the newsletter is affected.
 
-    Returns the generated content plus the two resolved variant keys, so
-    callers can persist which variant was actually used. When
-    keymakers_stage_key is set, the returned newsletter_variant is that
-    stage key (so the caller can persist which Keymakers stage was used,
-    the same way structure_variant is persisted for the non-Keymakers path).
+    Returns the generated content plus the resolved newsletter variant key,
+    so the caller can persist which variant was actually used (newsletter
+    is still generated/persisted as a single item, unlike social_post).
+    When keymakers_stage_key is set, the returned value is that stage key.
     """
     client = get_anthropic_client()
 
-    social_post_variant = resolve_variant(
-        "social_post", social_post_variant_selection, recent_social_post_variants
-    )
     newsletter_variant = (
         keymakers_stage_key
         if keymakers_stage_key
         else resolve_variant("newsletter", newsletter_variant_selection, recent_newsletter_variants)
     )
 
-    prompts = get_all_prompts(
-        event,
-        social_post_variant=social_post_variant,
-        newsletter_variant=newsletter_variant,
-        keymakers_stage_key=keymakers_stage_key,
+    newsletter_prompt = build_newsletter_prompt(
+        event, newsletter_variant, keymakers_stage_key=keymakers_stage_key
     )
+    flyer_prompt = build_flyer_prompt(event)
+    calendar_prompt = build_calendar_prompt(event)
 
-    # Run all generations concurrently
-    social_post, hashtags, newsletter, flyer, calendar = await asyncio.gather(
-        generate_social_post(client, prompts["social_post"]),
-        generate_hashtags(client, prompts["hashtags"]),
-        generate_newsletter(client, prompts["newsletter"]),
-        generate_flyer(client, prompts["flyer"]),
-        generate_calendar(client, prompts["calendar"]),
+    # Run all generations concurrently, including both social-post-variant
+    # and hashtags-variant batches (each of those is itself
+    # SOCIAL_POST_VARIANT_COUNT concurrent calls internally).
+    social_post_variants, hashtags_variants, newsletter, flyer, calendar = await asyncio.gather(
+        generate_social_post_variants(client, event, social_post_platform),
+        generate_hashtags_variants(client, event),
+        generate_newsletter(client, newsletter_prompt),
+        generate_flyer(client, flyer_prompt),
+        generate_calendar(client, calendar_prompt),
     )
 
     result = GeneratedContentResponse(
-        social_post=social_post,
-        hashtags=hashtags,
+        social_post_variants=social_post_variants,
+        hashtags_variants=hashtags_variants,
         newsletter=newsletter,
         flyer=flyer,
         calendar=calendar,
     )
-    return result, social_post_variant, newsletter_variant
+    return result, newsletter_variant

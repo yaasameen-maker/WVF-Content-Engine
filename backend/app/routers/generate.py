@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import ContentItem, ContentType, Event
-from app.schemas import EventInput, GeneratedContentResponse
+from app.schemas import ContentItemResponse, EventInput, GeneratedContentResponse, HashtagsOutput, SocialPostVariant
 from app.services.generation import generate_all_content
 from app.services.keymakers_campaign import list_keymakers_stages
 from app.services.prompts import list_variants
@@ -25,17 +25,27 @@ RECENT_VARIANT_LOOKBACK = 5
 
 class GenerateRequest(EventInput):
     """Request body for /api/generate: event fields (same shape as before)
-    plus optional variant selections, so existing callers posting a bare
-    EventInput still work unchanged. Selection values: "generate_new"
-    (default), "avoid_recent", or an explicit variant key from
-    GET /api/variants/{content_type}.
+    plus optional generation options, so existing callers posting a bare
+    EventInput still work unchanged.
+
+    social_post_platform: optional. When set (instagram/linkedin/facebook),
+    all 3 social post options in the batch stay on that platform, varying
+    only the opening angle — see generate_social_post_variants(). When
+    unset, the 3 options use the fixed tone variants instead. Social posts
+    no longer support "avoid_recent"/explicit single-variant selection —
+    every generation returns all 3 tone variants (or all 3 angles, if a
+    platform is set) for staff to compare on the review page.
+
+    newsletter_variant: "generate_new" (default), "avoid_recent", or an
+    explicit variant key from GET /api/variants/newsletter — unchanged,
+    the newsletter is still single-generation.
 
     keymakers_stage_key: optional. When set, the newsletter is generated
     by adapting the selected real Keymakers recruitment reference message
     (see GET /api/keymakers-stages) instead of the normal event-promotion
     newsletter — newsletter_variant is ignored when this is set."""
 
-    social_post_variant: str = Field(default="generate_new")
+    social_post_platform: Optional[str] = Field(default=None)
     newsletter_variant: str = Field(default="generate_new")
     keymakers_stage_key: Optional[str] = Field(default=None)
 
@@ -73,31 +83,35 @@ async def generate_content(
     request: GenerateRequest, db: Session = Depends(get_db)
 ) -> GeneratedContentResponse:
     """
-    Generate all marketing content (social post, hashtags, newsletter) for an event.
+    Generate all marketing content for an event.
 
     This endpoint:
-    1. Takes event details from the form, plus optional structure-variant
-       selections for social_post/newsletter
-    2. Calls Claude API concurrently for all content types
-    3. Persists the event and each generated content item (status=draft),
-       recording which structure_variant was used where applicable
-    4. Returns the structured JSON with all generated content
+    1. Takes event details from the form, plus optional generation options
+       (social_post_platform, newsletter_variant, keymakers_stage_key)
+    2. Calls Claude API concurrently for all content types — social post
+       and hashtags each come back as SOCIAL_POST_VARIANT_COUNT options
+       (see generate_social_post_variants) for staff to compare
+    3. Persists the event, plus the newsletter/flyer/calendar content items
+       (status=draft) immediately, same as before. Social post and
+       hashtags are NOT persisted yet — see POST
+       /api/content/select-social-variant, called once staff picks one on
+       the review page.
+    4. Returns the structured JSON with all generated content plus the
+       event_id needed for that later pick-and-persist call.
     """
     event = EventInput(
         **request.model_dump(
-            exclude={"social_post_variant", "newsletter_variant", "keymakers_stage_key"}
+            exclude={"social_post_platform", "newsletter_variant", "keymakers_stage_key"}
         )
     )
 
-    recent_social = _recent_variants(db, ContentType.SOCIAL_POST, RECENT_VARIANT_LOOKBACK)
     recent_newsletter = _recent_variants(db, ContentType.NEWSLETTER, RECENT_VARIANT_LOOKBACK)
 
     try:
-        result, social_post_variant, newsletter_variant = await generate_all_content(
+        result, newsletter_variant = await generate_all_content(
             event,
-            social_post_variant_selection=request.social_post_variant,
+            social_post_platform=request.social_post_platform,
             newsletter_variant_selection=request.newsletter_variant,
-            recent_social_post_variants=recent_social,
             recent_newsletter_variants=recent_newsletter,
             keymakers_stage_key=request.keymakers_stage_key,
         )
@@ -121,17 +135,6 @@ async def generate_content(
         [
             ContentItem(
                 event_id=db_event.id,
-                content_type=ContentType.SOCIAL_POST,
-                body=result.social_post.model_dump_json(),
-                structure_variant=social_post_variant,
-            ),
-            ContentItem(
-                event_id=db_event.id,
-                content_type=ContentType.HASHTAGS,
-                body=result.hashtags.model_dump_json(),
-            ),
-            ContentItem(
-                event_id=db_event.id,
                 content_type=ContentType.NEWSLETTER,
                 body=result.newsletter.model_dump_json(),
                 structure_variant=newsletter_variant,
@@ -150,4 +153,69 @@ async def generate_content(
     )
     db.commit()
 
+    result.event_id = db_event.id
     return result
+
+
+class SelectSocialVariantRequest(BaseModel):
+    """Body for POST /api/content/select-social-variant: the event this
+    content belongs to, plus the exact SocialPostVariant + HashtagsOutput
+    the staff member picked (echoed back from the /api/generate response
+    they were shown — this endpoint doesn't re-run generation, it only
+    persists a choice)."""
+
+    event_id: int
+    social_post_variant: SocialPostVariant
+    hashtags: HashtagsOutput
+
+
+@router.post("/content/select-social-variant", response_model=list[ContentItemResponse])
+def select_social_variant(
+    request: SelectSocialVariantRequest, db: Session = Depends(get_db)
+) -> list[ContentItemResponse]:
+    """
+    Persist the social post + hashtags option staff picked from the
+    3-variant batch returned by /api/generate. Must be called exactly once
+    per event — social_post/hashtags ContentItems don't exist until this
+    runs, unlike newsletter/flyer/calendar which are saved at generate time.
+    """
+    event = db.query(Event).filter(Event.id == request.event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    social_post_item = ContentItem(
+        event_id=event.id,
+        content_type=ContentType.SOCIAL_POST,
+        body=request.social_post_variant.post.model_dump_json(),
+        structure_variant=request.social_post_variant.structure_variant,
+    )
+    hashtags_item = ContentItem(
+        event_id=event.id,
+        content_type=ContentType.HASHTAGS,
+        body=request.hashtags.model_dump_json(),
+    )
+    db.add_all([social_post_item, hashtags_item])
+    db.commit()
+    db.refresh(social_post_item)
+    db.refresh(hashtags_item)
+
+    # ContentItem.body is stored as a JSON string (see ContentItem.body
+    # docstring in app/models/content.py) — must be parsed back to a dict
+    # before handing to ContentItemResponse, same as
+    # app/routers/content.py's _serialize_content_item does.
+    def _to_response(item: ContentItem) -> ContentItemResponse:
+        return ContentItemResponse(
+            id=item.id,
+            event_id=item.event_id,
+            key_maker_id=item.key_maker_id,
+            content_type=item.content_type.value,
+            block_type=item.block_type.value if item.block_type else None,
+            platform=item.platform,
+            status=item.status.value,
+            structure_variant=item.structure_variant,
+            body=json.loads(item.body),
+            created_at=item.created_at,
+            updated_at=item.updated_at,
+        )
+
+    return [_to_response(social_post_item), _to_response(hashtags_item)]

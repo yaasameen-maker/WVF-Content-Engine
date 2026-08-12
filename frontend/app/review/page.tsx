@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { GeneratedContentResponse } from "@/lib/api";
+import {
+  selectSocialVariant,
+  type GeneratedContentResponse,
+  type HashtagsOutput,
+  type SocialPostVariant,
+} from "@/lib/api";
 
 export default function ReviewPage() {
   const [content, setContent] = useState<GeneratedContentResponse | null>(null);
@@ -44,7 +49,6 @@ export default function ReviewPage() {
       </div>
 
       <SocialPostCard content={content} />
-      <HashtagsCard content={content} />
       <NewsletterCard content={content} />
       <FlyerCard content={content} />
       <CalendarCard content={content} />
@@ -117,17 +121,45 @@ function LabeledInput({
   );
 }
 
+/**
+ * Social post + hashtags picker → editor.
+ *
+ * Staff first compares SOCIAL_POST_VARIANT_COUNT options side by side
+ * (each pairing a social_post_variants[i] with hashtags_variants[i] by
+ * index — see GeneratedContentResponse). Picking one calls
+ * selectSocialVariant() to persist that pair as the event's ContentItems
+ * (social_post/hashtags don't exist in the DB before this), then the card
+ * collapses into the same editable form the rest of the review page uses.
+ */
 function SocialPostCard({ content }: { content: GeneratedContentResponse }) {
-  const [caption, setCaption] = useState(content.social_post.caption);
-  const [cta, setCta] = useState(content.social_post.cta);
+  const [pickedIndex, setPickedIndex] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [platformLabel, setPlatformLabel] = useState<string | null>(null);
 
   useEffect(() => {
     setPlatformLabel(sessionStorage.getItem("wvf_social_post_platform_label"));
   }, []);
 
+  async function pick(index: number) {
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      await selectSocialVariant(
+        content.event_id,
+        content.social_post_variants[index],
+        content.hashtags_variants[index].hashtags
+      );
+      setPickedIndex(index);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save your pick.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
-    <Card title="Social Media Post">
+    <Card title="Social Media Post & Hashtags">
       {platformLabel && (
         <div className="rounded-md border border-sky-blue bg-sky-blue/10 px-3 py-2 text-xs text-navy">
           <span className="font-bold uppercase tracking-wide">Platform template</span>
@@ -135,41 +167,114 @@ function SocialPostCard({ content }: { content: GeneratedContentResponse }) {
           {platformLabel}
         </div>
       )}
-      <LabeledTextArea label="Caption" value={caption} onChange={setCaption} rows={5} />
-      <LabeledInput label="Call to Action" value={cta} onChange={setCta} />
-      <div>
-        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Hashtags
-        </span>
-        <p className="text-sm text-sky-blue">{content.social_post.hashtags.join(" ")}</p>
-      </div>
-      <div>
-        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Suggested Image Prompt
-        </span>
-        <p className="text-sm italic text-gray-600">{content.social_post.suggested_image_prompt}</p>
-      </div>
+
+      {pickedIndex === null ? (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">
+            Compare {content.social_post_variants.length} options and pick one to edit and use.
+          </p>
+          {saveError && (
+            <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {saveError}
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {content.social_post_variants.map((variant, i) => (
+              <SocialPostVariantOption
+                key={i}
+                variant={variant}
+                hashtags={content.hashtags_variants[i].hashtags}
+                onPick={() => pick(i)}
+                disabled={isSaving}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <SocialPostEditor
+          variant={content.social_post_variants[pickedIndex]}
+          hashtags={content.hashtags_variants[pickedIndex].hashtags}
+          onChangeOption={() => setPickedIndex(null)}
+        />
+      )}
     </Card>
   );
 }
 
-function HashtagsCard({ content }: { content: GeneratedContentResponse }) {
+function SocialPostVariantOption({
+  variant,
+  hashtags,
+  onPick,
+  disabled,
+}: {
+  variant: SocialPostVariant;
+  hashtags: HashtagsOutput;
+  onPick: () => void;
+  disabled: boolean;
+}) {
   return (
-    <Card title="Hashtag Recommendations">
+    <div className="flex flex-col rounded-lg border border-gray-200 p-4">
+      <span className="mb-2 self-start rounded-full bg-sky-blue/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy">
+        {variant.structure_label}
+      </span>
+      <p className="mb-3 flex-1 whitespace-pre-wrap text-sm text-gray-800">{variant.post.caption}</p>
+      <p className="mb-3 text-xs text-sky-blue">{hashtags.primary_hashtags.join(" ")}</p>
+      <button
+        type="button"
+        onClick={onPick}
+        disabled={disabled}
+        className="rounded-md bg-navy px-3 py-2 text-sm font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Use this one
+      </button>
+    </div>
+  );
+}
+
+function SocialPostEditor({
+  variant,
+  hashtags,
+  onChangeOption,
+}: {
+  variant: SocialPostVariant;
+  hashtags: HashtagsOutput;
+  onChangeOption: () => void;
+}) {
+  const [caption, setCaption] = useState(variant.post.caption);
+  const [cta, setCta] = useState(variant.post.cta);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="rounded-full bg-sky-blue/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy">
+          {variant.structure_label}
+        </span>
+        <button type="button" onClick={onChangeOption} className="text-xs font-semibold text-sky-blue hover:underline">
+          ← Compare options again
+        </button>
+      </div>
+      <LabeledTextArea label="Caption" value={caption} onChange={setCaption} rows={5} />
+      <LabeledInput label="Call to Action" value={cta} onChange={setCta} />
       <div>
         <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Primary
+          Primary Hashtags
         </span>
-        <p className="text-sm text-sky-blue">{content.hashtags.primary_hashtags.join(" ")}</p>
+        <p className="text-sm text-sky-blue">{hashtags.primary_hashtags.join(" ")}</p>
       </div>
       <div>
         <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Topic-Specific
+          Topic-Specific Hashtags
         </span>
-        <p className="text-sm text-sky-blue">{content.hashtags.topic_hashtags.join(" ")}</p>
+        <p className="text-sm text-sky-blue">{hashtags.topic_hashtags.join(" ")}</p>
       </div>
-      <p className="text-sm text-gray-600">{content.hashtags.rationale}</p>
-    </Card>
+      <p className="text-xs text-gray-500">{hashtags.rationale}</p>
+      <div>
+        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Suggested Image Prompt
+        </span>
+        <p className="text-sm italic text-gray-600">{variant.post.suggested_image_prompt}</p>
+      </div>
+    </div>
   );
 }
 
