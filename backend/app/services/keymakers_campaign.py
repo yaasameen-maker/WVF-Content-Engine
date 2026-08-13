@@ -251,6 +251,24 @@ def list_keymakers_stages() -> dict[str, str]:
     return {key: stage["label"] for key, stage in KEYMAKERS_STAGES.items()}
 
 
+def get_keymakers_stage(stage_key: str) -> dict:
+    """
+    Returns ONE Keymakers stage as structured data (label, audience, stage,
+    send_day, subject_options, body) — for a frontend that wants to render
+    the real reference copy directly (e.g. a static-template preview),
+    rather than get_keymakers_stage_context()'s formatted prompt-injection
+    string. Raises KeyError with the valid options listed if stage_key is
+    unrecognized, matching get_keymakers_stage_context()'s error shape.
+    """
+    stage = KEYMAKERS_STAGES.get(stage_key)
+    if stage is None:
+        raise KeyError(
+            f"Unknown Keymakers stage '{stage_key}'. Valid options: "
+            f"{list(KEYMAKERS_STAGES.keys())}"
+        )
+    return stage
+
+
 def get_keymakers_stage_context(stage_key: str) -> str:
     """
     Returns ONE selected Keymakers message as prompt-injection context —

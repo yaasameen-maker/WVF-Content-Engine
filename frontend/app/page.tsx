@@ -5,17 +5,11 @@ import { useRouter } from "next/navigation";
 import { siFacebook, siInstagram } from "simple-icons";
 import {
   generateContent,
+  getKeymakersStageDetail,
   listKeymakersStages,
-  SOCIAL_POST_PLATFORMS,
   type EventInput,
-  type SocialPostPlatform,
+  type KeymakersStageDetail,
 } from "@/lib/api";
-
-const PLATFORM_LABELS: Record<SocialPostPlatform, string> = {
-  instagram: "Instagram",
-  linkedin: "LinkedIn",
-  facebook: "Facebook",
-};
 
 const EMPTY_EVENT: EventInput = {
   title: "",
@@ -26,6 +20,13 @@ const EMPTY_EVENT: EventInput = {
   description: "",
 };
 
+/** Which tile is selected. Instagram/LinkedIn/Facebook are placeholders
+ * until real static sample posts are available (see PlatformToggleButton
+ * disabled state below) — "keymakers" shows real WVF reference copy
+ * instantly, no AI call; "ai" reveals the event-form → Generate Campaign
+ * flow, platform-agnostic. */
+type Mode = "instagram" | "linkedin" | "facebook" | "keymakers" | "ai" | null;
+
 export default function EventFormPage() {
   const router = useRouter();
   const [event, setEvent] = useState<EventInput>(EMPTY_EVENT);
@@ -33,11 +34,12 @@ export default function EventFormPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  const [socialPostPlatform, setSocialPostPlatform] = useState<SocialPostPlatform | "">("");
+  const [mode, setMode] = useState<Mode>(null);
 
-  const [useKeymakersCopy, setUseKeymakersCopy] = useState(false);
   const [keymakersStages, setKeymakersStages] = useState<Record<string, string> | null>(null);
   const [keymakersStageKey, setKeymakersStageKey] = useState("");
+  const [keymakersDetail, setKeymakersDetail] = useState<KeymakersStageDetail | null>(null);
+  const [keymakersDetailError, setKeymakersDetailError] = useState<string | null>(null);
 
   useEffect(() => {
     listKeymakersStages()
@@ -47,24 +49,31 @@ export default function EventFormPage() {
         if (firstKey) setKeymakersStageKey(firstKey);
       })
       .catch(() => {
-        // Non-fatal: the toggle just won't be usable if this fails
-        // (e.g. backend not running). Normal event generation still works.
+        // Non-fatal: the tile just won't be usable if this fails (e.g.
+        // backend not running). AI generation still works independently.
         setKeymakersStages({});
       });
   }, []);
+
+  // Fetch the real static copy for the selected Keymakers stage whenever
+  // the tile is active and a stage is chosen — this is instant reference
+  // content, not an AI generation call.
+  useEffect(() => {
+    if (mode !== "keymakers" || !keymakersStageKey) return;
+    setKeymakersDetailError(null);
+    getKeymakersStageDetail(keymakersStageKey)
+      .then(setKeymakersDetail)
+      .catch((err) =>
+        setKeymakersDetailError(err instanceof Error ? err.message : "Failed to load this message.")
+      );
+  }, [mode, keymakersStageKey]);
 
   function updateField(field: keyof EventInput, value: string) {
     setEvent((prev) => ({ ...prev, [field]: value }));
   }
 
-  function togglePlatform(platform: SocialPostPlatform) {
-    setSocialPostPlatform((prev) => (prev === platform ? "" : platform));
-    setUseKeymakersCopy(false);
-  }
-
-  function toggleKeymakersCopy() {
-    setUseKeymakersCopy((prev) => !prev);
-    setSocialPostPlatform("");
+  function selectMode(next: Mode) {
+    setMode((prev) => (prev === next ? null : next));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -73,23 +82,11 @@ export default function EventFormPage() {
     setIsGenerating(true);
 
     try {
-      const activeKeymakersStage = useKeymakersCopy && keymakersStageKey ? keymakersStageKey : null;
-      const result = await generateContent(event, {
-        ...(activeKeymakersStage ? { keymakersStageKey: activeKeymakersStage } : {}),
-        ...(socialPostPlatform ? { socialPostPlatform } : {}),
-      });
+      const result = await generateContent(event);
       sessionStorage.setItem("wvf_generated_content", JSON.stringify(result));
       sessionStorage.setItem("wvf_source_event", JSON.stringify(event));
-      if (activeKeymakersStage) {
-        sessionStorage.setItem("wvf_keymakers_stage_label", keymakersStages?.[activeKeymakersStage] ?? activeKeymakersStage);
-      } else {
-        sessionStorage.removeItem("wvf_keymakers_stage_label");
-      }
-      if (socialPostPlatform) {
-        sessionStorage.setItem("wvf_social_post_platform_label", PLATFORM_LABELS[socialPostPlatform]);
-      } else {
-        sessionStorage.removeItem("wvf_social_post_platform_label");
-      }
+      sessionStorage.removeItem("wvf_keymakers_stage_label");
+      sessionStorage.removeItem("wvf_social_post_platform_label");
       router.push("/review");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong generating content.");
@@ -105,50 +102,55 @@ export default function EventFormPage() {
       <InstagramGradientDef />
       <div className="mb-6">
         <span className="mb-2 block text-sm font-medium text-navy">
-          Tailor the social post for a platform, or generate Keymakers recruitment copy
-          <span className="ml-1 font-normal text-gray-500">(optional — leave all off for a normal rotating post)</span>
+          Choose a real WVF template, or use AI to generate new copy
         </span>
         <div className="flex flex-wrap gap-3">
           <PlatformToggleButton
             label="Instagram"
-            active={socialPostPlatform === "instagram"}
-            onClick={() => togglePlatform("instagram")}
+            active={mode === "instagram"}
+            onClick={() => selectMode("instagram")}
+            disabled
             icon={<BrandSvgIcon icon={siInstagram} fill={`url(#${IG_GRADIENT_ID})`} />}
           />
           <PlatformToggleButton
             label="LinkedIn"
-            active={socialPostPlatform === "linkedin"}
-            onClick={() => togglePlatform("linkedin")}
+            active={mode === "linkedin"}
+            onClick={() => selectMode("linkedin")}
+            disabled
             icon={<LinkedInMonogramIcon />}
           />
           <PlatformToggleButton
             label="Facebook"
-            active={socialPostPlatform === "facebook"}
-            onClick={() => togglePlatform("facebook")}
+            active={mode === "facebook"}
+            onClick={() => selectMode("facebook")}
+            disabled
             icon={<BrandSvgIcon icon={siFacebook} fill={`#${siFacebook.hex}`} />}
           />
           <PlatformToggleButton
             label="Keymakers Copy"
-            active={useKeymakersCopy}
-            onClick={toggleKeymakersCopy}
+            active={mode === "keymakers"}
+            onClick={() => selectMode("keymakers")}
             disabled={keymakersDisabled}
             icon={
               // eslint-disable-next-line @next/next/no-img-element
               <img src="/wvf-logo.svg" alt="" className="h-16 w-auto max-w-none" />
             }
           />
+          <PlatformToggleButton
+            label="AI Copy"
+            active={mode === "ai"}
+            onClick={() => selectMode("ai")}
+            icon={<AiSparkleIcon />}
+          />
         </div>
 
-        {socialPostPlatform && (
-          <p className="mt-2 text-xs text-gray-500">
-            Social post caption will be tailored to {PLATFORM_LABELS[socialPostPlatform]}
-            &apos;s real WVF style (e.g. Facebook uses emoji-labeled checklists; Instagram is short
-            and punchy).
-          </p>
-        )}
+        <p className="mt-2 text-xs text-gray-500">
+          Instagram, LinkedIn, and Facebook static templates are coming soon — use AI Copy for a
+          platform-tailored post in the meantime.
+        </p>
 
-        {useKeymakersCopy && (
-          <div className="mt-3 max-w-sm">
+        {mode === "keymakers" && (
+          <div className="mt-4 max-w-2xl">
             <span className="mb-1 block text-sm font-medium text-navy">Which Keymakers message?</span>
             <select
               value={keymakersStageKey}
@@ -161,15 +163,42 @@ export default function EventFormPage() {
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-gray-500">
-              Newsletter will adapt this real WVF recruitment message instead of standard event
-              promotion. Reference copy — still needs Maria&apos;s approval before sending.
-            </p>
+
+            {keymakersDetailError && (
+              <div className="mt-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {keymakersDetailError}
+              </div>
+            )}
+
+            {keymakersDetail && !keymakersDetailError && (
+              <div className="mt-3 rounded-lg border border-gray-200 shadow-sm">
+                <div className="rounded-t-lg bg-navy px-5 py-3">
+                  <h3 className="font-semibold text-white">{keymakersDetail.label}</h3>
+                </div>
+                <div className="space-y-3 px-5 py-4">
+                  <p className="text-xs text-gray-500">
+                    Audience: {keymakersDetail.audience}
+                    {keymakersDetail.subject_options && keymakersDetail.subject_options.length > 0 && (
+                      <>
+                        <br />
+                        Subject line options: {keymakersDetail.subject_options.join(" · ")}
+                      </>
+                    )}
+                  </p>
+                  <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
+                    {keymakersDetail.body}
+                  </pre>
+                  <p className="text-xs font-semibold text-amber-700">
+                    Real WVF reference copy — still needs Maria&apos;s approval before sending.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {!showForm && (
+      {mode === "ai" && !showForm && (
         <button
           type="button"
           onClick={() => setShowForm(true)}
@@ -179,7 +208,7 @@ export default function EventFormPage() {
         </button>
       )}
 
-      {showForm && (
+      {mode === "ai" && showForm && (
         <>
           <div className="mb-1 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-navy">New Event Campaign</h2>
@@ -196,85 +225,85 @@ export default function EventFormPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-        <Field label="Event Title">
-          <input
-            required
-            type="text"
-            value={event.title}
-            onChange={(e) => updateField("title", e.target.value)}
-            className="input"
-            placeholder="Money & Credit: Understanding Your Credit Report"
-          />
-        </Field>
+            <Field label="Event Title">
+              <input
+                required
+                type="text"
+                value={event.title}
+                onChange={(e) => updateField("title", e.target.value)}
+                className="input"
+                placeholder="Money & Credit: Understanding Your Credit Report"
+              />
+            </Field>
 
-        <Field label="Date">
-          <input
-            required
-            type="text"
-            value={event.date}
-            onChange={(e) => updateField("date", e.target.value)}
-            className="input"
-            placeholder="August 15, 2026 at 2:00 PM ET"
-          />
-        </Field>
+            <Field label="Date">
+              <input
+                required
+                type="text"
+                value={event.date}
+                onChange={(e) => updateField("date", e.target.value)}
+                className="input"
+                placeholder="August 15, 2026 at 2:00 PM ET"
+              />
+            </Field>
 
-        <Field label="Speaker">
-          <input
-            required
-            type="text"
-            value={event.speaker}
-            onChange={(e) => updateField("speaker", e.target.value)}
-            className="input"
-            placeholder="WVF Financial Education Team"
-          />
-        </Field>
+            <Field label="Speaker">
+              <input
+                required
+                type="text"
+                value={event.speaker}
+                onChange={(e) => updateField("speaker", e.target.value)}
+                className="input"
+                placeholder="WVF Financial Education Team"
+              />
+            </Field>
 
-        <Field label="Registration Link">
-          <input
-            required
-            type="url"
-            value={event.registration_link}
-            onChange={(e) => updateField("registration_link", e.target.value)}
-            className="input"
-            placeholder="https://www.womenventurefund.org/events/..."
-          />
-        </Field>
+            <Field label="Registration Link">
+              <input
+                required
+                type="url"
+                value={event.registration_link}
+                onChange={(e) => updateField("registration_link", e.target.value)}
+                className="input"
+                placeholder="https://www.womenventurefund.org/events/..."
+              />
+            </Field>
 
-        <Field label="Target Audience">
-          <input
-            required
-            type="text"
-            value={event.audience}
-            onChange={(e) => updateField("audience", e.target.value)}
-            className="input"
-            placeholder="NYC-based women entrepreneurs, Spanish-speaking community welcome"
-          />
-        </Field>
+            <Field label="Target Audience">
+              <input
+                required
+                type="text"
+                value={event.audience}
+                onChange={(e) => updateField("audience", e.target.value)}
+                className="input"
+                placeholder="NYC-based women entrepreneurs, Spanish-speaking community welcome"
+              />
+            </Field>
 
-        <Field label="Description">
-          <textarea
-            required
-            rows={5}
-            value={event.description}
-            onChange={(e) => updateField("description", e.target.value)}
-            className="input"
-            placeholder="Describe the event, what attendees will learn, and any relevant details..."
-          />
-        </Field>
+            <Field label="Description">
+              <textarea
+                required
+                rows={5}
+                value={event.description}
+                onChange={(e) => updateField("description", e.target.value)}
+                className="input"
+                placeholder="Describe the event, what attendees will learn, and any relevant details..."
+              />
+            </Field>
 
-        {error && (
-          <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+            {error && (
+              <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
 
-        <button
-          type="submit"
-          disabled={isGenerating}
-          className="rounded-md bg-navy px-6 py-3 font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isGenerating ? "Generating campaign…" : "Generate Campaign"}
-        </button>
+            <button
+              type="submit"
+              disabled={isGenerating}
+              className="rounded-md bg-navy px-6 py-3 font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isGenerating ? "Generating campaign…" : "Generate Campaign"}
+            </button>
           </form>
         </>
       )}
@@ -396,5 +425,17 @@ function LinkedInMonogramIcon() {
     >
       in
     </span>
+  );
+}
+
+/** Simple sparkle glyph marking the AI-generation tile — not a brand mark,
+ * just a plain hand-drawn shape in the WVF sky-blue so it doesn't compete
+ * visually with the real brand icons beside it. */
+function AiSparkleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" role="img" aria-label="AI Copy" className="h-14 w-14" fill="#6FA8DC">
+      <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" />
+      <path d="M19 14l.9 2.6L22.5 17.5l-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9L19 14z" />
+    </svg>
   );
 }

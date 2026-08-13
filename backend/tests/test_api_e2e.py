@@ -168,6 +168,37 @@ def test_keymakers_stages_endpoint_lists_all_stages(client):
     assert all(isinstance(label, str) and label for label in stages.values())
 
 
+def test_keymakers_stage_detail_returns_real_reference_copy(client):
+    resp = client.get("/api/keymakers-stages/current_clients_follow_up_1")
+    assert resp.status_code == 200
+    detail = resp.json()
+    assert set(detail.keys()) == {
+        "label", "audience", "stage", "send_day", "subject_options", "body",
+    }
+    assert detail["label"] == "Day 4 follow-up — Current WVF Clients"
+    assert detail["audience"] == "Current WVF Clients"
+    assert detail["send_day"] == 4
+    assert "What was your key" in detail["body"]
+    # This stage has subject_options in the source data.
+    assert detail["subject_options"]
+    # send_condition exists in the source dict but isn't part of the
+    # response shape (internal staff sequencing guidance, not display copy).
+    assert "send_condition" not in detail
+
+
+def test_keymakers_stage_detail_omits_subject_options_when_absent(client):
+    # The "initial" stage has no subject_options in the source data.
+    resp = client.get("/api/keymakers-stages/current_clients_initial")
+    assert resp.status_code == 200
+    assert resp.json()["subject_options"] is None
+
+
+def test_keymakers_stage_detail_404s_for_unknown_stage(client):
+    resp = client.get("/api/keymakers-stages/not_a_real_stage")
+    assert resp.status_code == 404
+    assert "not_a_real_stage" in resp.json()["detail"]
+
+
 def test_generate_with_keymakers_stage_key_persists_it_as_newsletter_variant(client):
     payload = {**SAMPLE_EVENT, "keymakers_stage_key": "current_clients_follow_up_1"}
     resp = client.post("/api/generate", json=payload)

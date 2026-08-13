@@ -14,7 +14,7 @@ from app.database import get_db
 from app.models import ContentItem, ContentType, Event
 from app.schemas import ContentItemResponse, EventInput, GeneratedContentResponse, HashtagsOutput, SocialPostVariant
 from app.services.generation import generate_all_content
-from app.services.keymakers_campaign import list_keymakers_stages
+from app.services.keymakers_campaign import get_keymakers_stage, list_keymakers_stages
 from app.services.prompts import list_variants
 
 router = APIRouter(prefix="/api", tags=["generation"])
@@ -62,6 +62,32 @@ def get_keymakers_stages() -> dict[str, str]:
     """List available Keymakers recruitment-campaign stages ({stage_key:
     label}), for the newsletter form's Keymakers toggle dropdown."""
     return list_keymakers_stages()
+
+
+class KeymakersStageDetail(BaseModel):
+    """One Keymakers stage's full real reference copy — for a frontend
+    that renders the message directly (e.g. an instant static-template
+    view), rather than list_keymakers_stages()'s {key: label} dropdown
+    shape or build_newsletter_prompt()'s formatted prompt-injection
+    string."""
+
+    label: str
+    audience: str
+    stage: str
+    send_day: int
+    subject_options: Optional[list[str]] = None
+    body: str
+
+
+@router.get("/keymakers-stages/{stage_key}", response_model=KeymakersStageDetail)
+def get_keymakers_stage_detail(stage_key: str) -> KeymakersStageDetail:
+    """Get one Keymakers stage's full real reference copy (label, audience,
+    subject line options, and body) — the actual WVF campaign message
+    text, for direct display rather than AI generation."""
+    try:
+        return KeymakersStageDetail(**get_keymakers_stage(stage_key))
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 def _recent_variants(db: Session, content_type: ContentType, limit: int) -> list[str]:

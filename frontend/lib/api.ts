@@ -187,3 +187,19 @@ export function listEvents(): Promise<EventWithContentResponse[]> {
 export function listKeymakersStages(): Promise<Record<string, string>> {
   return request<Record<string, string>>("/api/keymakers-stages");
 }
+
+/** One Keymakers stage's full real reference copy (label, audience,
+ * subject line options, body) — the actual WVF campaign message text,
+ * for instant display without an AI generation call. */
+export interface KeymakersStageDetail {
+  label: string;
+  audience: string;
+  stage: string;
+  send_day: number;
+  subject_options: string[] | null;
+  body: string;
+}
+
+export function getKeymakersStageDetail(stageKey: string): Promise<KeymakersStageDetail> {
+  return request<KeymakersStageDetail>(`/api/keymakers-stages/${encodeURIComponent(stageKey)}`);
+}
