@@ -28,8 +28,8 @@ class GenerateRequest(EventInput):
     plus optional generation options, so existing callers posting a bare
     EventInput still work unchanged.
 
-    social_post_platform: optional. When set (instagram/linkedin/facebook),
-    all 3 social post options in the batch stay on that platform, varying
+    social_post_platform: optional. When set (instagram/linkedin/facebook/
+    x/tiktok), all 3 social post options in the batch stay on that platform, varying
     only the opening angle — see generate_social_post_variants(). When
     unset, the 3 options use the fixed tone variants instead. Social posts
     no longer support "avoid_recent"/explicit single-variant selection —

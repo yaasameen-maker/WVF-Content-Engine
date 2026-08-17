@@ -126,8 +126,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
  * SOCIAL_POST_PLATFORM_VARIANTS in prompts.py) — a deliberate staff
  * choice, distinct from tone-variant rotation (standard/listicle/
  * quote_style), which stays random ("generate_new") unless a platform is
- * explicitly picked here. */
-export const SOCIAL_POST_PLATFORMS = ["instagram", "linkedin", "facebook"] as const;
+ * explicitly picked here. instagram/linkedin/facebook are grounded in
+ * real WVF post screenshots; x/tiktok use generic platform conventions
+ * only — no real WVF X/TikTok samples have been reviewed yet. */
+export const SOCIAL_POST_PLATFORMS = ["instagram", "linkedin", "facebook", "x", "tiktok"] as const;
 export type SocialPostPlatform = (typeof SOCIAL_POST_PLATFORMS)[number];
 
 export interface GenerateOptions {

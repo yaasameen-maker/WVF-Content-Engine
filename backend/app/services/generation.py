@@ -455,8 +455,8 @@ async def generate_all_content(
     Generate all content types concurrently.
     This is the main entry point for content generation.
 
-    social_post_platform: when set (instagram/linkedin/facebook — an
-    explicit staff choice, not random), all SOCIAL_POST_VARIANT_COUNT
+    social_post_platform: when set (instagram/linkedin/facebook/x/tiktok —
+    an explicit staff choice, not random), all SOCIAL_POST_VARIANT_COUNT
     social post options in the batch stay on that platform, varying only
     the opening angle (see generate_social_post_variants). When None, the
     batch uses the 3 fixed tone variants instead. Social posts and

@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { siFacebook, siInstagram } from "simple-icons";
+import { siFacebook, siInstagram, siTiktok, siX } from "simple-icons";
 import {
   generateContent,
   getKeymakersStageDetail,
   listKeymakersStages,
+  SOCIAL_POST_PLATFORMS,
   type EventInput,
   type KeymakersStageDetail,
+  type SocialPostPlatform,
 } from "@/lib/api";
 
 const EMPTY_EVENT: EventInput = {
@@ -20,12 +22,30 @@ const EMPTY_EVENT: EventInput = {
   description: "",
 };
 
-/** Which tile is selected. Instagram/LinkedIn/Facebook are placeholders
- * until real static sample posts are available (see PlatformToggleButton
- * disabled state below) — "keymakers" shows real WVF reference copy
- * instantly, no AI call; "ai" reveals the event-form → Generate Campaign
- * flow, platform-agnostic. */
-type Mode = "instagram" | "linkedin" | "facebook" | "keymakers" | "ai" | null;
+const PLATFORM_LABELS: Record<SocialPostPlatform, string> = {
+  instagram: "Instagram",
+  linkedin: "LinkedIn",
+  facebook: "Facebook",
+  x: "X",
+  tiktok: "TikTok",
+};
+
+/** Platforms whose AI Copy style is grounded in real reviewed WVF posts —
+ * x/tiktok are deliberately excluded (generic conventions only, no real
+ * WVF samples reviewed yet). Drives the wording of the AI Copy sub-note. */
+const REAL_SAMPLE_GROUNDED_PLATFORMS: SocialPostPlatform[] = ["instagram", "linkedin", "facebook"];
+
+/** Which tile is selected. "keymakers" shows real WVF reference copy
+ * instantly, no AI call. instagram/linkedin/facebook reveal a sub-choice
+ * (AI Copy — real today, tailored to that platform's style — or Fixed
+ * template — not yet available, no real WVF sample posts exist to show
+ * without fabricating content). "ai" reveals the event-form → Generate
+ * Campaign flow, platform-agnostic. */
+type Mode = SocialPostPlatform | "keymakers" | "ai" | null;
+
+/** Once a platform tile is selected, which of the two sub-options (if
+ * any) is active. Reset whenever the platform tile changes. */
+type PlatformSubMode = "ai" | "fixed" | null;
 
 export default function EventFormPage() {
   const router = useRouter();
@@ -35,6 +55,7 @@ export default function EventFormPage() {
   const [showForm, setShowForm] = useState(false);
 
   const [mode, setMode] = useState<Mode>(null);
+  const [platformSubMode, setPlatformSubMode] = useState<PlatformSubMode>(null);
 
   const [keymakersStages, setKeymakersStages] = useState<Record<string, string> | null>(null);
   const [keymakersStageKey, setKeymakersStageKey] = useState("");
@@ -74,7 +95,14 @@ export default function EventFormPage() {
 
   function selectMode(next: Mode) {
     setMode((prev) => (prev === next ? null : next));
+    setPlatformSubMode(null);
+    setShowForm(false);
   }
+
+  const activePlatform: SocialPostPlatform | null =
+    mode && (SOCIAL_POST_PLATFORMS as readonly string[]).includes(mode)
+      ? (mode as SocialPostPlatform)
+      : null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -82,11 +110,18 @@ export default function EventFormPage() {
     setIsGenerating(true);
 
     try {
-      const result = await generateContent(event);
+      const result = await generateContent(
+        event,
+        activePlatform ? { socialPostPlatform: activePlatform } : undefined
+      );
       sessionStorage.setItem("wvf_generated_content", JSON.stringify(result));
       sessionStorage.setItem("wvf_source_event", JSON.stringify(event));
       sessionStorage.removeItem("wvf_keymakers_stage_label");
-      sessionStorage.removeItem("wvf_social_post_platform_label");
+      if (activePlatform) {
+        sessionStorage.setItem("wvf_social_post_platform_label", PLATFORM_LABELS[activePlatform]);
+      } else {
+        sessionStorage.removeItem("wvf_social_post_platform_label");
+      }
       router.push("/review");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong generating content.");
@@ -109,22 +144,33 @@ export default function EventFormPage() {
             label="Instagram"
             active={mode === "instagram"}
             onClick={() => selectMode("instagram")}
-            disabled
             icon={<BrandSvgIcon icon={siInstagram} fill={`url(#${IG_GRADIENT_ID})`} />}
           />
           <PlatformToggleButton
             label="LinkedIn"
             active={mode === "linkedin"}
             onClick={() => selectMode("linkedin")}
-            disabled
             icon={<LinkedInMonogramIcon />}
           />
           <PlatformToggleButton
             label="Facebook"
             active={mode === "facebook"}
             onClick={() => selectMode("facebook")}
-            disabled
             icon={<BrandSvgIcon icon={siFacebook} fill={`#${siFacebook.hex}`} />}
+          />
+          <PlatformToggleButton
+            label="X"
+            active={mode === "x"}
+            onClick={() => selectMode("x")}
+            icon={<BrandSvgIcon icon={siX} fill={mode === "x" ? "#FFFFFF" : `#${siX.hex}`} />}
+          />
+          <PlatformToggleButton
+            label="TikTok"
+            active={mode === "tiktok"}
+            onClick={() => selectMode("tiktok")}
+            icon={
+              <BrandSvgIcon icon={siTiktok} fill={mode === "tiktok" ? "#FFFFFF" : `#${siTiktok.hex}`} />
+            }
           />
           <PlatformToggleButton
             label="Keymakers Copy"
@@ -144,10 +190,60 @@ export default function EventFormPage() {
           />
         </div>
 
-        <p className="mt-2 text-xs text-gray-500">
-          Instagram, LinkedIn, and Facebook static templates are coming soon — use AI Copy for a
-          platform-tailored post in the meantime.
-        </p>
+        {activePlatform && (
+          <div className="mt-4 max-w-xl">
+            <span className="mb-2 block text-sm font-medium text-navy">
+              {PLATFORM_LABELS[activePlatform]}: how do you want to start?
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPlatformSubMode("ai");
+                  setShowForm(false);
+                }}
+                className={`rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
+                  platformSubMode === "ai"
+                    ? "border-navy bg-navy text-white"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-sky-blue hover:text-navy"
+                }`}
+              >
+                AI Copy
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlatformSubMode("fixed");
+                  setShowForm(false);
+                }}
+                className={`rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
+                  platformSubMode === "fixed"
+                    ? "border-navy bg-navy text-white"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-sky-blue hover:text-navy"
+                }`}
+              >
+                Fixed template
+              </button>
+            </div>
+
+            {platformSubMode === "ai" && (
+              <p className="mt-2 text-xs text-gray-500">
+                {REAL_SAMPLE_GROUNDED_PLATFORMS.includes(activePlatform)
+                  ? `Social post caption will be tailored to ${PLATFORM_LABELS[activePlatform]}'s real WVF style (grounded in real WVF posts).`
+                  : `Social post caption will follow general ${PLATFORM_LABELS[activePlatform]} conventions — not yet grounded in real WVF ${PLATFORM_LABELS[activePlatform]} posts, since none have been reviewed for this platform.`}
+                {" "}Fill in event details below and click Generate Campaign.
+              </p>
+            )}
+
+            {platformSubMode === "fixed" && (
+              <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                A fixed (non-AI) {PLATFORM_LABELS[activePlatform]} template isn&apos;t available yet —
+                real sample WVF {PLATFORM_LABELS[activePlatform]} posts are needed to build one, so this
+                doesn&apos;t show fabricated content in WVF&apos;s name. Use AI Copy in the meantime.
+              </div>
+            )}
+          </div>
+        )}
 
         {mode === "keymakers" && (
           <div className="mt-4 max-w-2xl">
@@ -198,7 +294,7 @@ export default function EventFormPage() {
         )}
       </div>
 
-      {mode === "ai" && !showForm && (
+      {(mode === "ai" || platformSubMode === "ai") && !showForm && (
         <button
           type="button"
           onClick={() => setShowForm(true)}
@@ -208,7 +304,7 @@ export default function EventFormPage() {
         </button>
       )}
 
-      {mode === "ai" && showForm && (
+      {(mode === "ai" || platformSubMode === "ai") && showForm && (
         <>
           <div className="mb-1 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-navy">New Event Campaign</h2>

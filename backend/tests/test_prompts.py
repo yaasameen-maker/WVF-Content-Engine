@@ -100,3 +100,29 @@ def test_random_variant_selection_never_picks_a_platform_variant():
 def test_explicit_platform_selection_still_works_despite_random_pool_exclusion():
     for platform in SOCIAL_POST_PLATFORM_VARIANTS:
         assert resolve_variant("social_post", platform) == platform
+
+
+def test_x_and_tiktok_variants_do_not_claim_real_wvf_observation():
+    """X and TikTok, unlike instagram/linkedin/facebook, have no real WVF
+    sample posts behind them yet — their own structural instructions
+    (SOCIAL_POST_VARIANTS[platform]["instructions"]) must not claim
+    "real"/"observed" WVF style the way the other three correctly do,
+    since that would misrepresent generic platform conventions as
+    verified brand voice."""
+    from app.services.prompts import SOCIAL_POST_VARIANTS
+
+    for platform in ("x", "tiktok"):
+        instructions = SOCIAL_POST_VARIANTS[platform]["instructions"].lower()
+        assert "real" not in instructions and "observed" not in instructions, (
+            f"{platform} instructions should not claim real/observed WVF style"
+        )
+        assert "not yet grounded" in instructions or "general" in instructions, (
+            f"{platform} instructions should be explicit about being generic, not WVF-specific"
+        )
+
+
+def test_x_and_tiktok_variants_include_event_details():
+    for platform in ("x", "tiktok"):
+        prompt = build_social_post_prompt(SAMPLE_EVENT, variant=platform)
+        assert SAMPLE_EVENT.title in prompt
+        assert SAMPLE_EVENT.registration_link in prompt

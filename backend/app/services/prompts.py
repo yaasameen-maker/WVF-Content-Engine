@@ -73,12 +73,39 @@ SOCIAL_POST_VARIANTS: dict[str, dict[str, str]] = {
 - This is the one platform where heavier emoji use matches WVF's real voice — do not sparingly use emojis here
 - Total caption can run longer than Instagram/LinkedIn — up to 180 words, matching WVF's real Facebook post length""",
     },
+    # --- X and TikTok below ---
+    # UNLIKE instagram/linkedin/facebook above, these are NOT grounded in
+    # real observed WVF posts on these platforms — no WVF X or TikTok
+    # samples have been reviewed yet. These are general platform
+    # conventions only. Do not describe this as "WVF's real X/TikTok
+    # style" anywhere (prompt copy or frontend UI) until real samples are
+    # provided and this comment is updated — see instagram/linkedin/
+    # facebook above for what that grounding looks like once available.
+    "x": {
+        "label": "X",
+        "instructions": """- Short and punchy — X rewards brevity; keep the full caption well under 280 characters
+- Lead with the single most compelling fact or hook, no preamble
+- 1 short sentence of context at most
+- End with a brief, direct CTA
+- General platform convention, not yet grounded in reviewed WVF X posts""",
+    },
+    "tiktok": {
+        "label": "TikTok",
+        "instructions": """- Written as a caption accompanying a short video, not a standalone post — assume a video carries the main message
+- Open with a hook line written for a scroll-stopping moment, casual tone
+- Keep it short — a line or two, not a paragraph
+- End with a brief CTA
+- General platform convention, not yet grounded in reviewed WVF TikTok posts""",
+    },
 }
 
 # Platform-keyed variants specifically — for a frontend "which platform"
 # selector, distinct from the tone-keyed variants (standard/listicle/
-# quote_style) which apply within any platform.
-SOCIAL_POST_PLATFORM_VARIANTS = ("instagram", "linkedin", "facebook")
+# quote_style) which apply within any platform. instagram/linkedin/
+# facebook are grounded in real WVF post screenshots; x/tiktok are
+# generic conventions only — see the comment above the "x" entry in
+# SOCIAL_POST_VARIANTS.
+SOCIAL_POST_PLATFORM_VARIANTS = ("instagram", "linkedin", "facebook", "x", "tiktok")
 
 
 # Used only when generating a 3-variant batch on a single, explicitly
