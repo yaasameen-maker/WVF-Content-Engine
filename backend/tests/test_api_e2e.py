@@ -199,6 +199,38 @@ def test_keymakers_stage_detail_404s_for_unknown_stage(client):
     assert "not_a_real_stage" in resp.json()["detail"]
 
 
+def test_instagram_templates_endpoint_lists_all_templates(client):
+    resp = client.get("/api/instagram-templates")
+    assert resp.status_code == 200
+    templates = resp.json()
+    assert len(templates) == 10
+    # Every value is a non-empty label, for a picker UI.
+    assert all(isinstance(label, str) and label for label in templates.values())
+
+
+def test_instagram_template_detail_returns_real_post_content(client):
+    resp = client.get("/api/instagram-templates/money_credit_webinar")
+    assert resp.status_code == 200
+    detail = resp.json()
+    assert set(detail.keys()) == {"label", "category", "caption", "hashtags"}
+    assert detail["category"] == "event_promo"
+    assert "Ready to make 2027 your year" in detail["caption"]
+    assert "#WomensVentureFund" in detail["hashtags"]
+
+
+def test_instagram_template_detail_handles_empty_hashtags(client):
+    # Several real posts (e.g. quote cards) had no hashtags in the source.
+    resp = client.get("/api/instagram-templates/tribe_of_women_quote")
+    assert resp.status_code == 200
+    assert resp.json()["hashtags"] == []
+
+
+def test_instagram_template_detail_404s_for_unknown_template(client):
+    resp = client.get("/api/instagram-templates/not_a_real_template")
+    assert resp.status_code == 404
+    assert "not_a_real_template" in resp.json()["detail"]
+
+
 def test_generate_with_keymakers_stage_key_persists_it_as_newsletter_variant(client):
     payload = {**SAMPLE_EVENT, "keymakers_stage_key": "current_clients_follow_up_1"}
     resp = client.post("/api/generate", json=payload)

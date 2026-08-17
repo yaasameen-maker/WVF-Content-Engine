@@ -14,6 +14,7 @@ from app.database import get_db
 from app.models import ContentItem, ContentType, Event
 from app.schemas import ContentItemResponse, EventInput, GeneratedContentResponse, HashtagsOutput, SocialPostVariant
 from app.services.generation import generate_all_content
+from app.services.instagram_templates import get_instagram_template, list_instagram_templates
 from app.services.keymakers_campaign import get_keymakers_stage, list_keymakers_stages
 from app.services.prompts import list_variants
 
@@ -86,6 +87,33 @@ def get_keymakers_stage_detail(stage_key: str) -> KeymakersStageDetail:
     text, for direct display rather than AI generation."""
     try:
         return KeymakersStageDetail(**get_keymakers_stage(stage_key))
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/instagram-templates")
+def get_instagram_templates() -> dict[str, str]:
+    """List available real Instagram post templates ({template_key:
+    label}), for the event form's Instagram Fixed-template picker."""
+    return list_instagram_templates()
+
+
+class InstagramTemplateDetail(BaseModel):
+    """One real Instagram template's full content — for a frontend that
+    renders it directly (Fixed template mode), no AI call involved."""
+
+    label: str
+    category: str
+    caption: str
+    hashtags: list[str]
+
+
+@router.get("/instagram-templates/{template_key}", response_model=InstagramTemplateDetail)
+def get_instagram_template_detail(template_key: str) -> InstagramTemplateDetail:
+    """Get one real, published WVF Instagram post's full caption and
+    hashtags — for direct display/editing rather than AI generation."""
+    try:
+        return InstagramTemplateDetail(**get_instagram_template(template_key))
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

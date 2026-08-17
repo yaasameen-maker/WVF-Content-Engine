@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { siFacebook, siInstagram, siTiktok, siX } from "simple-icons";
 import {
   generateContent,
+  getInstagramTemplateDetail,
   getKeymakersStageDetail,
+  listInstagramTemplates,
   listKeymakersStages,
   SOCIAL_POST_PLATFORMS,
   type EventInput,
+  type InstagramTemplateDetail,
   type KeymakersStageDetail,
   type SocialPostPlatform,
 } from "@/lib/api";
@@ -62,6 +65,13 @@ export default function EventFormPage() {
   const [keymakersDetail, setKeymakersDetail] = useState<KeymakersStageDetail | null>(null);
   const [keymakersDetailError, setKeymakersDetailError] = useState<string | null>(null);
 
+  const [instagramTemplates, setInstagramTemplates] = useState<Record<string, string> | null>(null);
+  const [instagramTemplateKey, setInstagramTemplateKey] = useState("");
+  const [instagramTemplateDetail, setInstagramTemplateDetail] = useState<InstagramTemplateDetail | null>(
+    null
+  );
+  const [instagramTemplateError, setInstagramTemplateError] = useState<string | null>(null);
+
   useEffect(() => {
     listKeymakersStages()
       .then((stages) => {
@@ -73,6 +83,20 @@ export default function EventFormPage() {
         // Non-fatal: the tile just won't be usable if this fails (e.g.
         // backend not running). AI generation still works independently.
         setKeymakersStages({});
+      });
+  }, []);
+
+  useEffect(() => {
+    listInstagramTemplates()
+      .then((templates) => {
+        setInstagramTemplates(templates);
+        const firstKey = Object.keys(templates)[0];
+        if (firstKey) setInstagramTemplateKey(firstKey);
+      })
+      .catch(() => {
+        // Non-fatal: Fixed template just won't be usable if this fails —
+        // AI Copy still works independently.
+        setInstagramTemplates({});
       });
   }, []);
 
@@ -88,6 +112,19 @@ export default function EventFormPage() {
         setKeymakersDetailError(err instanceof Error ? err.message : "Failed to load this message.")
       );
   }, [mode, keymakersStageKey]);
+
+  // Fetch the real Instagram post template whenever "Fixed template" is
+  // selected for the Instagram tile and a template is chosen — instant
+  // reference content, not an AI generation call.
+  useEffect(() => {
+    if (mode !== "instagram" || platformSubMode !== "fixed" || !instagramTemplateKey) return;
+    setInstagramTemplateError(null);
+    getInstagramTemplateDetail(instagramTemplateKey)
+      .then(setInstagramTemplateDetail)
+      .catch((err) =>
+        setInstagramTemplateError(err instanceof Error ? err.message : "Failed to load this template.")
+      );
+  }, [mode, platformSubMode, instagramTemplateKey]);
 
   function updateField(field: keyof EventInput, value: string) {
     setEvent((prev) => ({ ...prev, [field]: value }));
@@ -136,10 +173,11 @@ export default function EventFormPage() {
     <div>
       <InstagramGradientDef />
       <div className="mb-6">
-        <span className="mb-2 block text-sm font-medium text-navy">
-          Choose a real WVF template, or use AI to generate new copy
-        </span>
-        <div className="flex flex-wrap gap-3">
+        <h2 className="mb-1 text-lg font-bold text-navy">1. Choose a platform</h2>
+        <p className="mb-4 text-sm text-gray-600">
+          Pick a platform, then choose a real WVF template or generate new AI copy for it.
+        </p>
+        <div className="flex flex-wrap gap-4">
           <PlatformToggleButton
             label="Instagram"
             active={mode === "instagram"}
@@ -191,10 +229,10 @@ export default function EventFormPage() {
         </div>
 
         {activePlatform && (
-          <div className="mt-4 max-w-xl">
-            <span className="mb-2 block text-sm font-medium text-navy">
-              {PLATFORM_LABELS[activePlatform]}: how do you want to start?
-            </span>
+          <div className="mt-5 max-w-2xl rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+            <h3 className="mb-3 text-base font-bold text-navy">
+              2. {PLATFORM_LABELS[activePlatform]}: how do you want to start?
+            </h3>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -208,7 +246,7 @@ export default function EventFormPage() {
                     : "border-gray-200 bg-white text-gray-600 hover:border-sky-blue hover:text-navy"
                 }`}
               >
-                AI Copy
+                AI Copy + AI Hashtags
               </button>
               <button
                 type="button"
@@ -227,16 +265,71 @@ export default function EventFormPage() {
             </div>
 
             {platformSubMode === "ai" && (
-              <p className="mt-2 text-xs text-gray-500">
-                {REAL_SAMPLE_GROUNDED_PLATFORMS.includes(activePlatform)
-                  ? `Social post caption will be tailored to ${PLATFORM_LABELS[activePlatform]}'s real WVF style (grounded in real WVF posts).`
-                  : `Social post caption will follow general ${PLATFORM_LABELS[activePlatform]} conventions — not yet grounded in real WVF ${PLATFORM_LABELS[activePlatform]} posts, since none have been reviewed for this platform.`}
-                {" "}Fill in event details below and click Generate Campaign.
-              </p>
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-gray-500">
+                  <span className="font-semibold text-navy">AI Copy:</span>{" "}
+                  {REAL_SAMPLE_GROUNDED_PLATFORMS.includes(activePlatform)
+                    ? `a new caption tailored to ${PLATFORM_LABELS[activePlatform]}'s real WVF style (grounded in real WVF posts).`
+                    : `a new caption following general ${PLATFORM_LABELS[activePlatform]} conventions — not yet grounded in real WVF ${PLATFORM_LABELS[activePlatform]} posts, since none have been reviewed for this platform.`}
+                </p>
+                <p className="text-xs text-gray-500">
+                  <span className="font-semibold text-navy">AI Hashtags:</span> a matching hashtag set,
+                  generated alongside the caption — you&apos;ll get 3 caption + hashtag pairs to compare
+                  on the review page.
+                </p>
+                <p className="text-xs text-gray-500">
+                  Fill in event details below and click Generate Campaign.
+                </p>
+              </div>
             )}
 
-            {platformSubMode === "fixed" && (
-              <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {platformSubMode === "fixed" && activePlatform === "instagram" && (
+              <div className="mt-3">
+                {instagramTemplateError && (
+                  <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {instagramTemplateError}
+                  </div>
+                )}
+                <span className="mb-1 block text-sm font-medium text-navy">
+                  Which real Instagram post?
+                </span>
+                <select
+                  value={instagramTemplateKey}
+                  onChange={(e) => setInstagramTemplateKey(e.target.value)}
+                  className="input"
+                >
+                  {Object.entries(instagramTemplates ?? {}).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+
+                {instagramTemplateDetail && !instagramTemplateError && (
+                  <div className="mt-3 rounded-lg border border-gray-200 shadow-sm">
+                    <div className="rounded-t-lg bg-navy px-5 py-3">
+                      <h3 className="font-semibold text-white">{instagramTemplateDetail.label}</h3>
+                    </div>
+                    <div className="space-y-3 px-5 py-4">
+                      <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
+                        {instagramTemplateDetail.caption}
+                      </pre>
+                      {instagramTemplateDetail.hashtags.length > 0 && (
+                        <p className="text-sm text-sky-blue">
+                          {instagramTemplateDetail.hashtags.join(" ")}
+                        </p>
+                      )}
+                      <p className="text-xs font-semibold text-amber-700">
+                        Real, previously-published WVF Instagram post — edit as needed before reuse.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {platformSubMode === "fixed" && activePlatform !== "instagram" && (
+              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 A fixed (non-AI) {PLATFORM_LABELS[activePlatform]} template isn&apos;t available yet —
                 real sample WVF {PLATFORM_LABELS[activePlatform]} posts are needed to build one, so this
                 doesn&apos;t show fabricated content in WVF&apos;s name. Use AI Copy in the meantime.
@@ -450,13 +543,13 @@ function PlatformToggleButton({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
-      className={`flex flex-col items-center gap-3 rounded-xl border-2 px-9 py-6 text-base font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`flex flex-col items-center gap-3 rounded-xl border-2 px-10 py-7 text-lg font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
         active
           ? "border-navy bg-navy text-white"
           : "border-gray-200 bg-white text-gray-600 hover:border-sky-blue hover:text-navy"
       }`}
     >
-      <span className="flex h-14 w-14 items-center justify-center">{icon}</span>
+      <span className="flex h-16 w-16 items-center justify-center">{icon}</span>
       {label}
     </button>
   );
@@ -476,7 +569,7 @@ function BrandSvgIcon({
   fill: string;
 }) {
   return (
-    <svg viewBox="0 0 24 24" role="img" aria-label={icon.title} className="h-14 w-14" fill={fill}>
+    <svg viewBox="0 0 24 24" role="img" aria-label={icon.title} className="h-16 w-16" fill={fill}>
       <path d={icon.path} />
     </svg>
   );
@@ -517,7 +610,7 @@ function LinkedInMonogramIcon() {
     <span
       aria-label="LinkedIn"
       style={{ backgroundColor: "#0A66C2", color: "#FFFFFF" }}
-      className="flex h-14 w-14 items-center justify-center rounded-lg text-2xl font-bold leading-none"
+      className="flex h-16 w-16 items-center justify-center rounded-lg text-2xl font-bold leading-none"
     >
       in
     </span>
@@ -529,7 +622,7 @@ function LinkedInMonogramIcon() {
  * visually with the real brand icons beside it. */
 function AiSparkleIcon() {
   return (
-    <svg viewBox="0 0 24 24" role="img" aria-label="AI Copy" className="h-14 w-14" fill="#6FA8DC">
+    <svg viewBox="0 0 24 24" role="img" aria-label="AI Copy" className="h-16 w-16" fill="#6FA8DC">
       <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" />
       <path d="M19 14l.9 2.6L22.5 17.5l-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9L19 14z" />
     </svg>

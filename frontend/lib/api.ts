@@ -205,3 +205,20 @@ export interface KeymakersStageDetail {
 export function getKeymakersStageDetail(stageKey: string): Promise<KeymakersStageDetail> {
   return request<KeymakersStageDetail>(`/api/keymakers-stages/${encodeURIComponent(stageKey)}`);
 }
+
+export function listInstagramTemplates(): Promise<Record<string, string>> {
+  return request<Record<string, string>>("/api/instagram-templates");
+}
+
+/** One real, published WVF Instagram post's full caption and hashtags —
+ * for instant display/editing without an AI generation call. */
+export interface InstagramTemplateDetail {
+  label: string;
+  category: string;
+  caption: string;
+  hashtags: string[];
+}
+
+export function getInstagramTemplateDetail(templateKey: string): Promise<InstagramTemplateDetail> {
+  return request<InstagramTemplateDetail>(`/api/instagram-templates/${encodeURIComponent(templateKey)}`);
+}
