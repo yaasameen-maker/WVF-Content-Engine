@@ -91,21 +91,22 @@ async def generate_social_post(client: anthropic.Anthropic, prompt: str) -> Soci
         "create_social_post",
         "Create a WVF-branded social media post with caption, hashtags, image prompt, and CTA"
     )
-    
+
     # Use asyncio.to_thread to run sync API call in executor
     response = await asyncio.to_thread(
         client.messages.create,
         model="claude-sonnet-5",
         max_tokens=2048,
         tools=[tool],
+        tool_choice={"type": "tool", "name": tool["name"]},
         messages=[{"role": "user", "content": prompt}],
     )
-    
+
     # Extract tool use from response
     tool_use_block = next((block for block in response.content if block.type == "tool_use"), None)
     if not tool_use_block:
         raise ValueError("Claude did not return a tool use block")
-    
+
     return SocialPostOutput(**tool_use_block.input)
 
 
@@ -116,15 +117,16 @@ async def generate_hashtags(client: anthropic.Anthropic, prompt: str) -> Hashtag
         "recommend_hashtags",
         "Recommend primary brand hashtags and topic-specific hashtags for the event"
     )
-    
+
     response = await asyncio.to_thread(
         client.messages.create,
         model="claude-sonnet-5",
         max_tokens=1024,
         tools=[tool],
+        tool_choice={"type": "tool", "name": tool["name"]},
         messages=[{"role": "user", "content": prompt}],
     )
-    
+
     tool_use_block = next((block for block in response.content if block.type == "tool_use"), None)
     if not tool_use_block:
         raise ValueError("Claude did not return a tool use block")
@@ -207,13 +209,14 @@ async def generate_newsletter(client: anthropic.Anthropic, prompt: str) -> Newsl
         model="claude-sonnet-5",
         max_tokens=2048,
         tools=[tool],
+        tool_choice={"type": "tool", "name": tool["name"]},
         messages=[{"role": "user", "content": prompt}],
     )
-    
+
     tool_use_block = next((block for block in response.content if block.type == "tool_use"), None)
     if not tool_use_block:
         raise ValueError("Claude did not return a tool use block")
-    
+
     return NewsletterOutput(**tool_use_block.input)
 
 
@@ -230,6 +233,7 @@ async def generate_flyer(client: anthropic.Anthropic, prompt: str) -> FlyerOutpu
         model="claude-sonnet-5",
         max_tokens=1024,
         tools=[tool],
+        tool_choice={"type": "tool", "name": tool["name"]},
         messages=[{"role": "user", "content": prompt}],
     )
 
@@ -253,6 +257,7 @@ async def generate_calendar(client: anthropic.Anthropic, prompt: str) -> Content
         model="claude-sonnet-5",
         max_tokens=4096,
         tools=[tool],
+        tool_choice={"type": "tool", "name": tool["name"]},
         messages=[{"role": "user", "content": prompt}],
     )
 
@@ -275,6 +280,7 @@ async def generate_feature_article(client: anthropic.Anthropic, prompt: str) -> 
         model="claude-sonnet-5",
         max_tokens=2048,
         tools=[tool],
+        tool_choice={"type": "tool", "name": tool["name"]},
         messages=[{"role": "user", "content": prompt}],
     )
     tool_use_block = next((block for block in response.content if block.type == "tool_use"), None)
@@ -295,6 +301,7 @@ async def generate_events_list(client: anthropic.Anthropic, prompt: str) -> Even
         model="claude-sonnet-5",
         max_tokens=1024,
         tools=[tool],
+        tool_choice={"type": "tool", "name": tool["name"]},
         messages=[{"role": "user", "content": prompt}],
     )
     tool_use_block = next((block for block in response.content if block.type == "tool_use"), None)
@@ -315,6 +322,7 @@ async def generate_grant_flyer(client: anthropic.Anthropic, prompt: str) -> Gran
         model="claude-sonnet-5",
         max_tokens=1024,
         tools=[tool],
+        tool_choice={"type": "tool", "name": tool["name"]},
         messages=[{"role": "user", "content": prompt}],
     )
     tool_use_block = next((block for block in response.content if block.type == "tool_use"), None)
@@ -335,6 +343,7 @@ async def generate_tips_cta(client: anthropic.Anthropic, prompt: str) -> TipsCta
         model="claude-sonnet-5",
         max_tokens=1024,
         tools=[tool],
+        tool_choice={"type": "tool", "name": tool["name"]},
         messages=[{"role": "user", "content": prompt}],
     )
     tool_use_block = next((block for block in response.content if block.type == "tool_use"), None)
@@ -355,6 +364,7 @@ async def generate_member_spotlight(client: anthropic.Anthropic, prompt: str) ->
         model="claude-sonnet-5",
         max_tokens=1536,
         tools=[tool],
+        tool_choice={"type": "tool", "name": tool["name"]},
         messages=[{"role": "user", "content": prompt}],
     )
     tool_use_block = next((block for block in response.content if block.type == "tool_use"), None)
@@ -375,6 +385,7 @@ async def generate_boilerplate(client: anthropic.Anthropic, prompt: str) -> Boil
         model="claude-sonnet-5",
         max_tokens=512,
         tools=[tool],
+        tool_choice={"type": "tool", "name": tool["name"]},
         messages=[{"role": "user", "content": prompt}],
     )
     tool_use_block = next((block for block in response.content if block.type == "tool_use"), None)
