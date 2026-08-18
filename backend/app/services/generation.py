@@ -95,7 +95,7 @@ async def generate_social_post(client: anthropic.Anthropic, prompt: str) -> Soci
     # Use asyncio.to_thread to run sync API call in executor
     response = await asyncio.to_thread(
         client.messages.create,
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
         max_tokens=2048,
         tools=[tool],
         messages=[{"role": "user", "content": prompt}],
@@ -119,7 +119,7 @@ async def generate_hashtags(client: anthropic.Anthropic, prompt: str) -> Hashtag
     
     response = await asyncio.to_thread(
         client.messages.create,
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
         max_tokens=1024,
         tools=[tool],
         messages=[{"role": "user", "content": prompt}],
@@ -204,7 +204,7 @@ async def generate_newsletter(client: anthropic.Anthropic, prompt: str) -> Newsl
     
     response = await asyncio.to_thread(
         client.messages.create,
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
         max_tokens=2048,
         tools=[tool],
         messages=[{"role": "user", "content": prompt}],
@@ -227,7 +227,7 @@ async def generate_flyer(client: anthropic.Anthropic, prompt: str) -> FlyerOutpu
 
     response = await asyncio.to_thread(
         client.messages.create,
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
         max_tokens=1024,
         tools=[tool],
         messages=[{"role": "user", "content": prompt}],
@@ -250,7 +250,7 @@ async def generate_calendar(client: anthropic.Anthropic, prompt: str) -> Content
 
     response = await asyncio.to_thread(
         client.messages.create,
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
         max_tokens=4096,
         tools=[tool],
         messages=[{"role": "user", "content": prompt}],
@@ -272,7 +272,7 @@ async def generate_feature_article(client: anthropic.Anthropic, prompt: str) -> 
     )
     response = await asyncio.to_thread(
         client.messages.create,
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
         max_tokens=2048,
         tools=[tool],
         messages=[{"role": "user", "content": prompt}],
@@ -292,7 +292,7 @@ async def generate_events_list(client: anthropic.Anthropic, prompt: str) -> Even
     )
     response = await asyncio.to_thread(
         client.messages.create,
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
         max_tokens=1024,
         tools=[tool],
         messages=[{"role": "user", "content": prompt}],
@@ -312,7 +312,7 @@ async def generate_grant_flyer(client: anthropic.Anthropic, prompt: str) -> Gran
     )
     response = await asyncio.to_thread(
         client.messages.create,
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
         max_tokens=1024,
         tools=[tool],
         messages=[{"role": "user", "content": prompt}],
@@ -332,7 +332,7 @@ async def generate_tips_cta(client: anthropic.Anthropic, prompt: str) -> TipsCta
     )
     response = await asyncio.to_thread(
         client.messages.create,
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
         max_tokens=1024,
         tools=[tool],
         messages=[{"role": "user", "content": prompt}],
@@ -352,7 +352,7 @@ async def generate_member_spotlight(client: anthropic.Anthropic, prompt: str) ->
     )
     response = await asyncio.to_thread(
         client.messages.create,
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
         max_tokens=1536,
         tools=[tool],
         messages=[{"role": "user", "content": prompt}],
@@ -372,7 +372,7 @@ async def generate_boilerplate(client: anthropic.Anthropic, prompt: str) -> Boil
     )
     response = await asyncio.to_thread(
         client.messages.create,
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
         max_tokens=512,
         tools=[tool],
         messages=[{"role": "user", "content": prompt}],
