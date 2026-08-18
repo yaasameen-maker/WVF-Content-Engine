@@ -532,7 +532,7 @@ Your task: Build a {weeks}-week content calendar promoting this event:
 - Rotate across platforms (Instagram, LinkedIn, Facebook) — vary which platform each entry targets
 - Vary the angle per entry: initial announcement, speaker spotlight, benefit/testimonial-style, reminder/urgency, day-of post
 - Each entry needs its own short post idea, hashtags, and CTA — don't repeat the same post verbatim across entries
-- Label each entry clearly (e.g. "Week 1, Monday")
+- Set day_label to a clear week/day identifier, e.g. "Week 1, Monday" (this is the exact field name in the schema — use day_label, not label)
 
 Return structured JSON matching the ContentCalendarOutput schema, with `weeks` set to {weeks}."""
 
