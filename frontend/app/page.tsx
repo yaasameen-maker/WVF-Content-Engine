@@ -39,16 +39,24 @@ const PLATFORM_LABELS: Record<SocialPostPlatform, string> = {
 const REAL_SAMPLE_GROUNDED_PLATFORMS: SocialPostPlatform[] = ["instagram", "linkedin", "facebook"];
 
 /** Which tile is selected. "keymakers" shows real WVF reference copy
- * instantly, no AI call. instagram/linkedin/facebook reveal a sub-choice
- * (AI Copy — real today, tailored to that platform's style — or Fixed
- * template — not yet available, no real WVF sample posts exist to show
- * without fabricating content). "ai" reveals the event-form → Generate
- * Campaign flow, platform-agnostic. */
+ * instantly, no AI call. instagram/linkedin/facebook/x/tiktok reveal a
+ * sub-choice (AI Copy — tailored to that platform's style where real
+ * samples exist — or Fixed template). "ai" reveals the event-form →
+ * Generate Campaign flow directly, platform-agnostic — used by the Email
+ * Copy section's "AI Generate" button (Keymakers-flavored generation is
+ * driven by keymakersStageKey, not by a platform selection). */
 type Mode = SocialPostPlatform | "keymakers" | "ai" | null;
 
 /** Once a platform tile is selected, which of the two sub-options (if
  * any) is active. Reset whenever the platform tile changes. */
 type PlatformSubMode = "ai" | "fixed" | null;
+
+/** Whether the Social Media Copy section's standalone "AI Generate"
+ * platform-picker list is open — a second entry point into the same AI
+ * flow as clicking a platform tile's "AI Copy" sub-choice, for when
+ * staff want to jump straight to picking a platform without first
+ * opening a specific tile. */
+type SocialAiPickerState = "closed" | "choosing_platform";
 
 export default function EventFormPage() {
   const router = useRouter();
@@ -59,6 +67,7 @@ export default function EventFormPage() {
 
   const [mode, setMode] = useState<Mode>(null);
   const [platformSubMode, setPlatformSubMode] = useState<PlatformSubMode>(null);
+  const [socialAiPicker, setSocialAiPicker] = useState<SocialAiPickerState>("closed");
 
   const [keymakersStages, setKeymakersStages] = useState<Record<string, string> | null>(null);
   const [keymakersStageKey, setKeymakersStageKey] = useState("");
@@ -133,7 +142,34 @@ export default function EventFormPage() {
   function selectMode(next: Mode) {
     setMode((prev) => (prev === next ? null : next));
     setPlatformSubMode(null);
+    setSocialAiPicker("closed");
     setShowForm(false);
+  }
+
+  /** Opens the Social Media Copy section's platform-picker list — a
+   * second entry point into AI Copy generation, alongside clicking a
+   * specific platform tile's own "AI Copy" sub-choice. */
+  function openSocialAiPicker() {
+    setMode(null);
+    setPlatformSubMode(null);
+    setShowForm(false);
+    setSocialAiPicker("choosing_platform");
+  }
+
+  /** Picking a platform from that list behaves exactly like clicking
+   * that platform's tile and then choosing "AI Copy + AI Hashtags". */
+  function pickPlatformForAiGenerate(platform: SocialPostPlatform) {
+    setSocialAiPicker("closed");
+    setMode(platform);
+    setPlatformSubMode("ai");
+  }
+
+  /** Email Copy section's "AI Generate" — jumps straight to the generic
+   * AI flow (mode "ai"), same as the standalone AI Copy tile used to.
+   * No picker needed: Keymakers-flavored generation is driven by the
+   * keymakersStageKey dropdown below, not a platform selection. */
+  function startEmailAiGenerate() {
+    selectMode("ai");
   }
 
   const activePlatform: SocialPostPlatform | null =
@@ -172,11 +208,30 @@ export default function EventFormPage() {
   return (
     <div>
       <InstagramGradientDef />
-      <div className="mb-6">
-        <h2 className="mb-1 text-lg font-bold text-navy">1. Choose a platform</h2>
-        <p className="mb-4 text-sm text-gray-600">
-          Pick a platform, then choose a real WVF template or generate new AI copy for it.
-        </p>
+
+      {/* --- Social Media Copy section --- */}
+      <div className="mb-8">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-navy">Social Media Copy</h2>
+            <p className="text-sm text-gray-600">
+              Pick a platform, then choose a real WVF template or generate new AI copy for it.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openSocialAiPicker}
+            className={`flex shrink-0 items-center gap-2 rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
+              socialAiPicker === "choosing_platform"
+                ? "border-navy bg-navy text-white"
+                : "border-sky-blue text-navy hover:bg-sky-blue/10"
+            }`}
+          >
+            <AiSparkleIcon className="h-4 w-4" />
+            AI Generate
+          </button>
+        </div>
+
         <div className="flex flex-wrap gap-4">
           <PlatformToggleButton
             label="Instagram"
@@ -210,28 +265,32 @@ export default function EventFormPage() {
               <BrandSvgIcon icon={siTiktok} fill={mode === "tiktok" ? "#FFFFFF" : `#${siTiktok.hex}`} />
             }
           />
-          <PlatformToggleButton
-            label="Keymakers Copy"
-            active={mode === "keymakers"}
-            onClick={() => selectMode("keymakers")}
-            disabled={keymakersDisabled}
-            icon={
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src="/wvf-logo.svg" alt="" className="h-16 w-auto max-w-none" />
-            }
-          />
-          <PlatformToggleButton
-            label="AI Copy"
-            active={mode === "ai"}
-            onClick={() => selectMode("ai")}
-            icon={<AiSparkleIcon />}
-          />
         </div>
+
+        {socialAiPicker === "choosing_platform" && (
+          <div className="mt-5 max-w-2xl rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+            <h3 className="mb-3 text-base font-bold text-navy">
+              Which platform should the AI copy focus on?
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {SOCIAL_POST_PLATFORMS.map((platform) => (
+                <button
+                  key={platform}
+                  type="button"
+                  onClick={() => pickPlatformForAiGenerate(platform)}
+                  className="rounded-md border-2 border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 transition hover:border-sky-blue hover:text-navy"
+                >
+                  {PLATFORM_LABELS[platform]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {activePlatform && (
           <div className="mt-5 max-w-2xl rounded-lg border border-gray-200 bg-gray-50/50 p-4">
             <h3 className="mb-3 text-base font-bold text-navy">
-              2. {PLATFORM_LABELS[activePlatform]}: how do you want to start?
+              {PLATFORM_LABELS[activePlatform]}: how do you want to start?
             </h3>
             <div className="flex flex-wrap gap-2">
               <button
@@ -337,6 +396,44 @@ export default function EventFormPage() {
             )}
           </div>
         )}
+      </div>
+
+      {/* --- Email Copy section --- */}
+      <div className="mb-6">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-navy">Email Copy</h2>
+            <p className="text-sm text-gray-600">
+              Real WVF Keymakers recruitment copy, or generate a new AI-written newsletter.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={startEmailAiGenerate}
+            disabled={keymakersDisabled}
+            className={`flex shrink-0 items-center gap-2 rounded-md border-2 px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              mode === "ai"
+                ? "border-navy bg-navy text-white"
+                : "border-sky-blue text-navy hover:bg-sky-blue/10"
+            }`}
+          >
+            <AiSparkleIcon className="h-4 w-4" />
+            AI Generate
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-4">
+          <PlatformToggleButton
+            label="Keymakers Copy"
+            active={mode === "keymakers"}
+            onClick={() => selectMode("keymakers")}
+            disabled={keymakersDisabled}
+            icon={
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src="/wvf-logo.svg" alt="" className="h-16 w-auto max-w-none" />
+            }
+          />
+        </div>
 
         {mode === "keymakers" && (
           <div className="mt-4 max-w-2xl">
@@ -620,9 +717,9 @@ function LinkedInMonogramIcon() {
 /** Simple sparkle glyph marking the AI-generation tile — not a brand mark,
  * just a plain hand-drawn shape in the WVF sky-blue so it doesn't compete
  * visually with the real brand icons beside it. */
-function AiSparkleIcon() {
+function AiSparkleIcon({ className = "h-16 w-16" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" role="img" aria-label="AI Copy" className="h-16 w-16" fill="#6FA8DC">
+    <svg viewBox="0 0 24 24" role="img" aria-label="AI Generate" className={className} fill="#6FA8DC">
       <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" />
       <path d="M19 14l.9 2.6L22.5 17.5l-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9L19 14z" />
     </svg>
