@@ -12,6 +12,12 @@ from app.models.content import (
     KeyMaker,
     KeyMakerPrivate,
 )
+from app.models.social import (
+    OAuthPkceState,
+    SocialConnection,
+    SocialPlatform,
+    SocialPost,
+)
 
 __all__ = [
     "Base",
@@ -22,4 +28,8 @@ __all__ = [
     "NewsletterBlockType",
     "KeyMaker",
     "KeyMakerPrivate",
+    "OAuthPkceState",
+    "SocialConnection",
+    "SocialPlatform",
+    "SocialPost",
 ]

@@ -222,3 +222,56 @@ export interface InstagramTemplateDetail {
 export function getInstagramTemplateDetail(templateKey: string): Promise<InstagramTemplateDetail> {
   return request<InstagramTemplateDetail>(`/api/instagram-templates/${encodeURIComponent(templateKey)}`);
 }
+
+/** Whether WVF's X account is connected, and its username if so — never
+ * exposes tokens. See POST /api/oauth/x/start for the connect flow
+ * (a full-page redirect, not fetched via this client). */
+export interface XConnectionStatus {
+  connected: boolean;
+  username: string | null;
+}
+
+export function getXConnectionStatus(): Promise<XConnectionStatus> {
+  return request<XConnectionStatus>("/api/social/x/status");
+}
+
+/** Starts the X OAuth connect flow — a real navigation, not a fetch,
+ * since it needs to leave the app and go to X's authorization screen.
+ * Call this from a click handler via `window.location.href =
+ * getXConnectStartUrl()`. */
+export function getXConnectStartUrl(): string {
+  return `${API_URL}/api/oauth/x/start`;
+}
+
+export async function disconnectX(): Promise<void> {
+  await request<{ disconnected: boolean }>("/api/social/x/connection", { method: "DELETE" });
+}
+
+/** Saves staff edits to a content item's body before it's posted/used
+ * elsewhere — e.g. the edited caption in the review page's social post
+ * editor, so "Post to X" publishes what's actually on screen rather
+ * than the original AI-generated/template text. */
+export function updateContentItemBody(
+  contentItemId: number,
+  body: Record<string, unknown>
+): Promise<ContentItemResponse> {
+  return request<ContentItemResponse>(`/api/content/${contentItemId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ body }),
+  });
+}
+
+export interface PostToXResponse {
+  external_post_id: string;
+  status: string;
+}
+
+/** Publishes an existing social_post ContentItem to X. Manual-click
+ * only — call this ONLY in direct response to a staff member clicking
+ * "Post to X"; never automatically. */
+export function postToX(contentItemId: number): Promise<PostToXResponse> {
+  return request<PostToXResponse>("/api/social/x/post", {
+    method: "POST",
+    body: JSON.stringify({ content_item_id: contentItemId }),
+  });
+}

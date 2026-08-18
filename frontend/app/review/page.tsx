@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  disconnectX,
+  getXConnectionStatus,
+  getXConnectStartUrl,
+  postToX,
   selectSocialVariant,
+  updateContentItemBody,
   type GeneratedContentResponse,
   type HashtagsOutput,
   type SocialPostVariant,
@@ -133,6 +138,7 @@ function LabeledInput({
  */
 function SocialPostCard({ content }: { content: GeneratedContentResponse }) {
   const [pickedIndex, setPickedIndex] = useState<number | null>(null);
+  const [savedContentItemId, setSavedContentItemId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [platformLabel, setPlatformLabel] = useState<string | null>(null);
@@ -145,11 +151,16 @@ function SocialPostCard({ content }: { content: GeneratedContentResponse }) {
     setSaveError(null);
     setIsSaving(true);
     try {
-      await selectSocialVariant(
+      const saved = await selectSocialVariant(
         content.event_id,
         content.social_post_variants[index],
         content.hashtags_variants[index].hashtags
       );
+      const socialPostItem = saved.find((item) => item.content_type === "social_post");
+      if (!socialPostItem) {
+        throw new Error("Server didn't return the saved social post — try again.");
+      }
+      setSavedContentItemId(socialPostItem.id);
       setPickedIndex(index);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save your pick.");
@@ -194,6 +205,7 @@ function SocialPostCard({ content }: { content: GeneratedContentResponse }) {
         <SocialPostEditor
           variant={content.social_post_variants[pickedIndex]}
           hashtags={content.hashtags_variants[pickedIndex].hashtags}
+          contentItemId={savedContentItemId}
           onChangeOption={() => setPickedIndex(null)}
         />
       )}
@@ -234,10 +246,12 @@ function SocialPostVariantOption({
 function SocialPostEditor({
   variant,
   hashtags,
+  contentItemId,
   onChangeOption,
 }: {
   variant: SocialPostVariant;
   hashtags: HashtagsOutput;
+  contentItemId: number | null;
   onChangeOption: () => void;
 }) {
   const [caption, setCaption] = useState(variant.post.caption);
@@ -274,6 +288,125 @@ function SocialPostEditor({
         </span>
         <p className="text-sm italic text-gray-600">{variant.post.suggested_image_prompt}</p>
       </div>
+
+      {contentItemId !== null && (
+        <PostToXButton
+          contentItemId={contentItemId}
+          currentBody={{
+            caption,
+            cta,
+            hashtags: [...hashtags.primary_hashtags, ...hashtags.topic_hashtags],
+            suggested_image_prompt: variant.post.suggested_image_prompt,
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Manual-click "Post to X" — connects the account if needed, saves
+ * whatever caption is currently on screen (so a staff edit isn't
+ * silently dropped), then publishes it. Never fires on its own; only in
+ * direct response to a click. See docs/STATUS_AND_SCOPE.md's Aug 8
+ * manual-click scope decision.
+ */
+function PostToXButton({
+  contentItemId,
+  currentBody,
+}: {
+  contentItemId: number;
+  currentBody: Record<string, unknown>;
+}) {
+  const [connected, setConnected] = useState<boolean | null>(null);
+  const [xUsername, setXUsername] = useState<string | null>(null);
+  const [isPosting, setIsPosting] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
+  const [postedId, setPostedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getXConnectionStatus()
+      .then((status) => {
+        setConnected(status.connected);
+        setXUsername(status.username);
+      })
+      .catch(() => setConnected(false));
+  }, []);
+
+  function connectX() {
+    window.location.href = getXConnectStartUrl();
+  }
+
+  async function handleDisconnect() {
+    await disconnectX();
+    setConnected(false);
+    setXUsername(null);
+  }
+
+  async function handlePostToX() {
+    setPostError(null);
+    setIsPosting(true);
+    try {
+      // Save the currently-edited caption/CTA before posting, so "Post
+      // to X" publishes what's actually on screen, not the original
+      // AI-generated text if it's since been edited.
+      await updateContentItemBody(contentItemId, currentBody);
+      const result = await postToX(contentItemId);
+      setPostedId(result.external_post_id);
+    } catch (err) {
+      setPostError(err instanceof Error ? err.message : "Failed to post to X.");
+    } finally {
+      setIsPosting(false);
+    }
+  }
+
+  if (connected === null) {
+    return null; // still loading connection status
+  }
+
+  return (
+    <div className="rounded-md border border-gray-200 bg-gray-50/50 px-4 py-3">
+      {!connected && (
+        <button
+          type="button"
+          onClick={connectX}
+          className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
+        >
+          Connect X to enable posting
+        </button>
+      )}
+
+      {connected && postedId && (
+        <p className="text-sm font-semibold text-green-700">
+          Posted to X (@{xUsername}) — post ID {postedId}.
+        </p>
+      )}
+
+      {connected && !postedId && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handlePostToX}
+            disabled={isPosting}
+            className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isPosting ? "Posting…" : `Post to X (@${xUsername})`}
+          </button>
+          <button
+            type="button"
+            onClick={handleDisconnect}
+            className="text-xs font-semibold text-gray-500 hover:underline"
+          >
+            Disconnect X
+          </button>
+        </div>
+      )}
+
+      {postError && (
+        <div className="mt-2 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {postError}
+        </div>
+      )}
     </div>
   );
 }

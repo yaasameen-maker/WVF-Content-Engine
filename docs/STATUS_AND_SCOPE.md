@@ -4,14 +4,14 @@ Consolidated reference: what changed recently, what's confirmed in/out of
 scope with timelines, what budget items are still outstanding, and what
 specifically needs Maria's approval before it can move forward.
 
-Last written: August 13, 2026. This is a snapshot — cross-check against
+Last written: August 17, 2026. This is a snapshot — cross-check against
 `CLAUDE.md`, `docs/PROJECT_CONTEXT.md`, and `docs/CONTENT_SCOPE.md` for
-anything that may have moved since. Today is 6 weeks from Demo Day
+anything that may have moved since. Today is 5.5 weeks from Demo Day
 (September 23, 2026).
 
 ---
 
-## 1. Recent changes (August 2–13, 2026)
+## 1. Recent changes (August 2–17, 2026)
 
 Chronological, from git history — everything below is committed and
 pushed to `main` unless noted.
@@ -25,6 +25,8 @@ pushed to `main` unless noted.
 | Aug 11 | Fixed CORS so the deployed Vercel frontend can actually reach the Railway backend (was silently blocked — "Failed to fetch"); enlarged platform icon buttons and fixed brand color rendering (Instagram gradient, LinkedIn contrast) |
 | Aug 12 | Social post + hashtag generation now returns 3 options concurrently for staff to compare and pick, instead of one fixed result — new `POST /api/content/select-social-variant` endpoint persists the picked pair |
 | Aug 13 | README rewritten (stale Week 1 sprint log removed, still-accurate API/testing reference kept); sprint plans now archived as dated files (`docs/sprint-plans/`) instead of one file overwritten weekly; Keymakers Copy now shows the real WVF recruitment message **instantly** on selection (no AI call) via a new `GET /api/keymakers-stages/{stage_key}` endpoint; added a dedicated "AI Copy" option separate from platform/Keymakers selection |
+| Aug 16 | Instagram/LinkedIn/Facebook/X/TikTok tiles made fully active with a real "AI Copy" vs "Fixed template" choice per platform; X and TikTok added as new AI-generation platforms (generic conventions, clearly labeled as not yet grounded in real samples) |
+| Aug 17 | 10 real WVF Instagram posts transcribed into an actual Fixed-template picker (`GET /api/instagram-templates`); larger/labeled tabs; X manual-click publish built end-to-end (OAuth 2.0 + PKCE connect flow, encrypted token storage, "Connect X"/"Post to X" on the review page). Fixed a pre-existing bug where `alembic upgrade head` failed on SQLite (raw Postgres-only DDL in an existing migration) — local dev migrations now actually work. See §7 for X setup steps still needed. |
 
 **Net effect on the UI:** the event-form page now has 5 selectable
 options — Instagram, LinkedIn, Facebook (all three currently disabled
@@ -203,6 +205,73 @@ Maria yet, beyond the ESP pricing table in §5:
   publish endpoint requires anything beyond current hosting (unlikely
   given it's still human-triggered, not a background service, but not
   yet explicitly confirmed as $0 marginal cost).
+
+---
+
+## 7. X (Twitter) manual-click publish — built, needs Railway/X Developer Portal setup
+
+Built Aug 17, 2026: X account connect (OAuth 2.0 + PKCE) and manual-click
+"Post to X" from the review page, per the Aug 8 manual-click scope
+decision — a human clicks "Connect X" once, then "Post to X" per item;
+nothing posts automatically. 58/58 backend tests passing (14 new for
+this feature), real X API calls mocked in tests since no real X
+credentials exist yet locally.
+
+**What's built:** `SocialConnection`/`SocialPost`/`OAuthPkceState`
+tables (migration `f4a9c2d7e8b1`), encrypted token storage
+(`app/services/token_encryption.py`, Fernet), the OAuth start/callback
+routes, connection status/disconnect, and the publish endpoint
+(`app/routers/social.py`). Frontend: a "Connect X" / "Post to X" button
+on the review page's social post card.
+
+**What this needs before it can actually be used** (none of this is
+code — all external setup):
+
+1. **Create the X app in the X Developer Portal** (developer.x.com) —
+   confirmed the API access is now approved (Aug 17). Under the app's
+   **User authentication settings**, enable OAuth 2.0 and set:
+   - **App type: "Web App, Automated App or Bot"** (confidential
+     client) — **not** "Native App". Native App is a public client and
+     X won't issue a Client Secret for it at all; this code needs one
+     for the token-exchange step (HTTP Basic auth), so the wrong type
+     here silently breaks the whole flow.
+   - Callback URI / Redirect URL: `<BACKEND_URL>/api/oauth/x/callback`
+     — the **Railway backend's** URL, not the Vercel frontend (the
+     callback route is served by FastAPI, not Next.js). Must match
+     exactly, including scheme, no trailing slash.
+   - Website URL: the Vercel frontend URL is fine here (just metadata,
+     not used for the redirect).
+   - Copy the generated **Client ID** and **Client Secret** — these are
+     the OAuth 2.0 pair. **Not** the API Key / API Secret / Bearer
+     Token from the app's "Keys and tokens" tab — those belong to
+     OAuth 1.0a / app-only auth and this code doesn't use them at all.
+2. **Generate a token encryption key** — run locally:
+   `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+3. **Add to Railway (backend service, Variables tab, all private):**
+   - `X_CLIENT_ID` — the OAuth 2.0 Client ID from step 1
+   - `X_CLIENT_SECRET` — the OAuth 2.0 Client Secret from step 1
+   - `TOKEN_ENCRYPTION_KEY` — from step 2. Losing this key makes any
+     already-stored token unrecoverable — back it up somewhere safe,
+     don't just leave it only in Railway.
+   - `BACKEND_URL` — the Railway backend's own public URL (e.g.
+     `https://wvf-content-engine-production.up.railway.app`), used to
+     build the OAuth callback URL sent to X. Must exactly match what
+     was entered as the Callback URI in step 1.
+   - `FRONTEND_URL` — the Vercel frontend's base URL (e.g.
+     `https://wvf-content-engine-two.vercel.app`), used only to send
+     the user's browser back to the app after the callback finishes.
+4. **Real WVF X account:** confirmed as `@WomensVFund` (per Aug 17
+   screenshots) — connect this account, not a personal/test one, when
+   clicking "Connect X" for real.
+
+**Not yet built:** X-specific Fixed (non-AI) post templates — real WVF X
+copy was shared Aug 17 (several posts overlapping the same events as the
+Instagram templates already built) but not yet transcribed into the
+same real-template picker Instagram has. Queued as the next piece of
+this work. The current AI-generated "X" caption style is generic
+platform convention, not yet grounded in WVF's real observed X voice —
+same gap the Instagram/LinkedIn/Facebook variants had before real
+samples were provided for those.
 
 ---
 
