@@ -17,6 +17,7 @@ from app.services.generation import generate_all_content
 from app.services.instagram_templates import get_instagram_template, list_instagram_templates
 from app.services.keymakers_campaign import get_keymakers_stage, list_keymakers_stages
 from app.services.prompts import list_variants
+from app.services.x_templates import get_x_template, list_x_templates
 
 router = APIRouter(prefix="/api", tags=["generation"])
 
@@ -100,12 +101,17 @@ def get_instagram_templates() -> dict[str, str]:
 
 class InstagramTemplateDetail(BaseModel):
     """One real Instagram template's full content — for a frontend that
-    renders it directly (Fixed template mode), no AI call involved."""
+    renders it directly (Fixed template mode), no AI call involved.
+    truncated=True means the source screenshot cut off part of the real
+    caption (e.g. a shortened/scrolled URL) — the frontend should warn
+    staff to double-check before sending, rather than presenting it as
+    complete."""
 
     label: str
     category: str
     caption: str
     hashtags: list[str]
+    truncated: bool = False
 
 
 @router.get("/instagram-templates/{template_key}", response_model=InstagramTemplateDetail)
@@ -114,6 +120,35 @@ def get_instagram_template_detail(template_key: str) -> InstagramTemplateDetail:
     hashtags — for direct display/editing rather than AI generation."""
     try:
         return InstagramTemplateDetail(**get_instagram_template(template_key))
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/x-templates")
+def get_x_templates() -> dict[str, str]:
+    """List available real X post templates ({template_key: label}), for
+    the event form's X Fixed-template picker."""
+    return list_x_templates()
+
+
+class XTemplateDetail(BaseModel):
+    """One real X template's full content — for a frontend that renders
+    it directly (Fixed template mode), no AI call involved. See
+    InstagramTemplateDetail.truncated for what truncated=True means."""
+
+    label: str
+    category: str
+    caption: str
+    hashtags: list[str]
+    truncated: bool = False
+
+
+@router.get("/x-templates/{template_key}", response_model=XTemplateDetail)
+def get_x_template_detail(template_key: str) -> XTemplateDetail:
+    """Get one real, published WVF X post's full caption and hashtags —
+    for direct display/editing rather than AI generation."""
+    try:
+        return XTemplateDetail(**get_x_template(template_key))
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

@@ -211,16 +211,38 @@ export function listInstagramTemplates(): Promise<Record<string, string>> {
 }
 
 /** One real, published WVF Instagram post's full caption and hashtags —
- * for instant display/editing without an AI generation call. */
+ * for instant display/editing without an AI generation call.
+ * truncated=true means the source screenshot cut off part of the real
+ * caption — show a warning, don't present it as complete. */
 export interface InstagramTemplateDetail {
   label: string;
   category: string;
   caption: string;
   hashtags: string[];
+  truncated: boolean;
 }
 
 export function getInstagramTemplateDetail(templateKey: string): Promise<InstagramTemplateDetail> {
   return request<InstagramTemplateDetail>(`/api/instagram-templates/${encodeURIComponent(templateKey)}`);
+}
+
+export function listXTemplates(): Promise<Record<string, string>> {
+  return request<Record<string, string>>("/api/x-templates");
+}
+
+/** One real, published WVF X post's full caption and hashtags — for
+ * instant display/editing without an AI generation call. See
+ * InstagramTemplateDetail.truncated for what truncated=true means. */
+export interface XTemplateDetail {
+  label: string;
+  category: string;
+  caption: string;
+  hashtags: string[];
+  truncated: boolean;
+}
+
+export function getXTemplateDetail(templateKey: string): Promise<XTemplateDetail> {
+  return request<XTemplateDetail>(`/api/x-templates/${encodeURIComponent(templateKey)}`);
 }
 
 /** Whether WVF's X account is connected, and its username if so — never

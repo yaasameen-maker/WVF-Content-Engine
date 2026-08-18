@@ -7,13 +7,16 @@ import {
   generateContent,
   getInstagramTemplateDetail,
   getKeymakersStageDetail,
+  getXTemplateDetail,
   listInstagramTemplates,
   listKeymakersStages,
+  listXTemplates,
   SOCIAL_POST_PLATFORMS,
   type EventInput,
   type InstagramTemplateDetail,
   type KeymakersStageDetail,
   type SocialPostPlatform,
+  type XTemplateDetail,
 } from "@/lib/api";
 
 const EMPTY_EVENT: EventInput = {
@@ -81,6 +84,11 @@ export default function EventFormPage() {
   );
   const [instagramTemplateError, setInstagramTemplateError] = useState<string | null>(null);
 
+  const [xTemplates, setXTemplates] = useState<Record<string, string> | null>(null);
+  const [xTemplateKey, setXTemplateKey] = useState("");
+  const [xTemplateDetail, setXTemplateDetail] = useState<XTemplateDetail | null>(null);
+  const [xTemplateError, setXTemplateError] = useState<string | null>(null);
+
   useEffect(() => {
     listKeymakersStages()
       .then((stages) => {
@@ -134,6 +142,31 @@ export default function EventFormPage() {
         setInstagramTemplateError(err instanceof Error ? err.message : "Failed to load this template.")
       );
   }, [mode, platformSubMode, instagramTemplateKey]);
+
+  useEffect(() => {
+    listXTemplates()
+      .then((templates) => {
+        setXTemplates(templates);
+        const firstKey = Object.keys(templates)[0];
+        if (firstKey) setXTemplateKey(firstKey);
+      })
+      .catch(() => {
+        setXTemplates({});
+      });
+  }, []);
+
+  // Fetch the real X post template whenever "Fixed template" is selected
+  // for the X tile and a template is chosen — instant reference content,
+  // not an AI generation call.
+  useEffect(() => {
+    if (mode !== "x" || platformSubMode !== "fixed" || !xTemplateKey) return;
+    setXTemplateError(null);
+    getXTemplateDetail(xTemplateKey)
+      .then(setXTemplateDetail)
+      .catch((err) =>
+        setXTemplateError(err instanceof Error ? err.message : "Failed to load this template.")
+      );
+  }, [mode, platformSubMode, xTemplateKey]);
 
   function updateField(field: keyof EventInput, value: string) {
     setEvent((prev) => ({ ...prev, [field]: value }));
@@ -378,6 +411,12 @@ export default function EventFormPage() {
                           {instagramTemplateDetail.hashtags.join(" ")}
                         </p>
                       )}
+                      {instagramTemplateDetail.truncated && (
+                        <p className="text-xs font-semibold text-red-600">
+                          ⚠ This post was cut off in the source screenshot — double-check the full
+                          caption before reusing.
+                        </p>
+                      )}
                       <p className="text-xs font-semibold text-amber-700">
                         Real, previously-published WVF Instagram post — edit as needed before reuse.
                       </p>
@@ -387,7 +426,54 @@ export default function EventFormPage() {
               </div>
             )}
 
-            {platformSubMode === "fixed" && activePlatform !== "instagram" && (
+            {platformSubMode === "fixed" && activePlatform === "x" && (
+              <div className="mt-3">
+                {xTemplateError && (
+                  <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {xTemplateError}
+                  </div>
+                )}
+                <span className="mb-1 block text-sm font-medium text-navy">Which real X post?</span>
+                <select
+                  value={xTemplateKey}
+                  onChange={(e) => setXTemplateKey(e.target.value)}
+                  className="input"
+                >
+                  {Object.entries(xTemplates ?? {}).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+
+                {xTemplateDetail && !xTemplateError && (
+                  <div className="mt-3 rounded-lg border border-gray-200 shadow-sm">
+                    <div className="rounded-t-lg bg-navy px-5 py-3">
+                      <h3 className="font-semibold text-white">{xTemplateDetail.label}</h3>
+                    </div>
+                    <div className="space-y-3 px-5 py-4">
+                      <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
+                        {xTemplateDetail.caption}
+                      </pre>
+                      {xTemplateDetail.hashtags.length > 0 && (
+                        <p className="text-sm text-sky-blue">{xTemplateDetail.hashtags.join(" ")}</p>
+                      )}
+                      {xTemplateDetail.truncated && (
+                        <p className="text-xs font-semibold text-red-600">
+                          ⚠ This post was cut off in the source screenshot (e.g. a shortened link) —
+                          double-check the full caption before reusing.
+                        </p>
+                      )}
+                      <p className="text-xs font-semibold text-amber-700">
+                        Real, previously-published WVF X post — edit as needed before reuse.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {platformSubMode === "fixed" && activePlatform !== "instagram" && activePlatform !== "x" && (
               <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 A fixed (non-AI) {PLATFORM_LABELS[activePlatform]} template isn&apos;t available yet —
                 real sample WVF {PLATFORM_LABELS[activePlatform]} posts are needed to build one, so this

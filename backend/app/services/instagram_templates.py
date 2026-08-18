@@ -61,6 +61,7 @@ Get answers to your questions about:
 
 ⚠️ Spots are filling quickly. Don't wait until it's too late.""",
         "hashtags": [],
+        "truncated": True,
     },
     "wvf_funding_lunch_apply": {
         "label": "Event promo — sparkle hook + emoji bullet list",

@@ -212,10 +212,11 @@ def test_instagram_template_detail_returns_real_post_content(client):
     resp = client.get("/api/instagram-templates/money_credit_webinar")
     assert resp.status_code == 200
     detail = resp.json()
-    assert set(detail.keys()) == {"label", "category", "caption", "hashtags"}
+    assert set(detail.keys()) == {"label", "category", "caption", "hashtags", "truncated"}
     assert detail["category"] == "event_promo"
     assert "Ready to make 2027 your year" in detail["caption"]
     assert "#WomensVentureFund" in detail["hashtags"]
+    assert detail["truncated"] is False
 
 
 def test_instagram_template_detail_handles_empty_hashtags(client):
@@ -225,8 +226,49 @@ def test_instagram_template_detail_handles_empty_hashtags(client):
     assert resp.json()["hashtags"] == []
 
 
+def test_instagram_template_detail_flags_truncated_source(client):
+    # legal_help_urgency's source screenshot cut off part of the real
+    # caption (see instagram_templates.py) — the API must say so.
+    resp = client.get("/api/instagram-templates/legal_help_urgency")
+    assert resp.status_code == 200
+    assert resp.json()["truncated"] is True
+
+
 def test_instagram_template_detail_404s_for_unknown_template(client):
     resp = client.get("/api/instagram-templates/not_a_real_template")
+    assert resp.status_code == 404
+    assert "not_a_real_template" in resp.json()["detail"]
+
+
+def test_x_templates_endpoint_lists_all_templates(client):
+    resp = client.get("/api/x-templates")
+    assert resp.status_code == 200
+    templates = resp.json()
+    assert len(templates) == 6
+    assert all(isinstance(label, str) and label for label in templates.values())
+
+
+def test_x_template_detail_returns_real_post_content(client):
+    resp = client.get("/api/x-templates/government_contracting")
+    assert resp.status_code == 200
+    detail = resp.json()
+    assert set(detail.keys()) == {"label", "category", "caption", "hashtags", "truncated"}
+    assert detail["category"] == "event_promo"
+    assert "MWBE" in detail["caption"]
+    assert "#GovernmentContracts" in detail["hashtags"]
+    assert detail["truncated"] is False
+
+
+def test_x_template_detail_flags_truncated_source(client):
+    # money_credit_webinar's source screenshot cut off the zoom.us URL
+    # (see x_templates.py) — the API must say so, not present it as complete.
+    resp = client.get("/api/x-templates/money_credit_webinar")
+    assert resp.status_code == 200
+    assert resp.json()["truncated"] is True
+
+
+def test_x_template_detail_404s_for_unknown_template(client):
+    resp = client.get("/api/x-templates/not_a_real_template")
     assert resp.status_code == 404
     assert "not_a_real_template" in resp.json()["detail"]
 
