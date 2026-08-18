@@ -8,6 +8,7 @@ breaks (renamed fields, wrong status codes, broken FK relationships) before
 they reach a PR.
 """
 
+from app.models import KeyMaker
 from tests.conftest import SAMPLE_EVENT
 
 
@@ -385,3 +386,78 @@ def test_events_list_ordered_newest_first(client):
     assert len(events) == 2
     assert events[0]["title"] == "Second Event"
     assert events[1]["title"] == "First Event"
+
+
+def test_list_key_makers_returns_public_fields_only(client, db_session_factory):
+    db = db_session_factory()
+    db.add(
+        KeyMaker(
+            business_name="LASweetsNY",
+            owner_name="Loretta Calderon",
+            business_type="Bakery / Catering",
+            website="https://lasweetsny.com",
+            social_media="Instagram: @lasweetsny",
+            testimonial_quote=None,
+            video_link=None,
+            photo_url=None,
+        )
+    )
+    db.commit()
+    db.close()
+
+    resp = client.get("/api/key-makers")
+    assert resp.status_code == 200
+    key_makers = resp.json()
+    assert len(key_makers) == 1
+
+    key_maker = key_makers[0]
+    assert set(key_maker.keys()) == {
+        "id", "business_name", "owner_name", "business_type", "website",
+        "social_media", "testimonial_quote", "video_link", "photo_url",
+    }
+    assert key_maker["business_name"] == "LASweetsNY"
+    assert key_maker["owner_name"] == "Loretta Calderon"
+    # Bio not yet collected — must be null, never fabricated or blank string.
+    assert key_maker["testimonial_quote"] is None
+    # KeyMakerPrivate fields (phone/email/address) must never appear here.
+    assert "phone" not in key_maker
+    assert "email" not in key_maker
+    assert "address" not in key_maker
+
+
+def test_list_key_makers_ordered_alphabetically_by_business_name(client, db_session_factory):
+    db = db_session_factory()
+    db.add_all(
+        [
+            KeyMaker(business_name="Zeta Consulting", owner_name="Owner Z"),
+            KeyMaker(business_name="Alpha Bakery", owner_name="Owner A"),
+        ]
+    )
+    db.commit()
+    db.close()
+
+    resp = client.get("/api/key-makers")
+    assert resp.status_code == 200
+    names = [k["business_name"] for k in resp.json()]
+    assert names == ["Alpha Bakery", "Zeta Consulting"]
+
+
+def test_get_single_key_maker_returns_matching_record(client, db_session_factory):
+    db = db_session_factory()
+    key_maker = KeyMaker(business_name="LASweetsNY", owner_name="Loretta Calderon")
+    db.add(key_maker)
+    db.commit()
+    db.refresh(key_maker)
+    key_maker_id = key_maker.id
+    db.close()
+
+    resp = client.get(f"/api/key-makers/{key_maker_id}")
+    assert resp.status_code == 200
+    assert resp.json()["id"] == key_maker_id
+    assert resp.json()["business_name"] == "LASweetsNY"
+
+
+def test_get_single_key_maker_404s_when_missing(client):
+    resp = client.get("/api/key-makers/999999")
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Key Maker not found"

@@ -38,6 +38,9 @@ export default function RootLayout({
               <Link href="/calendar" className="hover:text-sky-blue">
                 Calendar
               </Link>
+              <Link href="/profiles" className="hover:text-sky-blue">
+                Profiles
+              </Link>
             </nav>
           </div>
         </header>

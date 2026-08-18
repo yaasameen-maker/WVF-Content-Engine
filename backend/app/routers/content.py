@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import ContentItem, ContentStatus, Event
-from app.schemas import ContentItemResponse, ContentItemUpdate, EventWithContentResponse
+from app.models import ContentItem, ContentStatus, Event, KeyMaker
+from app.schemas import ContentItemResponse, ContentItemUpdate, EventWithContentResponse, KeyMakerResponse
 
 router = APIRouter(prefix="/api", tags=["content"])
 
@@ -69,6 +69,36 @@ def get_event(event_id: int, db: Session = Depends(get_db)) -> EventWithContentR
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     return _serialize_event(event)
+
+
+def _serialize_key_maker(key_maker: KeyMaker) -> KeyMakerResponse:
+    return KeyMakerResponse(
+        id=key_maker.id,
+        business_name=key_maker.business_name,
+        owner_name=key_maker.owner_name,
+        business_type=key_maker.business_type,
+        website=key_maker.website,
+        social_media=key_maker.social_media,
+        testimonial_quote=key_maker.testimonial_quote,
+        video_link=key_maker.video_link,
+        photo_url=key_maker.photo_url,
+    )
+
+
+@router.get("/key-makers", response_model=list[KeyMakerResponse])
+def list_key_makers(db: Session = Depends(get_db)) -> list[KeyMakerResponse]:
+    """List all Key Makers' public profile fields, alphabetical by business name."""
+    key_makers = db.query(KeyMaker).order_by(KeyMaker.business_name.asc()).all()
+    return [_serialize_key_maker(k) for k in key_makers]
+
+
+@router.get("/key-makers/{key_maker_id}", response_model=KeyMakerResponse)
+def get_key_maker(key_maker_id: int, db: Session = Depends(get_db)) -> KeyMakerResponse:
+    """Get a single Key Maker's public profile fields."""
+    key_maker = db.query(KeyMaker).filter(KeyMaker.id == key_maker_id).first()
+    if not key_maker:
+        raise HTTPException(status_code=404, detail="Key Maker not found")
+    return _serialize_key_maker(key_maker)
 
 
 @router.get("/content/{content_id}", response_model=ContentItemResponse)

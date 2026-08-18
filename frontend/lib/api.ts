@@ -297,3 +297,29 @@ export function postToX(contentItemId: number): Promise<PostToXResponse> {
     body: JSON.stringify({ content_item_id: contentItemId }),
   });
 }
+
+/** A single Key Maker's PUBLIC profile fields only — never phone/email/
+ * address, which have no API exposure by design (see backend
+ * KeyMaker/KeyMakerPrivate). testimonial_quote is null for every real
+ * Key Maker as of Aug 2026 — the seed script never populated it, pending
+ * real testimonial content from Nancy. Render null as "bio not yet
+ * available," never as blank or fabricated text. */
+export interface KeyMakerResponse {
+  id: number;
+  business_name: string;
+  owner_name: string;
+  business_type: string | null;
+  website: string | null;
+  social_media: string | null;
+  testimonial_quote: string | null;
+  video_link: string | null;
+  photo_url: string | null;
+}
+
+export function listKeyMakers(): Promise<KeyMakerResponse[]> {
+  return request<KeyMakerResponse[]>("/api/key-makers");
+}
+
+export function getKeyMaker(keyMakerId: number): Promise<KeyMakerResponse> {
+  return request<KeyMakerResponse>(`/api/key-makers/${keyMakerId}`);
+}

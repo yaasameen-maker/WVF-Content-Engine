@@ -226,6 +226,30 @@ class EventWithContentResponse(EventResponse):
     content_items: list[ContentItemResponse] = Field(default_factory=list)
 
 
+class KeyMakerResponse(BaseModel):
+    """A single Key Maker's PUBLIC profile fields only — mirrors the
+    KeyMaker model exactly, never KeyMakerPrivate (phone/email/address),
+    which has no API exposure by design. See app/models/content.py's
+    KeyMaker/KeyMakerPrivate docstrings for the PII-safety reasoning.
+
+    testimonial_quote is None for every real Key Maker as of Aug 2026 —
+    the seed script (seed_key_makers_public.py) never populated it,
+    pending real testimonial content from Nancy. Frontend should treat
+    None here as "bio not yet available," not render it as blank."""
+
+    id: int
+    business_name: str
+    owner_name: str
+    business_type: Optional[str] = None
+    website: Optional[str] = None
+    social_media: Optional[str] = None
+    testimonial_quote: Optional[str] = None
+    video_link: Optional[str] = None
+    photo_url: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
 class ContentItemUpdate(BaseModel):
     """Fields a staff member can edit on a content item before approval"""
     body: Optional[dict] = None
