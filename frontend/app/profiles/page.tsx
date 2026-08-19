@@ -69,13 +69,18 @@ function KeyMakerCard({ keyMaker }: { keyMaker: KeyMakerResponse }) {
         // <img>, not next/image, since external domains aren't allowlisted
         // and some of these links may go stale over time (see seed script
         // notes on Instagram's expiring CDN URLs for why 3 are local).
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={keyMaker.photo_url}
-          alt={`${keyMaker.business_name} photo`}
-          className="h-40 w-full object-cover"
-          onError={() => setImageFailed(true)}
-        />
+        // object-contain (not cover): sources vary wildly in aspect ratio
+        // (tall headshots, circular logos, wide banners) — cover was
+        // cropping people's faces/logos out of frame.
+        <div className="flex h-40 w-full items-center justify-center bg-gray-50">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={keyMaker.photo_url}
+            alt={`${keyMaker.business_name} photo`}
+            className="h-full w-full object-contain"
+            onError={() => setImageFailed(true)}
+          />
+        </div>
       )}
       <div className="rounded-t-lg bg-navy px-5 py-3">
         <h3 className="text-sm font-bold text-white">{keyMaker.business_name}</h3>

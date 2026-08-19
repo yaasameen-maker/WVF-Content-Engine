@@ -91,10 +91,12 @@ KEY_MAKERS = [
             "Instagram: https://www.instagram.com/altheastropicaldelights/ | "
             "Facebook: https://www.facebook.com/altheabakes/"
         ),
+        # Confirmed against altheastropicaldelights.com/about-us — this is
+        # the teal-dress photo of Althea herself. See module docstring.
         "photo_url": (
-            "https://static.wixstatic.com/media/e1c06e_4787dd8733e54b269b6a39e0b1baeaec~mv2.jpg/"
-            "v1/fill/w_796,h_818,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/"
-            "e1c06e_4787dd8733e54b269b6a39e0b1baeaec~mv2.jpg"
+            "https://static.wixstatic.com/media/4be789_b8d78e11b9314ae58ea0695a3e9aef79~mv2_d_1200_1600_s_2.jpg/"
+            "v1/crop/x_284,y_243,w_916,h_1357/fill/w_626,h_928,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,"
+            "quality_auto/IMG-20190522-WA0072.jpg"
         ),
     },
     {
@@ -135,11 +137,13 @@ KEY_MAKERS = [
             "Facebook: https://www.facebook.com/LTLIDAPillows123 | "
             "LinkedIn: https://www.linkedin.com/in/yvonne-williams-coston-mba-11967210"
         ),
-        "photo_url": (
-            "https://static.wixstatic.com/media/4be789_b8d78e11b9314ae58ea0695a3e9aef79~mv2_d_1200_1600_s_2.jpg/"
-            "v1/crop/x_284,y_243,w_916,h_1357/fill/w_626,h_928,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,"
-            "quality_auto/IMG-20190522-WA0072.jpg"
-        ),
+        # NOTE (Aug 19): this Wix URL was mistakenly assigned to Althea
+        # first, then corrected once her own About page confirmed it was
+        # actually her photo. This candidate photo of Yvonne (a custom
+        # pillow product shot, no person) was previously reviewed and
+        # rejected — Yvonne has no confirmed real photo yet. See module
+        # docstring; revisit once a real photo of Yvonne is sourced.
+        "photo_url": None,
     },
 ]
 
