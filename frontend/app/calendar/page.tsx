@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { listEvents, type ContentItemResponse, type EventWithContentResponse } from "@/lib/api";
+import { ContentItemDetailModal } from "@/components/ContentItemDetailModal";
 
 /**
  * Content calendar: groups already-generated, persisted content items
@@ -69,6 +70,7 @@ export default function CalendarPage() {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [selected, setSelected] = useState<CalendarEntry | null>(null);
 
   useEffect(() => {
     listEvents()
@@ -188,7 +190,7 @@ export default function CalendarPage() {
       )}
 
       {events && view === "month" && (
-        <MonthGrid monthCursor={monthCursor} byDateKey={byDateKey} />
+        <MonthGrid monthCursor={monthCursor} byDateKey={byDateKey} onSelect={setSelected} />
       )}
 
       {events && view === "list" && (
@@ -202,7 +204,12 @@ export default function CalendarPage() {
               </div>
               <div className="space-y-2 px-5 py-4">
                 {day.items.map(({ event, item }) => (
-                  <CalendarItemCard key={item.id} event={event} item={item} />
+                  <CalendarItemCard
+                    key={item.id}
+                    event={event}
+                    item={item}
+                    onClick={() => setSelected({ event, item })}
+                  />
                 ))}
               </div>
             </section>
@@ -223,10 +230,24 @@ export default function CalendarPage() {
               event&apos;s date entry.
             </p>
             {undated.map(({ event, item }) => (
-              <CalendarItemCard key={item.id} event={event} item={item} showRawDate />
+              <CalendarItemCard
+                key={item.id}
+                event={event}
+                item={item}
+                showRawDate
+                onClick={() => setSelected({ event, item })}
+              />
             ))}
           </div>
         </section>
+      )}
+
+      {selected && (
+        <ContentItemDetailModal
+          event={selected.event}
+          item={selected.item}
+          onClose={() => setSelected(null)}
+        />
       )}
     </div>
   );
@@ -237,9 +258,11 @@ const WEEKDAY_LABELS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 function MonthGrid({
   monthCursor,
   byDateKey,
+  onSelect,
 }: {
   monthCursor: Date;
   byDateKey: Map<string, DayGroup>;
+  onSelect: (entry: CalendarEntry) => void;
 }) {
   const year = monthCursor.getFullYear();
   const month = monthCursor.getMonth();
@@ -298,7 +321,12 @@ function MonthGrid({
                   </span>
                   <div className="mt-1 space-y-1">
                     {dayGroup?.items.map(({ event, item }) => (
-                      <MonthCellEntry key={item.id} event={event} item={item} />
+                      <MonthCellEntry
+                        key={item.id}
+                        event={event}
+                        item={item}
+                        onClick={() => onSelect({ event, item })}
+                      />
                     ))}
                   </div>
                 </>
@@ -311,12 +339,24 @@ function MonthGrid({
   );
 }
 
-function MonthCellEntry({ event, item }: { event: EventWithContentResponse; item: ContentItemResponse }) {
+function MonthCellEntry({
+  event,
+  item,
+  onClick,
+}: {
+  event: EventWithContentResponse;
+  item: ContentItemResponse;
+  onClick: () => void;
+}) {
   return (
-    <div className={`rounded px-1.5 py-1 text-[10px] leading-tight ${typeStyles(item.content_type)}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded px-1.5 py-1 text-left text-[10px] leading-tight transition hover:brightness-95 ${typeStyles(item.content_type)}`}
+    >
       <span className="font-bold uppercase tracking-wide text-navy">{typeLabel(item.content_type)}</span>
       <p className="truncate text-gray-700">{event.title}</p>
-    </div>
+    </button>
   );
 }
 
@@ -324,10 +364,12 @@ function CalendarItemCard({
   event,
   item,
   showRawDate = false,
+  onClick,
 }: {
   event: EventWithContentResponse;
   item: ContentItemResponse;
   showRawDate?: boolean;
+  onClick: () => void;
 }) {
   const bodyPreview =
     item.content_type === "social_post"
@@ -335,7 +377,11 @@ function CalendarItemCard({
       : (item.body.subject_line as string | undefined);
 
   return (
-    <div className={`rounded-md p-3 ${typeStyles(item.content_type)}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded-md p-3 text-left transition hover:brightness-95 ${typeStyles(item.content_type)}`}
+    >
       <div className="mb-1 flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy">
           {typeLabel(item.content_type) === "Social" ? "Social Post" : "Email"}
@@ -349,6 +395,6 @@ function CalendarItemCard({
       </div>
       <p className="text-sm font-medium text-gray-800">{event.title}</p>
       {bodyPreview && <p className="truncate text-xs text-gray-600">{bodyPreview}</p>}
-    </div>
+    </button>
   );
 }
