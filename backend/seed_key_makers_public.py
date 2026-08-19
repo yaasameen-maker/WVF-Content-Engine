@@ -137,13 +137,15 @@ KEY_MAKERS = [
             "Facebook: https://www.facebook.com/LTLIDAPillows123 | "
             "LinkedIn: https://www.linkedin.com/in/yvonne-williams-coston-mba-11967210"
         ),
-        # NOTE (Aug 19): this Wix URL was mistakenly assigned to Althea
-        # first, then corrected once her own About page confirmed it was
-        # actually her photo. This candidate photo of Yvonne (a custom
-        # pillow product shot, no person) was previously reviewed and
-        # rejected — Yvonne has no confirmed real photo yet. See module
-        # docstring; revisit once a real photo of Yvonne is sourced.
-        "photo_url": None,
+        # Confirmed real photo of Yvonne (filename "Yvonne New photo_
+        # 12_2022"), provided directly Aug 19 — replaces the earlier
+        # candidate (a custom pillow product shot, no person) that was
+        # reviewed and rejected. See module docstring.
+        "photo_url": (
+            "https://static.wixstatic.com/media/e1c06e_425d6ce43e214f94bbc66c4b2dbc498d~mv2.jpg/"
+            "v1/crop/x_0,y_97,w_480,h_541/fill/w_546,h_616,al_c,lg_1,q_80,enc_avif,quality_auto/"
+            "Yvonne%20New%20photo_%2012_2022.jpg"
+        ),
     },
 ]
 
