@@ -55,13 +55,28 @@ export default function ProfilesPage() {
 }
 
 function KeyMakerCard({ keyMaker }: { keyMaker: KeyMakerResponse }) {
+  const [imageFailed, setImageFailed] = useState(false);
   const socialLinks = (keyMaker.social_media ?? "")
     .split(";")
     .map((s) => s.trim())
     .filter(Boolean);
 
   return (
-    <div className="rounded-lg border border-gray-200 shadow-sm">
+    <div className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
+      {keyMaker.photo_url && !imageFailed && (
+        // Photos come from a mix of external business sites and local
+        // /public files (see backend/seed_key_makers_public.py) — plain
+        // <img>, not next/image, since external domains aren't allowlisted
+        // and some of these links may go stale over time (see seed script
+        // notes on Instagram's expiring CDN URLs for why 3 are local).
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={keyMaker.photo_url}
+          alt={`${keyMaker.business_name} photo`}
+          className="h-40 w-full object-cover"
+          onError={() => setImageFailed(true)}
+        />
+      )}
       <div className="rounded-t-lg bg-navy px-5 py-3">
         <h3 className="text-sm font-bold text-white">{keyMaker.business_name}</h3>
         <p className="text-xs text-sky-blue">{keyMaker.owner_name}</p>
