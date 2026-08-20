@@ -54,12 +54,12 @@ type Mode = SocialPostPlatform | "keymakers" | "ai" | null;
  * any) is active. Reset whenever the platform tile changes. */
 type PlatformSubMode = "ai" | "fixed" | null;
 
-/** Whether the Social Media Copy section's standalone "AI Generate"
- * platform-picker list is open — a second entry point into the same AI
- * flow as clicking a platform tile's "AI Copy" sub-choice, for when
- * staff want to jump straight to picking a platform without first
- * opening a specific tile. */
-type SocialAiPickerState = "closed" | "choosing_platform";
+/** Whether the Social Media Copy section's standalone "AI Generate" form
+ * is open. Fully independent of the platform tiles below it (`mode` /
+ * `platformSubMode`) — opening this never touches tile state, and opening
+ * a tile never touches this. Two separate entry points into AI
+ * generation, each with its own state, so neither can reset the other. */
+type SocialAiPickerState = "closed" | "open";
 
 export default function EventFormPage() {
   const router = useRouter();
@@ -70,7 +70,17 @@ export default function EventFormPage() {
 
   const [mode, setMode] = useState<Mode>(null);
   const [platformSubMode, setPlatformSubMode] = useState<PlatformSubMode>(null);
+
+  // Social Media Copy section's own standalone "AI Generate" flow — a
+  // second, fully independent entry point into generation, separate from
+  // the platform tiles above (mode/platformSubMode/showForm/event). Its
+  // own event fields, own platform choice, own generating/error state, so
+  // using one flow can never reset or collide with the other.
   const [socialAiPicker, setSocialAiPicker] = useState<SocialAiPickerState>("closed");
+  const [socialAiPlatform, setSocialAiPlatform] = useState<SocialPostPlatform>("instagram");
+  const [socialAiEvent, setSocialAiEvent] = useState<EventInput>(EMPTY_EVENT);
+  const [socialAiGenerating, setSocialAiGenerating] = useState(false);
+  const [socialAiError, setSocialAiError] = useState<string | null>(null);
 
   const [keymakersStages, setKeymakersStages] = useState<Record<string, string> | null>(null);
   const [keymakersStageKey, setKeymakersStageKey] = useState("");
@@ -175,32 +185,17 @@ export default function EventFormPage() {
   function selectMode(next: Mode) {
     setMode((prev) => (prev === next ? null : next));
     setPlatformSubMode(null);
-    setSocialAiPicker("closed");
     setShowForm(false);
   }
 
-  /** Social Media Copy section's "AI Generate" button. If a platform tile
-   * is already open (e.g. staff clicked Instagram first), this jumps
-   * straight to that platform's own "AI Copy + AI Hashtags" sub-mode
-   * instead of resetting it — the two entry points must not collide.
-   * Only opens the platform-picker list when no tile is active yet. */
-  function openSocialAiPicker() {
-    if (activePlatform) {
-      setPlatformSubMode("ai");
-      setShowForm(false);
-      return;
-    }
-    setPlatformSubMode(null);
-    setShowForm(false);
-    setSocialAiPicker("choosing_platform");
-  }
-
-  /** Picking a platform from that list behaves exactly like clicking
-   * that platform's tile and then choosing "AI Copy + AI Hashtags". */
-  function pickPlatformForAiGenerate(platform: SocialPostPlatform) {
-    setSocialAiPicker("closed");
-    setMode(platform);
-    setPlatformSubMode("ai");
+  /** Social Media Copy section's own standalone "AI Generate" button —
+   * fully independent of the platform tiles below it. Opening this never
+   * touches mode/platformSubMode/showForm, and opening a tile never
+   * touches this. Its platform is chosen via a dropdown inside its own
+   * form, not by picking a tile. */
+  function openSocialAiForm() {
+    setSocialAiError(null);
+    setSocialAiPicker((prev) => (prev === "open" ? "closed" : "open"));
   }
 
   /** Email Copy section's "AI Generate" — jumps straight to the generic
@@ -242,6 +237,32 @@ export default function EventFormPage() {
     }
   }
 
+  function updateSocialAiField(field: keyof EventInput, value: string) {
+    setSocialAiEvent((prev) => ({ ...prev, [field]: value }));
+  }
+
+  /** Submit handler for the Social Media Copy section's own standalone AI
+   * Generate form — entirely separate from handleSubmit()/event above.
+   * Uses its own event fields and its own platform dropdown selection. */
+  async function handleSocialAiSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSocialAiError(null);
+    setSocialAiGenerating(true);
+
+    try {
+      const result = await generateContent(socialAiEvent, { socialPostPlatform: socialAiPlatform });
+      sessionStorage.setItem("wvf_generated_content", JSON.stringify(result));
+      sessionStorage.setItem("wvf_source_event", JSON.stringify(socialAiEvent));
+      sessionStorage.removeItem("wvf_keymakers_stage_label");
+      sessionStorage.setItem("wvf_social_post_platform_label", PLATFORM_LABELS[socialAiPlatform]);
+      router.push("/review");
+    } catch (err) {
+      setSocialAiError(err instanceof Error ? err.message : "Something went wrong generating content.");
+    } finally {
+      setSocialAiGenerating(false);
+    }
+  }
+
   const keymakersDisabled = !keymakersStages || Object.keys(keymakersStages).length === 0;
 
   return (
@@ -259,9 +280,9 @@ export default function EventFormPage() {
           </div>
           <button
             type="button"
-            onClick={openSocialAiPicker}
+            onClick={openSocialAiForm}
             className={`flex shrink-0 items-center gap-2 rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
-              socialAiPicker === "choosing_platform"
+              socialAiPicker === "open"
                 ? "border-navy bg-navy text-white"
                 : "border-sky-blue text-navy hover:bg-sky-blue/10"
             }`}
@@ -306,23 +327,105 @@ export default function EventFormPage() {
           />
         </div>
 
-        {socialAiPicker === "choosing_platform" && (
+        {socialAiPicker === "open" && (
           <div className="mt-5 max-w-2xl rounded-lg border border-gray-200 bg-gray-50/50 p-4">
-            <h3 className="mb-3 text-base font-bold text-navy">
-              Which platform should the AI copy focus on?
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {SOCIAL_POST_PLATFORMS.map((platform) => (
-                <button
-                  key={platform}
-                  type="button"
-                  onClick={() => pickPlatformForAiGenerate(platform)}
-                  className="rounded-md border-2 border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 transition hover:border-sky-blue hover:text-navy"
-                >
-                  {PLATFORM_LABELS[platform]}
-                </button>
-              ))}
-            </div>
+            <h3 className="mb-3 text-base font-bold text-navy">AI Generate — Social Post</h3>
+
+            <Field label="Platform">
+              <select
+                value={socialAiPlatform}
+                onChange={(e) => setSocialAiPlatform(e.target.value as SocialPostPlatform)}
+                className="input"
+              >
+                {SOCIAL_POST_PLATFORMS.map((platform) => (
+                  <option key={platform} value={platform}>
+                    {PLATFORM_LABELS[platform]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <form onSubmit={handleSocialAiSubmit} className="mt-4 space-y-4">
+              <Field label="Event Title">
+                <input
+                  required
+                  type="text"
+                  value={socialAiEvent.title}
+                  onChange={(e) => updateSocialAiField("title", e.target.value)}
+                  className="input"
+                  placeholder="Money & Credit: Understanding Your Credit Report"
+                />
+              </Field>
+
+              <Field label="Date">
+                <input
+                  required
+                  type="text"
+                  value={socialAiEvent.date}
+                  onChange={(e) => updateSocialAiField("date", e.target.value)}
+                  className="input"
+                  placeholder="August 15, 2026 at 2:00 PM ET"
+                />
+              </Field>
+
+              <Field label="Speaker">
+                <input
+                  required
+                  type="text"
+                  value={socialAiEvent.speaker}
+                  onChange={(e) => updateSocialAiField("speaker", e.target.value)}
+                  className="input"
+                  placeholder="WVF Financial Education Team"
+                />
+              </Field>
+
+              <Field label="Registration Link">
+                <input
+                  required
+                  type="url"
+                  value={socialAiEvent.registration_link}
+                  onChange={(e) => updateSocialAiField("registration_link", e.target.value)}
+                  className="input"
+                  placeholder="https://www.womenventurefund.org/events/..."
+                />
+              </Field>
+
+              <Field label="Target Audience">
+                <input
+                  required
+                  type="text"
+                  value={socialAiEvent.audience}
+                  onChange={(e) => updateSocialAiField("audience", e.target.value)}
+                  className="input"
+                  placeholder="NYC-based women entrepreneurs, Spanish-speaking community welcome"
+                />
+              </Field>
+
+              <Field label="Description">
+                <textarea
+                  required
+                  rows={4}
+                  value={socialAiEvent.description}
+                  onChange={(e) => updateSocialAiField("description", e.target.value)}
+                  className="input"
+                  placeholder="Describe the event, what attendees will learn, and any relevant details..."
+                />
+              </Field>
+
+              {socialAiError && (
+                <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {socialAiError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={socialAiGenerating}
+                className="rounded-md bg-navy px-6 py-3 font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {socialAiGenerating ? "Generating…" : "Generate Campaign"}
+              </button>
+            </form>
           </div>
         )}
 
