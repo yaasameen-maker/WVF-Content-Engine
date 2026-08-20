@@ -179,11 +179,17 @@ export default function EventFormPage() {
     setShowForm(false);
   }
 
-  /** Opens the Social Media Copy section's platform-picker list — a
-   * second entry point into AI Copy generation, alongside clicking a
-   * specific platform tile's own "AI Copy" sub-choice. */
+  /** Social Media Copy section's "AI Generate" button. If a platform tile
+   * is already open (e.g. staff clicked Instagram first), this jumps
+   * straight to that platform's own "AI Copy + AI Hashtags" sub-mode
+   * instead of resetting it — the two entry points must not collide.
+   * Only opens the platform-picker list when no tile is active yet. */
   function openSocialAiPicker() {
-    setMode(null);
+    if (activePlatform) {
+      setPlatformSubMode("ai");
+      setShowForm(false);
+      return;
+    }
     setPlatformSubMode(null);
     setShowForm(false);
     setSocialAiPicker("choosing_platform");
