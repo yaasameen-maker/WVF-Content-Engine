@@ -274,6 +274,28 @@ def test_x_template_detail_404s_for_unknown_template(client):
     assert "not_a_real_template" in resp.json()["detail"]
 
 
+def test_social_post_series_endpoint_lists_all_series(client):
+    resp = client.get("/api/social-post-series")
+    assert resp.status_code == 200
+    series = resp.json()
+    assert "financial_literacy_friday" in series
+    assert all(isinstance(label, str) and label for label in series.values())
+
+
+def test_social_post_tones_endpoint_lists_all_tones(client):
+    resp = client.get("/api/social-post-tones")
+    assert resp.status_code == 200
+    tones = resp.json()
+    assert "urgent" in tones
+    assert all(isinstance(label, str) and label for label in tones.values())
+
+
+def test_generate_accepts_social_post_series_and_tone_without_error(client):
+    payload = {**SAMPLE_EVENT, "social_post_series": "top_3", "social_post_tone": "celebratory"}
+    resp = client.post("/api/generate", json=payload)
+    assert resp.status_code == 200, resp.text
+
+
 def test_generate_with_keymakers_stage_key_persists_it_as_newsletter_variant(client):
     payload = {**SAMPLE_EVENT, "keymakers_stage_key": "current_clients_follow_up_1"}
     resp = client.post("/api/generate", json=payload)

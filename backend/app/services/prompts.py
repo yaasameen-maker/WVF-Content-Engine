@@ -120,9 +120,82 @@ SOCIAL_POST_ANGLE_HINTS: tuple[str, ...] = (
     "Lead with urgency or social proof (e.g. limited spots, who else is attending/hosting).",
 )
 
+# Real recurring WVF post series, per docs/PROJECT_CONTEXT.md's Content
+# Structure Guide ("Let staff tag a post as part of an existing series to
+# reuse its known format"). Optional — staff can leave this unset and get
+# a normal one-off post. Each maps to one extra prompt instruction, same
+# mechanism as SOCIAL_POST_ANGLE_HINTS above, not a new prompt shape.
+SOCIAL_POST_SERIES_HINTS: dict[str, str] = {
+    "financial_literacy_friday": (
+        'This post is part of WVF\'s recurring "Financial Literacy Friday" series — open with that '
+        "series name as part of the hook, and frame the content as a bite-sized financial education tip "
+        "tied to the event, consistent with a recognizable weekly format."
+    ),
+    "grant_opportunity": (
+        'This post is part of WVF\'s recurring "Grant Opportunity" series — lead clearly with the grant/'
+        "funding angle, and structure it so a reader skimming quickly immediately understands there's "
+        "money/funding available and how this event connects to it."
+    ),
+    "top_3": (
+        'This post is part of WVF\'s recurring "Top 3 [Topic]" series — structure the caption explicitly '
+        "as a numbered list of exactly 3 takeaways tied to the event topic, with the series framing "
+        '("Top 3...") in the hook line.'
+    ),
+    "quote_post": (
+        "This post is part of WVF's recurring quote-post series — open with a short, punchy quote-style "
+        "line in quotation marks as the hook, distinct from a plain announcement."
+    ),
+    "are_you_ready": (
+        'This post is part of WVF\'s recurring seasonal "Are You Ready?" series — open with an "Are You '
+        'Ready..." style question hook tied to the event/season, building anticipation before the details.'
+    ),
+}
+
+# Optional tone steering, layered on top of variant + series (if any).
+# Free-form beyond this fixed set is deliberately not supported yet — an
+# open text field risks off-brand tone instructions with no guardrail;
+# see brand_voice.py TONE_GUIDELINES for why WVF's voice is intentionally
+# narrow (direct, warm, professional) even while structure stays flexible.
+SOCIAL_POST_TONE_HINTS: dict[str, str] = {
+    "urgent": "Lean into urgency — limited spots, a closing deadline, or a last-chance framing.",
+    "celebratory": "Lean into a celebratory, warm tone — this is good news to share, not a plain announcement.",
+    "informational": "Lean into a calm, informational tone — clearly explain what this is and why it matters, no urgency framing.",
+}
+
+# Human-readable labels for the two dicts above, for a frontend dropdown —
+# see list_social_post_series() / list_social_post_tones().
+SOCIAL_POST_SERIES_LABELS: dict[str, str] = {
+    "financial_literacy_friday": "Financial Literacy Friday",
+    "grant_opportunity": "Grant Opportunity",
+    "top_3": "Top 3 [Topic]",
+    "quote_post": "Quote Post",
+    "are_you_ready": "Are You Ready? (seasonal)",
+}
+SOCIAL_POST_TONE_LABELS: dict[str, str] = {
+    "urgent": "Urgent",
+    "celebratory": "Celebratory",
+    "informational": "Informational",
+}
+
+
+def list_social_post_series() -> dict[str, str]:
+    """{series_key: label} for a frontend dropdown — see
+    SOCIAL_POST_SERIES_HINTS for what each key actually does to the prompt."""
+    return dict(SOCIAL_POST_SERIES_LABELS)
+
+
+def list_social_post_tones() -> dict[str, str]:
+    """{tone_key: label} for a frontend dropdown — see SOCIAL_POST_TONE_HINTS
+    for what each key actually does to the prompt."""
+    return dict(SOCIAL_POST_TONE_LABELS)
+
 
 def build_social_post_prompt(
-    event: EventInput, variant: str = "standard", angle_hint: str | None = None
+    event: EventInput,
+    variant: str = "standard",
+    angle_hint: str | None = None,
+    series: str | None = None,
+    tone: str | None = None,
 ) -> str:
     """
     Build prompt for social media post generation.
@@ -137,6 +210,12 @@ def build_social_post_prompt(
     `angle_hint`, when set, adds one extra instruction on top of `variant`'s
     fixed structure — used to differentiate posts within a 3-variant batch
     that's pinned to one platform (see SOCIAL_POST_ANGLE_HINTS above).
+
+    `series` and `tone` are optional staff-facing steering inputs (see
+    SOCIAL_POST_SERIES_HINTS / SOCIAL_POST_TONE_HINTS) — both add one more
+    instruction layered on top, same mechanism as angle_hint. Unknown keys
+    are silently ignored (treated as unset) rather than raising, since this
+    is optional steering, not a required selection.
     """
     brand_context = get_brand_voice_context()
     structure = SOCIAL_POST_VARIANTS[variant]["instructions"]
@@ -152,6 +231,8 @@ def build_social_post_prompt(
         "" if is_platform_variant else "\n- Use emojis sparingly (🚨 for urgency, 📅 for dates, ✅ for benefits)"
     )
     angle_instruction = f"\n- {angle_hint}" if angle_hint else ""
+    series_instruction = f"\n- {SOCIAL_POST_SERIES_HINTS[series]}" if series in SOCIAL_POST_SERIES_HINTS else ""
+    tone_instruction = f"\n- {SOCIAL_POST_TONE_HINTS[tone]}" if tone in SOCIAL_POST_TONE_HINTS else ""
 
     return f"""You are a social media content creator for Women's Venture Fund (WVF), a NYC-based CDFI supporting women entrepreneurs.
 
@@ -171,7 +252,7 @@ Your task: Create a social media post for this event:
 {structure}
 - Suggest 5-7 hashtags from the brand list + topic-specific ones
 - Write a DALL-E style image prompt (describe a professional, engaging visual)
-- Match the tone from the examples: direct, benefit-forward, warm but professional{emoji_guidance}{angle_instruction}
+- Match the tone from the examples: direct, benefit-forward, warm but professional{emoji_guidance}{angle_instruction}{series_instruction}{tone_instruction}
 
 Return structured JSON matching the SocialPostOutput schema."""
 

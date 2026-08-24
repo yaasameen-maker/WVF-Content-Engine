@@ -10,7 +10,11 @@ surface by reading real generated output.
 from app.schemas import EventInput
 from app.services.prompts import (
     SOCIAL_POST_PLATFORM_VARIANTS,
+    SOCIAL_POST_SERIES_HINTS,
+    SOCIAL_POST_TONE_HINTS,
     build_social_post_prompt,
+    list_social_post_series,
+    list_social_post_tones,
     list_variants,
     resolve_variant,
 )
@@ -58,6 +62,43 @@ def test_tone_variants_still_default_to_sparing_emoji_use():
     for tone in ("standard", "listicle", "quote_style"):
         prompt = build_social_post_prompt(SAMPLE_EVENT, variant=tone)
         assert "emojis sparingly" in prompt
+
+
+def test_social_post_series_hint_is_injected_into_prompt():
+    prompt = build_social_post_prompt(SAMPLE_EVENT, series="financial_literacy_friday")
+    assert SOCIAL_POST_SERIES_HINTS["financial_literacy_friday"] in prompt
+
+
+def test_social_post_tone_hint_is_injected_into_prompt():
+    prompt = build_social_post_prompt(SAMPLE_EVENT, tone="urgent")
+    assert SOCIAL_POST_TONE_HINTS["urgent"] in prompt
+
+
+def test_social_post_series_and_tone_can_combine():
+    prompt = build_social_post_prompt(SAMPLE_EVENT, series="grant_opportunity", tone="celebratory")
+    assert SOCIAL_POST_SERIES_HINTS["grant_opportunity"] in prompt
+    assert SOCIAL_POST_TONE_HINTS["celebratory"] in prompt
+
+
+def test_unknown_series_and_tone_are_silently_ignored():
+    """Optional steering, not a required/validated selection — an unknown
+    key (e.g. a stale frontend build sending an old key) should not raise
+    or corrupt the prompt, just produce the same prompt as if unset."""
+    prompt_with_bogus = build_social_post_prompt(SAMPLE_EVENT, series="not_a_real_series", tone="not_a_real_tone")
+    prompt_unset = build_social_post_prompt(SAMPLE_EVENT)
+    assert prompt_with_bogus == prompt_unset
+
+
+def test_list_social_post_series_returns_all_labeled_keys():
+    series = list_social_post_series()
+    assert set(series.keys()) == set(SOCIAL_POST_SERIES_HINTS.keys())
+    assert all(isinstance(label, str) and label for label in series.values())
+
+
+def test_list_social_post_tones_returns_all_labeled_keys():
+    tones = list_social_post_tones()
+    assert set(tones.keys()) == set(SOCIAL_POST_TONE_HINTS.keys())
+    assert all(isinstance(label, str) and label for label in tones.values())
 
 
 def test_platform_variants_include_event_details():

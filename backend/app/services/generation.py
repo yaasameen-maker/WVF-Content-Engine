@@ -156,18 +156,28 @@ def _resolve_batch_variants(social_post_platform: str | None) -> list[tuple[str,
 
 
 async def generate_social_post_variants(
-    client: anthropic.Anthropic, event: EventInput, social_post_platform: str | None = None
+    client: anthropic.Anthropic,
+    event: EventInput,
+    social_post_platform: str | None = None,
+    series: str | None = None,
+    tone: str | None = None,
 ) -> list[SocialPostVariant]:
     """
     Generate SOCIAL_POST_VARIANT_COUNT distinct social post options
     concurrently, for staff to compare and pick from on the review page —
     see GeneratedContentResponse.social_post_variants. See
     _resolve_batch_variants for how the 3 are differentiated.
+
+    series / tone: optional staff steering, applied identically across all
+    3 options in the batch (see build_social_post_prompt / prompts.py's
+    SOCIAL_POST_SERIES_HINTS and SOCIAL_POST_TONE_HINTS).
     """
     batch = _resolve_batch_variants(social_post_platform)
 
     async def run_one(structure_variant: str, angle_hint: str | None) -> SocialPostVariant:
-        prompt = build_social_post_prompt(event, structure_variant, angle_hint=angle_hint)
+        prompt = build_social_post_prompt(
+            event, structure_variant, angle_hint=angle_hint, series=series, tone=tone
+        )
         post = await generate_social_post(client, prompt)
         return SocialPostVariant(
             structure_variant=structure_variant,
@@ -461,6 +471,8 @@ async def generate_all_content(
     newsletter_variant_selection: str = "generate_new",
     recent_newsletter_variants: list[str] | None = None,
     keymakers_stage_key: str | None = None,
+    social_post_series: str | None = None,
+    social_post_tone: str | None = None,
 ) -> tuple[GeneratedContentResponse, str]:
     """
     Generate all content types concurrently.
@@ -489,6 +501,11 @@ async def generate_all_content(
     that case, since the reference message supplies its own structure.
     Only the newsletter is affected.
 
+    social_post_series / social_post_tone: optional staff steering for the
+    social post batch only (see prompts.py's SOCIAL_POST_SERIES_HINTS /
+    SOCIAL_POST_TONE_HINTS) — applied identically across all 3 options in
+    the batch. Unknown/unset values are silently ignored.
+
     Returns the generated content plus the resolved newsletter variant key,
     so the caller can persist which variant was actually used (newsletter
     is still generated/persisted as a single item, unlike social_post).
@@ -512,7 +529,9 @@ async def generate_all_content(
     # and hashtags-variant batches (each of those is itself
     # SOCIAL_POST_VARIANT_COUNT concurrent calls internally).
     social_post_variants, hashtags_variants, newsletter, flyer, calendar = await asyncio.gather(
-        generate_social_post_variants(client, event, social_post_platform),
+        generate_social_post_variants(
+            client, event, social_post_platform, series=social_post_series, tone=social_post_tone
+        ),
         generate_hashtags_variants(client, event),
         generate_newsletter(client, newsletter_prompt),
         generate_flyer(client, flyer_prompt),

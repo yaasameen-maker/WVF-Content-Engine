@@ -141,6 +141,13 @@ export interface GenerateOptions {
    * real observed structure (see SOCIAL_POST_PLATFORMS) instead of the
    * default random tone-variant rotation. */
   socialPostPlatform?: SocialPostPlatform;
+  /** Optional recurring-series steering (e.g. "Financial Literacy
+   * Friday") — see GET /api/social-post-series for valid keys. Silently
+   * ignored server-side if unrecognized. */
+  socialPostSeries?: string;
+  /** Optional tone steering (e.g. "urgent") — see GET /api/social-post-tones
+   * for valid keys. Silently ignored server-side if unrecognized. */
+  socialPostTone?: string;
 }
 
 export function generateContent(
@@ -157,8 +164,18 @@ export function generateContent(
       ...(options?.socialPostPlatform
         ? { social_post_platform: options.socialPostPlatform }
         : {}),
+      ...(options?.socialPostSeries ? { social_post_series: options.socialPostSeries } : {}),
+      ...(options?.socialPostTone ? { social_post_tone: options.socialPostTone } : {}),
     }),
   });
+}
+
+export function listSocialPostSeries(): Promise<Record<string, string>> {
+  return request<Record<string, string>>("/api/social-post-series");
+}
+
+export function listSocialPostTones(): Promise<Record<string, string>> {
+  return request<Record<string, string>>("/api/social-post-tones");
 }
 
 /** Persists the social post + hashtags option staff picked from the

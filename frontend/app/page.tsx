@@ -10,6 +10,8 @@ import {
   getXTemplateDetail,
   listInstagramTemplates,
   listKeymakersStages,
+  listSocialPostSeries,
+  listSocialPostTones,
   listXTemplates,
   SOCIAL_POST_PLATFORMS,
   type EventInput,
@@ -81,6 +83,16 @@ export default function EventFormPage() {
   const [socialAiEvent, setSocialAiEvent] = useState<EventInput>(EMPTY_EVENT);
   const [socialAiGenerating, setSocialAiGenerating] = useState(false);
   const [socialAiError, setSocialAiError] = useState<string | null>(null);
+  // Optional steering, both default to "" (unset) — server silently
+  // ignores an empty/unrecognized value, same as leaving it out entirely.
+  const [socialPostSeriesOptions, setSocialPostSeriesOptions] = useState<Record<string, string> | null>(
+    null
+  );
+  const [socialPostTonesOptions, setSocialPostTonesOptions] = useState<Record<string, string> | null>(
+    null
+  );
+  const [socialAiSeries, setSocialAiSeries] = useState("");
+  const [socialAiTone, setSocialAiTone] = useState("");
 
   const [keymakersStages, setKeymakersStages] = useState<Record<string, string> | null>(null);
   const [keymakersStageKey, setKeymakersStageKey] = useState("");
@@ -124,6 +136,21 @@ export default function EventFormPage() {
         // Non-fatal: Fixed template just won't be usable if this fails —
         // AI Copy still works independently.
         setInstagramTemplates({});
+      });
+  }, []);
+
+  useEffect(() => {
+    listSocialPostSeries()
+      .then(setSocialPostSeriesOptions)
+      .catch(() => {
+        // Non-fatal: the series dropdown just won't have options — the
+        // form still works with series left unset.
+        setSocialPostSeriesOptions({});
+      });
+    listSocialPostTones()
+      .then(setSocialPostTonesOptions)
+      .catch(() => {
+        setSocialPostTonesOptions({});
       });
   }, []);
 
@@ -250,7 +277,11 @@ export default function EventFormPage() {
     setSocialAiGenerating(true);
 
     try {
-      const result = await generateContent(socialAiEvent, { socialPostPlatform: socialAiPlatform });
+      const result = await generateContent(socialAiEvent, {
+        socialPostPlatform: socialAiPlatform,
+        socialPostSeries: socialAiSeries || undefined,
+        socialPostTone: socialAiTone || undefined,
+      });
       sessionStorage.setItem("wvf_generated_content", JSON.stringify(result));
       sessionStorage.setItem("wvf_source_event", JSON.stringify(socialAiEvent));
       sessionStorage.removeItem("wvf_keymakers_stage_label");
@@ -337,6 +368,38 @@ export default function EventFormPage() {
                 ))}
               </select>
             </Field>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Series (optional)">
+                <select
+                  value={socialAiSeries}
+                  onChange={(e) => setSocialAiSeries(e.target.value)}
+                  className="input"
+                >
+                  <option value="">Not part of a series</option>
+                  {Object.entries(socialPostSeriesOptions ?? {}).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Tone (optional)">
+                <select
+                  value={socialAiTone}
+                  onChange={(e) => setSocialAiTone(e.target.value)}
+                  className="input"
+                >
+                  <option value="">Default</option>
+                  {Object.entries(socialPostTonesOptions ?? {}).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
 
             <form onSubmit={handleSocialAiSubmit} className="mt-4 space-y-4">
               <Field label="Event Title">

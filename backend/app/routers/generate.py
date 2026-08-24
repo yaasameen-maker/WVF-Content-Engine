@@ -16,7 +16,7 @@ from app.schemas import ContentItemResponse, EventInput, GeneratedContentRespons
 from app.services.generation import generate_all_content
 from app.services.instagram_templates import get_instagram_template, list_instagram_templates
 from app.services.keymakers_campaign import get_keymakers_stage, list_keymakers_stages
-from app.services.prompts import list_variants
+from app.services.prompts import list_social_post_series, list_social_post_tones, list_variants
 from app.services.x_templates import get_x_template, list_x_templates
 
 router = APIRouter(prefix="/api", tags=["generation"])
@@ -45,11 +45,20 @@ class GenerateRequest(EventInput):
     keymakers_stage_key: optional. When set, the newsletter is generated
     by adapting the selected real Keymakers recruitment reference message
     (see GET /api/keymakers-stages) instead of the normal event-promotion
-    newsletter — newsletter_variant is ignored when this is set."""
+    newsletter — newsletter_variant is ignored when this is set.
+
+    social_post_series / social_post_tone: optional staff steering for the
+    social post batch — a recognized recurring WVF series (e.g. "Financial
+    Literacy Friday") and/or a tone lean (urgent/celebratory/
+    informational). See GET /api/social-post-series and
+    GET /api/social-post-tones for the valid key sets to show in a
+    dropdown. Unrecognized keys are silently ignored, not rejected."""
 
     social_post_platform: Optional[str] = Field(default=None)
     newsletter_variant: str = Field(default="generate_new")
     keymakers_stage_key: Optional[str] = Field(default=None)
+    social_post_series: Optional[str] = Field(default=None)
+    social_post_tone: Optional[str] = Field(default=None)
 
 
 @router.get("/variants/{content_type}")
@@ -57,6 +66,22 @@ def get_variants(content_type: str) -> dict[str, str]:
     """List available structure variants for a content type, for a frontend
     dropdown. Returns {} for content types with no variants yet."""
     return list_variants(content_type)
+
+
+@router.get("/social-post-series")
+def get_social_post_series() -> dict[str, str]:
+    """List optional recurring-series steering options ({series_key:
+    label}) for the AI Generate social post form's series dropdown. See
+    GenerateRequest.social_post_series."""
+    return list_social_post_series()
+
+
+@router.get("/social-post-tones")
+def get_social_post_tones() -> dict[str, str]:
+    """List optional tone steering options ({tone_key: label}) for the AI
+    Generate social post form's tone dropdown. See
+    GenerateRequest.social_post_tone."""
+    return list_social_post_tones()
 
 
 @router.get("/keymakers-stages")
@@ -190,7 +215,13 @@ async def generate_content(
     """
     event = EventInput(
         **request.model_dump(
-            exclude={"social_post_platform", "newsletter_variant", "keymakers_stage_key"}
+            exclude={
+                "social_post_platform",
+                "newsletter_variant",
+                "keymakers_stage_key",
+                "social_post_series",
+                "social_post_tone",
+            }
         )
     )
 
@@ -203,6 +234,8 @@ async def generate_content(
             newsletter_variant_selection=request.newsletter_variant,
             recent_newsletter_variants=recent_newsletter,
             keymakers_stage_key=request.keymakers_stage_key,
+            social_post_series=request.social_post_series,
+            social_post_tone=request.social_post_tone,
         )
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=400, detail=str(e))

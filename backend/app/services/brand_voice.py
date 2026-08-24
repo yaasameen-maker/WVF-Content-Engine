@@ -47,7 +47,7 @@ Learn how to:
 ✅ Spot and fix errors
 ✅ Improve your credit score
 
-Perfect for entrepreneurs getting loan-ready! 
+Perfect for entrepreneurs getting loan-ready!
 
 📅 July 16, 2pm ET
 🔗 Register: [link]
@@ -78,6 +78,30 @@ Special thanks to our partners at [Partner Org] for co-hosting this important co
 Missed it? Access the recording: [link]
 
 #WomensVentureFund #FinancialLiteracy #CommunitySupport #NYCBusiness""",
+    },
+    # --- Below: real posts pulled from app/services/instagram_templates.py
+    # (Aug 2026), added to cover structural shapes the 3 event-centric
+    # examples above don't — an awareness post with no specific event, and
+    # a near-caption-less quote card. Both are real, previously-published
+    # WVF Instagram posts, not fabricated for this file.
+    {
+        "type": "awareness_no_event",
+        "caption": """April is Financial Literacy Month!
+
+Strong businesses = strong financial foundations 👍
+✔ Cash Flow
+✔ Credit
+✔ Capital Access
+
+WVF is here to help you build, grow, and fund your business with confidence.
+
+Don't wait, start strengthening your business today.
+
+Register: [link]""",
+    },
+    {
+        "type": "quote_card_minimal",
+        "caption": """Behind every successful woman is a tribe of other successful women who have her back""",
     },
 ]
 

@@ -229,6 +229,8 @@ def client(db_session_factory, monkeypatch):
         newsletter_variant_selection="generate_new",
         recent_newsletter_variants=None,
         keymakers_stage_key=None,
+        social_post_series=None,
+        social_post_tone=None,
     ):
         return FAKE_GENERATED_CONTENT, keymakers_stage_key or "standard"
 
