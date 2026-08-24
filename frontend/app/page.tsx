@@ -271,25 +271,12 @@ export default function EventFormPage() {
 
       {/* --- Social Media Copy section --- */}
       <div className="mb-8">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-navy">Social Media Copy</h2>
-            <p className="text-sm text-gray-600">
-              Pick a platform, then choose a real WVF template or generate new AI copy for it.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={openSocialAiForm}
-            className={`flex shrink-0 items-center gap-2 rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
-              socialAiPicker === "open"
-                ? "border-navy bg-navy text-white"
-                : "border-sky-blue text-navy hover:bg-sky-blue/10"
-            }`}
-          >
-            <AiSparkleIcon className="h-4 w-4" />
-            AI Generate
-          </button>
+        <div className="mb-3">
+          <h2 className="text-lg font-bold text-navy">Social Media Copy</h2>
+          <p className="text-sm text-gray-600">
+            Pick a platform, then choose a real WVF template — or use the AI Generate tile for a new
+            AI-written post.
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-4">
@@ -324,6 +311,12 @@ export default function EventFormPage() {
             icon={
               <BrandSvgIcon icon={siTiktok} fill={mode === "tiktok" ? "#FFFFFF" : `#${siTiktok.hex}`} />
             }
+          />
+          <PlatformToggleButton
+            label="AI Generate"
+            active={socialAiPicker === "open"}
+            onClick={openSocialAiForm}
+            icon={<AiSparkleIcon fill={socialAiPicker === "open" ? "#FFFFFF" : undefined} />}
           />
         </div>
 
@@ -595,26 +588,12 @@ export default function EventFormPage() {
 
       {/* --- Email Copy section --- */}
       <div className="mb-6">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-navy">Email Copy</h2>
-            <p className="text-sm text-gray-600">
-              Real WVF Keymakers recruitment copy, or generate a new AI-written newsletter.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={startEmailAiGenerate}
-            disabled={keymakersDisabled}
-            className={`flex shrink-0 items-center gap-2 rounded-md border-2 px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
-              mode === "ai"
-                ? "border-navy bg-navy text-white"
-                : "border-sky-blue text-navy hover:bg-sky-blue/10"
-            }`}
-          >
-            <AiSparkleIcon className="h-4 w-4" />
-            AI Generate
-          </button>
+        <div className="mb-3">
+          <h2 className="text-lg font-bold text-navy">Email Copy</h2>
+          <p className="text-sm text-gray-600">
+            Real WVF Keymakers recruitment copy, or use the AI Generate tile for a new AI-written
+            newsletter.
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-4">
@@ -627,6 +606,12 @@ export default function EventFormPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src="/wvf-logo.svg" alt="" className="h-16 w-auto max-w-none" />
             }
+          />
+          <PlatformToggleButton
+            label="AI Generate"
+            active={mode === "ai"}
+            onClick={startEmailAiGenerate}
+            icon={<AiSparkleIcon fill={mode === "ai" ? "#FFFFFF" : undefined} />}
           />
         </div>
 
@@ -911,10 +896,19 @@ function LinkedInMonogramIcon() {
 
 /** Simple sparkle glyph marking the AI-generation tile — not a brand mark,
  * just a plain hand-drawn shape in the WVF sky-blue so it doesn't compete
- * visually with the real brand icons beside it. */
-function AiSparkleIcon({ className = "h-16 w-16" }: { className?: string }) {
+ * visually with the real brand icons beside it. `fill` defaults to the
+ * sky-blue brand color but accepts an override (e.g. white) for when the
+ * tile itself is in its active/selected navy-background state, matching
+ * how the X/TikTok tile icons swap fill on active. */
+function AiSparkleIcon({
+  className = "h-16 w-16",
+  fill = "#6FA8DC",
+}: {
+  className?: string;
+  fill?: string;
+}) {
   return (
-    <svg viewBox="0 0 24 24" role="img" aria-label="AI Generate" className={className} fill="#6FA8DC">
+    <svg viewBox="0 0 24 24" role="img" aria-label="AI Generate" className={className} fill={fill}>
       <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" />
       <path d="M19 14l.9 2.6L22.5 17.5l-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9L19 14z" />
     </svg>
