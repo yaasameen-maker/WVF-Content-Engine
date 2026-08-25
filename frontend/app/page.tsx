@@ -296,27 +296,36 @@ export default function EventFormPage() {
 
   const keymakersDisabled = !keymakersStages || Object.keys(keymakersStages).length === 0;
 
+  const socialActive = activePlatform !== null || socialAiPicker === "open";
+  const emailActive = mode === "keymakers" || mode === "ai";
+  const anySectionExpanded = socialActive || emailActive;
+
   return (
     <div>
       <InstagramGradientDef />
 
-      {/* --- Social Media Copy section --- */}
-      <div className="mb-3">
-        <h2 className="text-lg font-bold text-navy">Social Media Copy</h2>
-        <p className="text-sm text-gray-600">
-          Pick a platform, then choose a real WVF template — or use the AI Generate tile for a new
-          AI-written post.
-        </p>
-      </div>
+      {/* Once a tile is expanded, only ITS OWN section's heading stays —
+          the other section (and its description) disappears entirely
+          instead of sitting above an empty/collapsed area. */}
+      {(!anySectionExpanded || socialActive) && (
+        <div className="mb-3">
+          <h2 className="text-lg font-bold text-navy">Social Media Copy</h2>
+          <p className="text-sm text-gray-600">
+            Pick a platform, then choose a real WVF template — or use the AI Generate tile for a new
+            AI-written post.
+          </p>
+        </div>
+      )}
 
-      {/* --- Email Copy section --- */}
-      <div className="mb-3">
-        <h2 className="text-lg font-bold text-navy">Email Copy</h2>
-        <p className="text-sm text-gray-600">
-          Real WVF Keymakers recruitment copy, or use the AI Generate tile for a new AI-written
-          newsletter.
-        </p>
-      </div>
+      {(!anySectionExpanded || emailActive) && (
+        <div className="mb-3">
+          <h2 className="text-lg font-bold text-navy">Email Copy</h2>
+          <p className="text-sm text-gray-600">
+            Real WVF Keymakers recruitment copy, or use the AI Generate tile for a new AI-written
+            newsletter.
+          </p>
+        </div>
+      )}
 
       {/* Both sections share one rail/panel: any tile from either section
           expanding collapses every other tile from BOTH sections into the
@@ -419,13 +428,13 @@ export default function EventFormPage() {
               <SideRailPortal>
                 <div className="flex flex-col gap-3">
                   <div>
-                    <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                    <p className="px-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-gray-400">
                       Social
                     </p>
                     {socialTiles}
                   </div>
                   <div>
-                    <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                    <p className="px-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-gray-400">
                       Email
                     </p>
                     {emailTiles}
