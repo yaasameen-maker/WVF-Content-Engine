@@ -325,92 +325,119 @@ export default function EventFormPage() {
           column) — and its panel appears in the normal centered flow. */}
       {(() => {
         const anyExpanded = mode !== null || socialAiPicker === "open";
-        const rail = (
+        const socialTiles = (
           <TileRail expanded={anyExpanded}>
-              <PlatformToggleButton
-                tileId="instagram"
-                label="Instagram"
-                active={mode === "instagram"}
-                collapsed={anyExpanded}
-                onClick={() => selectMode("instagram")}
-                icon={<BrandSvgIcon icon={siInstagram} fill={`url(#${IG_GRADIENT_ID})`} />}
-              />
-              <PlatformToggleButton
-                tileId="linkedin"
-                label="LinkedIn"
-                active={mode === "linkedin"}
-                collapsed={anyExpanded}
-                onClick={() => selectMode("linkedin")}
-                icon={<LinkedInMonogramIcon />}
-              />
-              <PlatformToggleButton
-                tileId="facebook"
-                label="Facebook"
-                active={mode === "facebook"}
-                collapsed={anyExpanded}
-                onClick={() => selectMode("facebook")}
-                icon={<BrandSvgIcon icon={siFacebook} fill={`#${siFacebook.hex}`} />}
-              />
-              <PlatformToggleButton
-                tileId="x"
-                label="X"
-                active={mode === "x"}
-                collapsed={anyExpanded}
-                onClick={() => selectMode("x")}
-                icon={<BrandSvgIcon icon={siX} fill={mode === "x" ? "#FFFFFF" : `#${siX.hex}`} />}
-              />
-              <PlatformToggleButton
-                tileId="tiktok"
-                label="TikTok"
-                active={mode === "tiktok"}
-                collapsed={anyExpanded}
-                onClick={() => selectMode("tiktok")}
-                icon={
-                  <BrandSvgIcon
-                    icon={siTiktok}
-                    fill={mode === "tiktok" ? "#FFFFFF" : `#${siTiktok.hex}`}
-                  />
-                }
-              />
-              <PlatformToggleButton
-                tileId="social-ai-generate"
-                label="AI Generate"
-                active={socialAiPicker === "open"}
-                collapsed={anyExpanded}
-                onClick={openSocialAiForm}
-                icon={<AiSparkleIcon fill={socialAiPicker === "open" ? "#FFFFFF" : undefined} />}
-              />
-              <PlatformToggleButton
-                tileId="keymakers"
-                label="Keymakers Copy"
-                active={mode === "keymakers"}
-                collapsed={anyExpanded}
-                onClick={() => selectMode("keymakers")}
-                disabled={keymakersDisabled}
-                icon={
-                  // h-full w-full + object-contain (not a fixed h-16): this
-                  // icon renders inside two very differently sized wrappers
-                  // (a 64px full-tile slot and a 32px collapsed-rail slot)
-                  // — a fixed height overflowed the small slot instead of
-                  // scaling down into it.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src="/wvf-logo.svg" alt="" className="h-full w-full object-contain" />
-                }
-              />
-              <PlatformToggleButton
-                tileId="email-ai-generate"
-                label="AI Generate"
-                active={mode === "ai"}
-                collapsed={anyExpanded}
-                onClick={startEmailAiGenerate}
-                icon={<AiSparkleIcon fill={mode === "ai" ? "#FFFFFF" : undefined} />}
-              />
+            <PlatformToggleButton
+              tileId="instagram"
+              label="Instagram"
+              active={mode === "instagram"}
+              collapsed={anyExpanded}
+              onClick={() => selectMode("instagram")}
+              icon={<BrandSvgIcon icon={siInstagram} fill={`url(#${IG_GRADIENT_ID})`} />}
+            />
+            <PlatformToggleButton
+              tileId="linkedin"
+              label="LinkedIn"
+              active={mode === "linkedin"}
+              collapsed={anyExpanded}
+              onClick={() => selectMode("linkedin")}
+              icon={<LinkedInMonogramIcon />}
+            />
+            <PlatformToggleButton
+              tileId="facebook"
+              label="Facebook"
+              active={mode === "facebook"}
+              collapsed={anyExpanded}
+              onClick={() => selectMode("facebook")}
+              icon={<BrandSvgIcon icon={siFacebook} fill={`#${siFacebook.hex}`} />}
+            />
+            <PlatformToggleButton
+              tileId="x"
+              label="X"
+              active={mode === "x"}
+              collapsed={anyExpanded}
+              onClick={() => selectMode("x")}
+              icon={<BrandSvgIcon icon={siX} fill={`#${siX.hex}`} />}
+            />
+            <PlatformToggleButton
+              tileId="tiktok"
+              label="TikTok"
+              active={mode === "tiktok"}
+              collapsed={anyExpanded}
+              onClick={() => selectMode("tiktok")}
+              icon={<BrandSvgIcon icon={siTiktok} fill={`#${siTiktok.hex}`} />}
+            />
+            <PlatformToggleButton
+              tileId="social-ai-generate"
+              label="AI Generate"
+              active={socialAiPicker === "open"}
+              collapsed={anyExpanded}
+              onClick={openSocialAiForm}
+              icon={<AiSparkleIcon />}
+            />
+          </TileRail>
+        );
+        const emailTiles = (
+          <TileRail expanded={anyExpanded}>
+            <PlatformToggleButton
+              tileId="keymakers"
+              label="Keymakers Copy"
+              active={mode === "keymakers"}
+              collapsed={anyExpanded}
+              onClick={() => selectMode("keymakers")}
+              disabled={keymakersDisabled}
+              icon={
+                // h-full w-full + object-contain (not a fixed h-16): this
+                // icon renders inside two very differently sized wrappers
+                // (a 64px full-tile slot and a 32px collapsed-rail slot)
+                // — a fixed height overflowed the small slot instead of
+                // scaling down into it.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src="/wvf-logo.svg" alt="" className="h-full w-full object-contain" />
+              }
+            />
+            <PlatformToggleButton
+              tileId="email-ai-generate"
+              label="AI Generate"
+              active={mode === "ai"}
+              collapsed={anyExpanded}
+              onClick={startEmailAiGenerate}
+              icon={<AiSparkleIcon />}
+            />
           </TileRail>
         );
 
+        // Grid mode: both groups render inline, right where their section
+        // heading already introduced them (unchanged from before). Rail
+        // mode: both groups portal to the shared left-edge slot, but stay
+        // visually separated by a small section label — expanding either
+        // section still collapses both (one shared expand state), only
+        // the grouping/labeling is section-scoped.
         return (
           <div className="mb-8">
-            {anyExpanded ? <SideRailPortal>{rail}</SideRailPortal> : rail}
+            {anyExpanded ? (
+              <SideRailPortal>
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                      Social
+                    </p>
+                    {socialTiles}
+                  </div>
+                  <div>
+                    <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                      Email
+                    </p>
+                    {emailTiles}
+                  </div>
+                </div>
+              </SideRailPortal>
+            ) : (
+              <>
+                {socialTiles}
+                {emailTiles}
+              </>
+            )}
 
             <AnimatePresence>
               {socialAiPicker === "open" && (
@@ -1114,8 +1141,12 @@ function BrandSvgIcon({
   icon: { path: string; title: string };
   fill: string;
 }) {
+  // h-full w-full (not a fixed h-16): this icon renders inside two very
+  // differently sized wrappers (a 64px full-tile slot and a 32px
+  // collapsed-rail slot) — a fixed pixel size overflowed the small slot
+  // instead of scaling down into it, same issue the Keymakers <img> had.
   return (
-    <svg viewBox="0 0 24 24" role="img" aria-label={icon.title} className="h-16 w-16" fill={fill}>
+    <svg viewBox="0 0 24 24" role="img" aria-label={icon.title} className="h-full w-full" fill={fill}>
       <path d={icon.path} />
     </svg>
   );
@@ -1152,11 +1183,15 @@ function InstagramGradientDef() {
  * (not the `text-white` class) so the letterform renders true #FFFFFF,
  * not a washed-out gray from anti-aliasing at small sizes. */
 function LinkedInMonogramIcon() {
+  // h-full w-full + text-[60%] (not fixed h-16/text-2xl): renders inside
+  // two very differently sized wrappers (64px full-tile slot, 32px
+  // collapsed-rail slot) — a fixed 24px glyph was oversized/clipped at
+  // the smaller size. 60% of the box height reads proportionate at both.
   return (
     <span
       aria-label="LinkedIn"
       style={{ backgroundColor: "#0A66C2", color: "#FFFFFF" }}
-      className="flex h-16 w-16 items-center justify-center rounded-lg text-2xl font-bold leading-none"
+      className="flex h-full w-full items-center justify-center rounded-lg text-[60%] font-bold leading-none"
     >
       in
     </span>
@@ -1170,7 +1205,7 @@ function LinkedInMonogramIcon() {
  * tile itself is in its active/selected navy-background state, matching
  * how the X/TikTok tile icons swap fill on active. */
 function AiSparkleIcon({
-  className = "h-16 w-16",
+  className = "h-full w-full",
   fill = "#6FA8DC",
 }: {
   className?: string;
