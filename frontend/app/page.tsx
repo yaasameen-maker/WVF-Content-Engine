@@ -300,77 +300,113 @@ export default function EventFormPage() {
       <InstagramGradientDef />
 
       {/* --- Social Media Copy section --- */}
-      <div className="mb-8">
-        <div className="mb-3">
-          <h2 className="text-lg font-bold text-navy">Social Media Copy</h2>
-          <p className="text-sm text-gray-600">
-            Pick a platform, then choose a real WVF template — or use the AI Generate tile for a new
-            AI-written post.
-          </p>
-        </div>
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-navy">Social Media Copy</h2>
+        <p className="text-sm text-gray-600">
+          Pick a platform, then choose a real WVF template — or use the AI Generate tile for a new
+          AI-written post.
+        </p>
+      </div>
 
-        {(() => {
-          const socialExpanded = activePlatform !== null || socialAiPicker === "open";
-          return (
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-              <TileRail expanded={socialExpanded}>
-                <PlatformToggleButton
-                  tileId="instagram"
-                  label="Instagram"
-                  active={mode === "instagram"}
-                  collapsed={socialExpanded && mode !== "instagram"}
-                  onClick={() => selectMode("instagram")}
-                  icon={<BrandSvgIcon icon={siInstagram} fill={`url(#${IG_GRADIENT_ID})`} />}
-                />
-                <PlatformToggleButton
-                  tileId="linkedin"
-                  label="LinkedIn"
-                  active={mode === "linkedin"}
-                  collapsed={socialExpanded && mode !== "linkedin"}
-                  onClick={() => selectMode("linkedin")}
-                  icon={<LinkedInMonogramIcon />}
-                />
-                <PlatformToggleButton
-                  tileId="facebook"
-                  label="Facebook"
-                  active={mode === "facebook"}
-                  collapsed={socialExpanded && mode !== "facebook"}
-                  onClick={() => selectMode("facebook")}
-                  icon={<BrandSvgIcon icon={siFacebook} fill={`#${siFacebook.hex}`} />}
-                />
-                <PlatformToggleButton
-                  tileId="x"
-                  label="X"
-                  active={mode === "x"}
-                  collapsed={socialExpanded && mode !== "x"}
-                  onClick={() => selectMode("x")}
-                  icon={<BrandSvgIcon icon={siX} fill={mode === "x" ? "#FFFFFF" : `#${siX.hex}`} />}
-                />
-                <PlatformToggleButton
-                  tileId="tiktok"
-                  label="TikTok"
-                  active={mode === "tiktok"}
-                  collapsed={socialExpanded && mode !== "tiktok"}
-                  onClick={() => selectMode("tiktok")}
-                  icon={
-                    <BrandSvgIcon
-                      icon={siTiktok}
-                      fill={mode === "tiktok" ? "#FFFFFF" : `#${siTiktok.hex}`}
-                    />
-                  }
-                />
-                <PlatformToggleButton
-                  tileId="social-ai-generate"
-                  label="AI Generate"
-                  active={socialAiPicker === "open"}
-                  collapsed={socialExpanded && socialAiPicker !== "open"}
-                  onClick={openSocialAiForm}
-                  icon={<AiSparkleIcon fill={socialAiPicker === "open" ? "#FFFFFF" : undefined} />}
-                />
-              </TileRail>
+      {/* --- Email Copy section --- */}
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-navy">Email Copy</h2>
+        <p className="text-sm text-gray-600">
+          Real WVF Keymakers recruitment copy, or use the AI Generate tile for a new AI-written
+          newsletter.
+        </p>
+      </div>
 
-              <AnimatePresence>
-                {socialAiPicker === "open" && (
+      {/* Both sections share one rail/panel: any tile from either section
+          expanding collapses every other tile from BOTH sections into the
+          same rail, and its panel appears beside that shared rail. */}
+      {(() => {
+        const anyExpanded = mode !== null || socialAiPicker === "open";
+        return (
+          <div className="mb-8 flex flex-row items-start gap-6">
+            <TileRail expanded={anyExpanded}>
+              <PlatformToggleButton
+                tileId="instagram"
+                label="Instagram"
+                active={mode === "instagram"}
+                collapsed={anyExpanded && mode !== "instagram"}
+                onClick={() => selectMode("instagram")}
+                icon={<BrandSvgIcon icon={siInstagram} fill={`url(#${IG_GRADIENT_ID})`} />}
+              />
+              <PlatformToggleButton
+                tileId="linkedin"
+                label="LinkedIn"
+                active={mode === "linkedin"}
+                collapsed={anyExpanded && mode !== "linkedin"}
+                onClick={() => selectMode("linkedin")}
+                icon={<LinkedInMonogramIcon />}
+              />
+              <PlatformToggleButton
+                tileId="facebook"
+                label="Facebook"
+                active={mode === "facebook"}
+                collapsed={anyExpanded && mode !== "facebook"}
+                onClick={() => selectMode("facebook")}
+                icon={<BrandSvgIcon icon={siFacebook} fill={`#${siFacebook.hex}`} />}
+              />
+              <PlatformToggleButton
+                tileId="x"
+                label="X"
+                active={mode === "x"}
+                collapsed={anyExpanded && mode !== "x"}
+                onClick={() => selectMode("x")}
+                icon={<BrandSvgIcon icon={siX} fill={mode === "x" ? "#FFFFFF" : `#${siX.hex}`} />}
+              />
+              <PlatformToggleButton
+                tileId="tiktok"
+                label="TikTok"
+                active={mode === "tiktok"}
+                collapsed={anyExpanded && mode !== "tiktok"}
+                onClick={() => selectMode("tiktok")}
+                icon={
+                  <BrandSvgIcon
+                    icon={siTiktok}
+                    fill={mode === "tiktok" ? "#FFFFFF" : `#${siTiktok.hex}`}
+                  />
+                }
+              />
+              <PlatformToggleButton
+                tileId="social-ai-generate"
+                label="AI Generate"
+                active={socialAiPicker === "open"}
+                collapsed={anyExpanded && socialAiPicker !== "open"}
+                onClick={openSocialAiForm}
+                icon={<AiSparkleIcon fill={socialAiPicker === "open" ? "#FFFFFF" : undefined} />}
+              />
+              <PlatformToggleButton
+                tileId="keymakers"
+                label="Keymakers Copy"
+                active={mode === "keymakers"}
+                collapsed={anyExpanded && mode !== "keymakers"}
+                onClick={() => selectMode("keymakers")}
+                disabled={keymakersDisabled}
+                icon={
+                  // h-full w-full + object-contain (not a fixed h-16): this
+                  // icon renders inside two very differently sized wrappers
+                  // (a 64px full-tile slot and a 32px collapsed-rail slot)
+                  // — a fixed height overflowed the small slot instead of
+                  // scaling down into it.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src="/wvf-logo.svg" alt="" className="h-full w-full object-contain" />
+                }
+              />
+              <PlatformToggleButton
+                tileId="email-ai-generate"
+                label="AI Generate"
+                active={mode === "ai"}
+                collapsed={anyExpanded && mode !== "ai"}
+                onClick={startEmailAiGenerate}
+                icon={<AiSparkleIcon fill={mode === "ai" ? "#FFFFFF" : undefined} />}
+              />
+            </TileRail>
+
+            <AnimatePresence>
+              {socialAiPicker === "open" && (
                   <TileExpandedPanel
                     tileId="social-ai-generate"
                     title="AI Generate — Social Post"
@@ -754,50 +790,7 @@ export default function EventFormPage() {
                       )}
                   </TileExpandedPanel>
                 )}
-              </AnimatePresence>
-            </div>
-          );
-        })()}
-      </div>
 
-      {/* --- Email Copy section --- */}
-      <div className="mb-6">
-        <div className="mb-3">
-          <h2 className="text-lg font-bold text-navy">Email Copy</h2>
-          <p className="text-sm text-gray-600">
-            Real WVF Keymakers recruitment copy, or use the AI Generate tile for a new AI-written
-            newsletter.
-          </p>
-        </div>
-
-        {(() => {
-          const emailExpanded = mode === "keymakers" || mode === "ai";
-          return (
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-              <TileRail expanded={emailExpanded}>
-                <PlatformToggleButton
-                  tileId="keymakers"
-                  label="Keymakers Copy"
-                  active={mode === "keymakers"}
-                  collapsed={emailExpanded && mode !== "keymakers"}
-                  onClick={() => selectMode("keymakers")}
-                  disabled={keymakersDisabled}
-                  icon={
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src="/wvf-logo.svg" alt="" className="h-16 w-auto max-w-none" />
-                  }
-                />
-                <PlatformToggleButton
-                  tileId="email-ai-generate"
-                  label="AI Generate"
-                  active={mode === "ai"}
-                  collapsed={emailExpanded && mode !== "ai"}
-                  onClick={startEmailAiGenerate}
-                  icon={<AiSparkleIcon fill={mode === "ai" ? "#FFFFFF" : undefined} />}
-                />
-              </TileRail>
-
-              <AnimatePresence>
                 {mode === "keymakers" && (
                   <TileExpandedPanel
                     tileId="keymakers"
@@ -946,7 +939,6 @@ export default function EventFormPage() {
             </div>
           );
         })()}
-      </div>
 
       <style jsx global>{`
         .input {
@@ -1043,7 +1035,11 @@ const TILE_SPRING = { type: "spring", stiffness: 300, damping: 30 } as const;
  * squares) once `expanded` is true — the FLIP/shared-layout transition
  * between the two states is automatic via each tile's shared layoutId
  * with its TileExpandedPanel. Mirrors the Profiles page's Key Maker
- * rail pattern. */
+ * rail pattern. Driven entirely by `expanded`, not a viewport breakpoint
+ * — the app's content column is capped at max-w-4xl (896px), narrower
+ * than Tailwind's lg: breakpoint (1024px), so lg:-gated rail classes
+ * silently never applied on any normal window size and the rail/panel
+ * rendered stacked instead of side by side. */
 function TileRail({ expanded, children }: { expanded: boolean; children: React.ReactNode }) {
   return (
     <motion.div
@@ -1051,7 +1047,7 @@ function TileRail({ expanded, children }: { expanded: boolean; children: React.R
       transition={TILE_SPRING}
       className={
         expanded
-          ? "flex flex-row gap-2 overflow-x-auto pb-1 lg:w-20 lg:flex-shrink-0 lg:flex-col lg:overflow-visible lg:pb-0"
+          ? "flex w-20 shrink-0 flex-col gap-2"
           : "flex flex-wrap gap-4"
       }
     >

@@ -51,12 +51,17 @@ export default function ProfilesPage() {
       )}
 
       {keyMakers && keyMakers.length > 0 && (
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        // Driven entirely by `selected`, not a viewport breakpoint — the
+        // app's content column (max-w-4xl, 896px) is narrower than
+        // Tailwind's lg: breakpoint (1024px), so lg:-gated rail classes
+        // never applied on any normal window size and the rail/panel
+        // rendered stacked instead of side by side with real spacing.
+        <div className="flex flex-row items-start gap-6">
           <motion.div
             layout
             className={
               selected
-                ? "flex flex-row gap-2 overflow-x-auto pb-1 lg:w-20 lg:flex-shrink-0 lg:flex-col lg:overflow-visible lg:pb-0"
+                ? "flex w-20 shrink-0 flex-col gap-2"
                 : "grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2"
             }
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
