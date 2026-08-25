@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { siFacebook, siInstagram, siTiktok, siX } from "simple-icons";
+import { SideRailPortal } from "@/components/SideRailSlot";
 import {
   generateContent,
   getInstagramTemplateDetail,
@@ -319,12 +320,13 @@ export default function EventFormPage() {
 
       {/* Both sections share one rail/panel: any tile from either section
           expanding collapses every other tile from BOTH sections into the
-          same rail, and its panel appears beside that shared rail. */}
+          same rail, docked to the window's true left edge via
+          SideRailPortal (not just left of the panel within this centered
+          column) — and its panel appears in the normal centered flow. */}
       {(() => {
         const anyExpanded = mode !== null || socialAiPicker === "open";
-        return (
-          <div className="mb-8 flex flex-row items-start gap-6">
-            <TileRail expanded={anyExpanded}>
+        const rail = (
+          <TileRail expanded={anyExpanded}>
               <PlatformToggleButton
                 tileId="instagram"
                 label="Instagram"
@@ -403,7 +405,12 @@ export default function EventFormPage() {
                 onClick={startEmailAiGenerate}
                 icon={<AiSparkleIcon fill={mode === "ai" ? "#FFFFFF" : undefined} />}
               />
-            </TileRail>
+          </TileRail>
+        );
+
+        return (
+          <div className="mb-8">
+            {anyExpanded ? <SideRailPortal>{rail}</SideRailPortal> : rail}
 
             <AnimatePresence>
               {socialAiPicker === "open" && (

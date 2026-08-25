@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { listKeyMakers, type KeyMakerResponse } from "@/lib/api";
+import { SideRailPortal } from "@/components/SideRailSlot";
 
 /**
  * Lists WVF's 10 real Key Makers. Limited-info cards by default (photo,
@@ -50,39 +51,48 @@ export default function ProfilesPage() {
         <p className="text-gray-600">No Key Makers on file yet.</p>
       )}
 
-      {keyMakers && keyMakers.length > 0 && (
-        // Driven entirely by `selected`, not a viewport breakpoint — the
-        // app's content column (max-w-4xl, 896px) is narrower than
-        // Tailwind's lg: breakpoint (1024px), so lg:-gated rail classes
-        // never applied on any normal window size and the rail/panel
-        // rendered stacked instead of side by side with real spacing.
-        <div className="flex flex-row items-start gap-6">
-          <motion.div
-            layout
-            className={
-              selected
-                ? "flex w-20 shrink-0 flex-col gap-2"
-                : "grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2"
-            }
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          >
-            {keyMakers.map((keyMaker) => (
-              <KeyMakerCard
-                key={keyMaker.id}
-                keyMaker={keyMaker}
-                collapsed={selected !== null}
-                active={selected?.id === keyMaker.id}
-                onClick={() => setSelectedId(keyMaker.id)}
-              />
-            ))}
-          </motion.div>
+      {keyMakers && keyMakers.length > 0 && !selected && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {keyMakers.map((keyMaker) => (
+            <KeyMakerCard
+              key={keyMaker.id}
+              keyMaker={keyMaker}
+              collapsed={false}
+              active={false}
+              onClick={() => setSelectedId(keyMaker.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Once a Key Maker is selected, the full grid above is replaced by
+          two things: the collapsed rail (portaled to the window's true
+          left edge — see SideRailSlot) and the expanded panel here in the
+          normal centered column. */}
+      {keyMakers && keyMakers.length > 0 && selected && (
+        <>
+          <SideRailPortal>
+            <motion.div
+              layout
+              className="flex w-14 flex-col gap-2"
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            >
+              {keyMakers.map((keyMaker) => (
+                <KeyMakerCard
+                  key={keyMaker.id}
+                  keyMaker={keyMaker}
+                  collapsed
+                  active={selected.id === keyMaker.id}
+                  onClick={() => setSelectedId(keyMaker.id)}
+                />
+              ))}
+            </motion.div>
+          </SideRailPortal>
 
           <AnimatePresence>
-            {selected && (
-              <ExpandedKeyMakerPanel keyMaker={selected} onClose={() => setSelectedId(null)} />
-            )}
+            <ExpandedKeyMakerPanel keyMaker={selected} onClose={() => setSelectedId(null)} />
           </AnimatePresence>
-        </div>
+        </>
       )}
     </div>
   );

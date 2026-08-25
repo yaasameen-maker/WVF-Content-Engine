@@ -34,7 +34,20 @@ export default function RootLayout({
             <SiteNav />
           </div>
         </header>
-        <main className="mx-auto max-w-4xl px-6 py-8">{children}</main>
+        {/*
+          side-rail-slot docks a page's collapsed tile rail (New Campaign,
+          Profiles) to the TRUE left edge of the window — absolutely
+          positioned relative to this full-width wrapper, so it never
+          affects <main>'s own centering (unlike putting it in normal
+          flex flow next to <main>, which would shift main's center point
+          by however wide the rail is). Pages reach this via
+          SideRailPortal rather than nesting the rail inside their own
+          centered content. Not `fixed` — it scrolls with the page.
+        */}
+        <div className="relative w-full">
+          <div id="side-rail-slot" className="absolute left-6 top-8" />
+          <main className="mx-auto max-w-4xl px-6 py-8">{children}</main>
+        </div>
       </body>
     </html>
   );
