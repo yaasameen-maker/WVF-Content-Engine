@@ -317,10 +317,12 @@ export function postToX(contentItemId: number): Promise<PostToXResponse> {
 
 /** A single Key Maker's PUBLIC profile fields only — never phone/email/
  * address, which have no API exposure by design (see backend
- * KeyMaker/KeyMakerPrivate). testimonial_quote is null for every real
- * Key Maker as of Aug 2026 — the seed script never populated it, pending
- * real testimonial content from Nancy. Render null as "bio not yet
- * available," never as blank or fabricated text. */
+ * KeyMaker/KeyMakerPrivate).
+ *
+ * title/location/industry/key_quotes/story are only populated for 4 of
+ * the 10 real Key Makers as of Aug 2026 (see seed_key_makers_public.py)
+ * — the other 6 have these as null, same "bio pending" treatment as
+ * testimonial_quote. Never render null as blank or fabricated text. */
 export interface KeyMakerResponse {
   id: number;
   business_name: string;
@@ -331,6 +333,11 @@ export interface KeyMakerResponse {
   testimonial_quote: string | null;
   video_link: string | null;
   photo_url: string | null;
+  title: string | null;
+  location: string | null;
+  industry: string | null;
+  key_quotes: string[] | null;
+  story: string | null;
 }
 
 export function listKeyMakers(): Promise<KeyMakerResponse[]> {

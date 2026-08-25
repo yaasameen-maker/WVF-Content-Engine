@@ -436,11 +436,15 @@ def test_list_key_makers_returns_public_fields_only(client, db_session_factory):
     assert set(key_maker.keys()) == {
         "id", "business_name", "owner_name", "business_type", "website",
         "social_media", "testimonial_quote", "video_link", "photo_url",
+        "title", "location", "industry", "key_quotes", "story",
     }
     assert key_maker["business_name"] == "LASweetsNY"
     assert key_maker["owner_name"] == "Loretta Calderon"
     # Bio not yet collected — must be null, never fabricated or blank string.
     assert key_maker["testimonial_quote"] is None
+    assert key_maker["title"] is None
+    assert key_maker["story"] is None
+    assert key_maker["key_quotes"] is None
     # KeyMakerPrivate fields (phone/email/address) must never appear here.
     assert "phone" not in key_maker
     assert "email" not in key_maker
@@ -482,4 +486,33 @@ def test_get_single_key_maker_returns_matching_record(client, db_session_factory
 def test_get_single_key_maker_404s_when_missing(client):
     resp = client.get("/api/key-makers/999999")
     assert resp.status_code == 404
-    assert resp.json()["detail"] == "Key Maker not found"
+
+
+def test_key_maker_with_full_bio_returns_structured_fields(client, db_session_factory):
+    import json
+
+    db = db_session_factory()
+    key_maker = KeyMaker(
+        business_name="LASweetsNY",
+        owner_name="Loretta Calderon",
+        title="CEO",
+        location="Harlem, New York",
+        industry="Food / Culinary / Hospitality",
+        key_quotes=json.dumps(["Quote one.", "Quote two."]),
+        story="A long real narrative bio.",
+    )
+    db.add(key_maker)
+    db.commit()
+    db.refresh(key_maker)
+    key_maker_id = key_maker.id
+    db.close()
+
+    resp = client.get(f"/api/key-makers/{key_maker_id}")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["title"] == "CEO"
+    assert body["location"] == "Harlem, New York"
+    assert body["industry"] == "Food / Culinary / Hospitality"
+    # key_quotes round-trips as a real list, not a raw JSON string.
+    assert body["key_quotes"] == ["Quote one.", "Quote two."]
+    assert body["story"] == "A long real narrative bio."

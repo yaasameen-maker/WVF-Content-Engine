@@ -152,9 +152,23 @@ class KeyMaker(Base):
     business_type = Column(String(255), nullable=True)
     website = Column(String(500), nullable=True)
     social_media = Column(Text, nullable=True)  # freeform: "Instagram: ...; Facebook: ..."
-    testimonial_quote = Column(Text, nullable=True)  # placeholder until Nancy sends real quotes
+    testimonial_quote = Column(Text, nullable=True)  # short pull-quote; placeholder until provided
     video_link = Column(String(500), nullable=True)
     photo_url = Column(String(500), nullable=True)
+
+    # Full bio content, added Aug 2026 once real testimonial/story content
+    # started arriving per-Key-Maker (see docs/PROJECT_CONTEXT.md Action
+    # Items). All nullable — most Key Makers still only have the public
+    # fields above; the Profiles page shows "Bio pending" until these are
+    # populated. title/location/industry are short facts; key_quotes is a
+    # JSON-serialized list[str] (see ContentItem.body for the same
+    # JSON-in-Text convention used elsewhere in this codebase — no native
+    # JSON column type); story is the full narrative bio text.
+    title = Column(String(255), nullable=True)
+    location = Column(String(255), nullable=True)
+    industry = Column(String(255), nullable=True)
+    key_quotes = Column(Text, nullable=True)  # JSON-serialized list[str]
+    story = Column(Text, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

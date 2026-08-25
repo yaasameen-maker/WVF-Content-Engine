@@ -82,6 +82,11 @@ def _serialize_key_maker(key_maker: KeyMaker) -> KeyMakerResponse:
         testimonial_quote=key_maker.testimonial_quote,
         video_link=key_maker.video_link,
         photo_url=key_maker.photo_url,
+        title=key_maker.title,
+        location=key_maker.location,
+        industry=key_maker.industry,
+        key_quotes=json.loads(key_maker.key_quotes) if key_maker.key_quotes else None,
+        story=key_maker.story,
     )
 
 

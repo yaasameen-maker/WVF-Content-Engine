@@ -232,10 +232,12 @@ class KeyMakerResponse(BaseModel):
     which has no API exposure by design. See app/models/content.py's
     KeyMaker/KeyMakerPrivate docstrings for the PII-safety reasoning.
 
-    testimonial_quote is None for every real Key Maker as of Aug 2026 —
-    the seed script (seed_key_makers_public.py) never populated it,
-    pending real testimonial content from Nancy. Frontend should treat
-    None here as "bio not yet available," not render it as blank."""
+    Full bio fields (title/location/industry/key_quotes/story) were added
+    Aug 2026 once real per-Key-Maker testimonial content started arriving
+    — only 4 of the 10 real Key Makers have this populated so far (see
+    seed_key_makers_public.py). None here means "bio not yet available,"
+    not blank — the frontend must render that state explicitly, never as
+    empty text, and never fabricate placeholder content."""
 
     id: int
     business_name: str
@@ -246,6 +248,11 @@ class KeyMakerResponse(BaseModel):
     testimonial_quote: Optional[str] = None
     video_link: Optional[str] = None
     photo_url: Optional[str] = None
+    title: Optional[str] = None
+    location: Optional[str] = None
+    industry: Optional[str] = None
+    key_quotes: Optional[list[str]] = None
+    story: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

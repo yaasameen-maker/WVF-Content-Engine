@@ -1,20 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { listKeyMakers, type KeyMakerResponse } from "@/lib/api";
 
 /**
- * Lists WVF's 10 real Key Makers with their public profile fields
- * (business name, owner, business type, website, social links).
+ * Lists WVF's 10 real Key Makers. Limited-info cards by default (photo,
+ * business name, owner, type) — clicking one expands it into a full bio
+ * panel (title/location/industry/key quotes/story) using a shared-layout
+ * (FLIP) transition: the clicked card morphs into the panel and the
+ * others dock into a side rail, rather than a hard cut to a new view.
  *
- * testimonial_quote (bio) is null for every Key Maker as of Aug 2026 — the
- * seed script never populated it, pending real testimonial content from
- * Nancy. Rendered as an explicit "Bio pending" note, never left blank or
- * fabricated. See docs/PROJECT_CONTEXT.md Key Makers open question.
+ * Only 4 of the 10 Key Makers have full bio content as of Aug 2026 (see
+ * seed_key_makers_public.py) — the other 6 still show "Bio pending" in
+ * the expanded panel, never fabricated or left blank.
  */
 export default function ProfilesPage() {
   const [keyMakers, setKeyMakers] = useState<KeyMakerResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   useEffect(() => {
     listKeyMakers()
@@ -22,12 +26,15 @@ export default function ProfilesPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load profiles."));
   }, []);
 
+  const selected = keyMakers?.find((k) => k.id === selectedId) ?? null;
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-navy">Key Maker Profiles</h2>
         <p className="text-sm text-gray-600">
-          WVF&apos;s Key Makers — client businesses featured in newsletter spotlights.
+          WVF&apos;s Key Makers — client businesses featured in newsletter spotlights. Click a card for
+          their full story.
         </p>
       </div>
 
@@ -44,17 +51,46 @@ export default function ProfilesPage() {
       )}
 
       {keyMakers && keyMakers.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {keyMakers.map((keyMaker) => (
-            <KeyMakerCard key={keyMaker.id} keyMaker={keyMaker} />
-          ))}
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <motion.div
+            layout
+            className={
+              selected
+                ? "flex flex-row gap-2 overflow-x-auto lg:w-20 lg:flex-shrink-0 lg:flex-col lg:overflow-visible"
+                : "grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2"
+            }
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            {keyMakers.map((keyMaker) => (
+              <KeyMakerCard
+                key={keyMaker.id}
+                keyMaker={keyMaker}
+                collapsed={selected !== null && selected.id !== keyMaker.id}
+                onClick={() => setSelectedId(keyMaker.id)}
+              />
+            ))}
+          </motion.div>
+
+          <AnimatePresence>
+            {selected && (
+              <ExpandedKeyMakerPanel keyMaker={selected} onClose={() => setSelectedId(null)} />
+            )}
+          </AnimatePresence>
         </div>
       )}
     </div>
   );
 }
 
-function KeyMakerCard({ keyMaker }: { keyMaker: KeyMakerResponse }) {
+function KeyMakerCard({
+  keyMaker,
+  collapsed,
+  onClick,
+}: {
+  keyMaker: KeyMakerResponse;
+  collapsed: boolean;
+  onClick: () => void;
+}) {
   const [imageFailed, setImageFailed] = useState(false);
   const socialLinks = (keyMaker.social_media ?? "")
     .split(";")
@@ -62,17 +98,23 @@ function KeyMakerCard({ keyMaker }: { keyMaker: KeyMakerResponse }) {
     .filter(Boolean);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
+    <motion.button
+      type="button"
+      layoutId={`key-maker-card-${keyMaker.id}`}
+      layout
+      onClick={onClick}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className={`overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm transition hover:border-sky-blue ${
+        collapsed ? "w-14 shrink-0 lg:w-full" : "w-full"
+      }`}
+    >
       {keyMaker.photo_url && !imageFailed && (
-        // Photos come from a mix of external business sites and local
-        // /public files (see backend/seed_key_makers_public.py) — plain
-        // <img>, not next/image, since external domains aren't allowlisted
-        // and some of these links may go stale over time (see seed script
-        // notes on Instagram's expiring CDN URLs for why 3 are local).
         // object-contain (not cover): sources vary wildly in aspect ratio
         // (tall headshots, circular logos, wide banners) — cover was
         // cropping people's faces/logos out of frame.
-        <div className="flex h-40 w-full items-center justify-center bg-gray-50">
+        <div
+          className={`flex w-full items-center justify-center bg-gray-50 ${collapsed ? "h-14" : "h-40"}`}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={keyMaker.photo_url}
@@ -82,46 +124,172 @@ function KeyMakerCard({ keyMaker }: { keyMaker: KeyMakerResponse }) {
           />
         </div>
       )}
-      <div className="rounded-t-lg bg-navy px-5 py-3">
-        <h3 className="text-sm font-bold text-white">{keyMaker.business_name}</h3>
-        <p className="text-xs text-sky-blue">{keyMaker.owner_name}</p>
-      </div>
-      <div className="space-y-3 px-5 py-4">
-        {keyMaker.business_type && (
-          <span className="inline-block rounded-full bg-sky-blue/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-navy">
-            {keyMaker.business_type}
-          </span>
-        )}
 
+      {!collapsed && (
+        <>
+          <div className="bg-navy px-5 py-3">
+            <h3 className="text-sm font-bold text-white">{keyMaker.business_name}</h3>
+            <p className="text-xs text-sky-blue">{keyMaker.owner_name}</p>
+          </div>
+          <div className="space-y-3 px-5 py-4">
+            {keyMaker.business_type && (
+              <span className="inline-block rounded-full bg-sky-blue/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-navy">
+                {keyMaker.business_type}
+              </span>
+            )}
+
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              {keyMaker.story ? "Click for full story" : "Bio pending"}
+            </p>
+
+            {(keyMaker.website || socialLinks.length > 0) && (
+              <div className="space-y-1 text-sm">
+                {keyMaker.website && (
+                  <p className="truncate text-sky-blue">{keyMaker.website}</p>
+                )}
+                {socialLinks.slice(0, 1).map((link) => (
+                  <p key={link} className="truncate text-gray-600">
+                    {link}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </motion.button>
+  );
+}
+
+function ExpandedKeyMakerPanel({
+  keyMaker,
+  onClose,
+}: {
+  keyMaker: KeyMakerResponse;
+  onClose: () => void;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const socialLinks = (keyMaker.social_media ?? "")
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  return (
+    <motion.div
+      layoutId={`key-maker-card-${keyMaker.id}`}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className="flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
+    >
+      <div className="flex items-start justify-between gap-4 bg-navy px-6 py-4">
         <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Bio</p>
-          {keyMaker.testimonial_quote ? (
-            <p className="text-sm text-gray-700">{keyMaker.testimonial_quote}</p>
-          ) : (
-            <p className="text-sm italic text-gray-400">Bio pending — no testimonial on file yet.</p>
+          <h3 className="text-lg font-bold text-white">{keyMaker.business_name}</h3>
+          <p className="text-sm text-sky-blue">
+            {keyMaker.owner_name}
+            {keyMaker.title ? ` · ${keyMaker.title}` : ""}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Back to all profiles"
+          className="shrink-0 rounded-full px-3 py-1 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white"
+        >
+          ← Back
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-[220px_1fr]">
+        <div className="space-y-4">
+          {keyMaker.photo_url && !imageFailed && (
+            <div className="flex h-56 w-full items-center justify-center rounded-md bg-gray-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={keyMaker.photo_url}
+                alt={`${keyMaker.business_name} photo`}
+                className="h-full w-full object-contain"
+                onError={() => setImageFailed(true)}
+              />
+            </div>
           )}
+
+          <dl className="space-y-2 text-sm">
+            {keyMaker.business_type && (
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Business Type
+                </dt>
+                <dd className="text-gray-800">{keyMaker.business_type}</dd>
+              </div>
+            )}
+            {keyMaker.industry && (
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">Industry</dt>
+                <dd className="text-gray-800">{keyMaker.industry}</dd>
+              </div>
+            )}
+            {keyMaker.location && (
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">Location</dt>
+                <dd className="text-gray-800">{keyMaker.location}</dd>
+              </div>
+            )}
+            {keyMaker.website && (
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">Website</dt>
+                <dd>
+                  <a
+                    href={keyMaker.website}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="break-all text-sky-blue underline"
+                  >
+                    {keyMaker.website}
+                  </a>
+                </dd>
+              </div>
+            )}
+            {socialLinks.length > 0 && (
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">Social</dt>
+                {socialLinks.map((link) => (
+                  <dd key={link} className="text-gray-700">
+                    {link}
+                  </dd>
+                ))}
+              </div>
+            )}
+          </dl>
         </div>
 
-        {(keyMaker.website || socialLinks.length > 0) && (
-          <div className="space-y-1 text-sm">
-            {keyMaker.website && (
-              <a
-                href={keyMaker.website}
-                target="_blank"
-                rel="noreferrer"
-                className="block truncate text-sky-blue underline"
-              >
-                {keyMaker.website}
-              </a>
-            )}
-            {socialLinks.map((link) => (
-              <p key={link} className="text-gray-600">
-                {link}
-              </p>
-            ))}
-          </div>
-        )}
+        <div className="space-y-5">
+          {keyMaker.key_quotes && keyMaker.key_quotes.length > 0 && (
+            <div className="space-y-3">
+              {keyMaker.key_quotes.map((quote, i) => (
+                <blockquote
+                  key={i}
+                  className="border-l-4 border-sky-blue bg-sky-blue/5 px-4 py-3 text-sm italic text-navy"
+                >
+                  “{quote}”
+                </blockquote>
+              ))}
+            </div>
+          )}
+
+          {keyMaker.story ? (
+            <div className="space-y-3 text-sm leading-relaxed text-gray-700">
+              {keyMaker.story.split("\n\n").map((paragraph, i) => (
+                <p key={i} className="whitespace-pre-wrap">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm italic text-gray-400">
+              Bio pending — no full story on file yet for {keyMaker.owner_name}.
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
