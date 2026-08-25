@@ -51,12 +51,12 @@ export default function ProfilesPage() {
       )}
 
       {keyMakers && keyMakers.length > 0 && (
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           <motion.div
             layout
             className={
               selected
-                ? "flex flex-row gap-2 overflow-x-auto lg:w-20 lg:flex-shrink-0 lg:flex-col lg:overflow-visible"
+                ? "flex flex-row gap-2 overflow-x-auto pb-1 lg:w-20 lg:flex-shrink-0 lg:flex-col lg:overflow-visible lg:pb-0"
                 : "grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2"
             }
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -66,6 +66,7 @@ export default function ProfilesPage() {
                 key={keyMaker.id}
                 keyMaker={keyMaker}
                 collapsed={selected !== null && selected.id !== keyMaker.id}
+                active={selected?.id === keyMaker.id}
                 onClick={() => setSelectedId(keyMaker.id)}
               />
             ))}
@@ -85,10 +86,12 @@ export default function ProfilesPage() {
 function KeyMakerCard({
   keyMaker,
   collapsed,
+  active,
   onClick,
 }: {
   keyMaker: KeyMakerResponse;
   collapsed: boolean;
+  active: boolean;
   onClick: () => void;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -96,25 +99,57 @@ function KeyMakerCard({
     .split(";")
     .map((s) => s.trim())
     .filter(Boolean);
+  const initials = keyMaker.business_name
+    .split(/\s+/)
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  if (collapsed) {
+    // Compact icon-only rail tile — matches a standard tab-rail pattern:
+    // just the photo (or initials fallback) in a small square, with an
+    // active ring on the currently-expanded Key Maker. No text at this
+    // size; the full name/details live in the expanded panel instead.
+    return (
+      <motion.button
+        type="button"
+        layoutId={`key-maker-card-${keyMaker.id}`}
+        onClick={onClick}
+        title={keyMaker.business_name}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 bg-gray-50 shadow-sm transition ${
+          active ? "border-navy" : "border-gray-200 hover:border-sky-blue"
+        }`}
+      >
+        {keyMaker.photo_url && !imageFailed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={keyMaker.photo_url}
+            alt={keyMaker.business_name}
+            className="h-full w-full object-contain"
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <span className="text-sm font-bold text-navy">{initials}</span>
+        )}
+      </motion.button>
+    );
+  }
 
   return (
     <motion.button
       type="button"
       layoutId={`key-maker-card-${keyMaker.id}`}
-      layout
       onClick={onClick}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className={`overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm transition hover:border-sky-blue ${
-        collapsed ? "w-14 shrink-0 lg:w-full" : "w-full"
-      }`}
+      className="w-full overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm transition hover:border-sky-blue"
     >
       {keyMaker.photo_url && !imageFailed && (
         // object-contain (not cover): sources vary wildly in aspect ratio
         // (tall headshots, circular logos, wide banners) — cover was
         // cropping people's faces/logos out of frame.
-        <div
-          className={`flex w-full items-center justify-center bg-gray-50 ${collapsed ? "h-14" : "h-40"}`}
-        >
+        <div className="flex h-40 w-full items-center justify-center bg-gray-50">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={keyMaker.photo_url}
@@ -125,38 +160,32 @@ function KeyMakerCard({
         </div>
       )}
 
-      {!collapsed && (
-        <>
-          <div className="bg-navy px-5 py-3">
-            <h3 className="text-sm font-bold text-white">{keyMaker.business_name}</h3>
-            <p className="text-xs text-sky-blue">{keyMaker.owner_name}</p>
-          </div>
-          <div className="space-y-3 px-5 py-4">
-            {keyMaker.business_type && (
-              <span className="inline-block rounded-full bg-sky-blue/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-navy">
-                {keyMaker.business_type}
-              </span>
-            )}
+      <div className="bg-navy px-5 py-3">
+        <h3 className="text-sm font-bold text-white">{keyMaker.business_name}</h3>
+        <p className="text-xs text-sky-blue">{keyMaker.owner_name}</p>
+      </div>
+      <div className="space-y-3 px-5 py-4">
+        {keyMaker.business_type && (
+          <span className="inline-block rounded-full bg-sky-blue/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-navy">
+            {keyMaker.business_type}
+          </span>
+        )}
 
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              {keyMaker.story ? "Click for full story" : "Bio pending"}
-            </p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          {keyMaker.story ? "Click for full story" : "Bio pending"}
+        </p>
 
-            {(keyMaker.website || socialLinks.length > 0) && (
-              <div className="space-y-1 text-sm">
-                {keyMaker.website && (
-                  <p className="truncate text-sky-blue">{keyMaker.website}</p>
-                )}
-                {socialLinks.slice(0, 1).map((link) => (
-                  <p key={link} className="truncate text-gray-600">
-                    {link}
-                  </p>
-                ))}
-              </div>
-            )}
+        {(keyMaker.website || socialLinks.length > 0) && (
+          <div className="space-y-1 text-sm">
+            {keyMaker.website && <p className="truncate text-sky-blue">{keyMaker.website}</p>}
+            {socialLinks.slice(0, 1).map((link) => (
+              <p key={link} className="truncate text-gray-600">
+                {link}
+              </p>
+            ))}
           </div>
-        </>
-      )}
+        )}
+      </div>
     </motion.button>
   );
 }
