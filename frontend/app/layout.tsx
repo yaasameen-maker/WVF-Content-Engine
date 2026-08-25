@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import "./globals.css";
+import { SiteNav } from "@/components/SiteNav";
 
 export const metadata: Metadata = {
   title: "WVF Content Engine",
@@ -31,17 +31,7 @@ export default function RootLayout({
         <header className="bg-navy text-white">
           <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
             <h1 className="text-lg font-bold tracking-wide">WVF Content Engine</h1>
-            <nav className="flex gap-5 text-sm font-semibold">
-              <Link href="/" className="hover:text-sky-blue">
-                New Campaign
-              </Link>
-              <Link href="/calendar" className="hover:text-sky-blue">
-                Calendar
-              </Link>
-              <Link href="/profiles" className="hover:text-sky-blue">
-                Profiles
-              </Link>
-            </nav>
+            <SiteNav />
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-6 py-8">{children}</main>
