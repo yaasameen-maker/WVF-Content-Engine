@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import { siFacebook, siInstagram, siTiktok, siX } from "simple-icons";
 import {
   generateContent,
@@ -68,14 +69,13 @@ export default function EventFormPage() {
   const [event, setEvent] = useState<EventInput>(EMPTY_EVENT);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
 
   const [mode, setMode] = useState<Mode>(null);
   const [platformSubMode, setPlatformSubMode] = useState<PlatformSubMode>(null);
 
   // Social Media Copy section's own standalone "AI Generate" flow — a
   // second, fully independent entry point into generation, separate from
-  // the platform tiles above (mode/platformSubMode/showForm/event). Its
+  // the platform tiles above (mode/platformSubMode/event). Its
   // own event fields, own platform choice, own generating/error state, so
   // using one flow can never reset or collide with the other.
   const [socialAiPicker, setSocialAiPicker] = useState<SocialAiPickerState>("closed");
@@ -212,14 +212,13 @@ export default function EventFormPage() {
   function selectMode(next: Mode) {
     setMode((prev) => (prev === next ? null : next));
     setPlatformSubMode(null);
-    setShowForm(false);
   }
 
   /** Social Media Copy section's own standalone "AI Generate" button —
    * fully independent of the platform tiles below it. Opening this never
-   * touches mode/platformSubMode/showForm, and opening a tile never
-   * touches this. Its platform is chosen via a dropdown inside its own
-   * form, not by picking a tile. */
+   * touches mode/platformSubMode, and opening a tile never touches this.
+   * Its platform is chosen via a dropdown inside its own form, not by
+   * picking a tile. */
   function openSocialAiForm() {
     setSocialAiError(null);
     setSocialAiPicker((prev) => (prev === "open" ? "closed" : "open"));
@@ -310,343 +309,455 @@ export default function EventFormPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-4">
-          <PlatformToggleButton
-            label="Instagram"
-            active={mode === "instagram"}
-            onClick={() => selectMode("instagram")}
-            icon={<BrandSvgIcon icon={siInstagram} fill={`url(#${IG_GRADIENT_ID})`} />}
-          />
-          <PlatformToggleButton
-            label="LinkedIn"
-            active={mode === "linkedin"}
-            onClick={() => selectMode("linkedin")}
-            icon={<LinkedInMonogramIcon />}
-          />
-          <PlatformToggleButton
-            label="Facebook"
-            active={mode === "facebook"}
-            onClick={() => selectMode("facebook")}
-            icon={<BrandSvgIcon icon={siFacebook} fill={`#${siFacebook.hex}`} />}
-          />
-          <PlatformToggleButton
-            label="X"
-            active={mode === "x"}
-            onClick={() => selectMode("x")}
-            icon={<BrandSvgIcon icon={siX} fill={mode === "x" ? "#FFFFFF" : `#${siX.hex}`} />}
-          />
-          <PlatformToggleButton
-            label="TikTok"
-            active={mode === "tiktok"}
-            onClick={() => selectMode("tiktok")}
-            icon={
-              <BrandSvgIcon icon={siTiktok} fill={mode === "tiktok" ? "#FFFFFF" : `#${siTiktok.hex}`} />
-            }
-          />
-          <PlatformToggleButton
-            label="AI Generate"
-            active={socialAiPicker === "open"}
-            onClick={openSocialAiForm}
-            icon={<AiSparkleIcon fill={socialAiPicker === "open" ? "#FFFFFF" : undefined} />}
-          />
-        </div>
+        {(() => {
+          const socialExpanded = activePlatform !== null || socialAiPicker === "open";
+          return (
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+              <TileRail expanded={socialExpanded}>
+                <PlatformToggleButton
+                  tileId="instagram"
+                  label="Instagram"
+                  active={mode === "instagram"}
+                  collapsed={socialExpanded && mode !== "instagram"}
+                  onClick={() => selectMode("instagram")}
+                  icon={<BrandSvgIcon icon={siInstagram} fill={`url(#${IG_GRADIENT_ID})`} />}
+                />
+                <PlatformToggleButton
+                  tileId="linkedin"
+                  label="LinkedIn"
+                  active={mode === "linkedin"}
+                  collapsed={socialExpanded && mode !== "linkedin"}
+                  onClick={() => selectMode("linkedin")}
+                  icon={<LinkedInMonogramIcon />}
+                />
+                <PlatformToggleButton
+                  tileId="facebook"
+                  label="Facebook"
+                  active={mode === "facebook"}
+                  collapsed={socialExpanded && mode !== "facebook"}
+                  onClick={() => selectMode("facebook")}
+                  icon={<BrandSvgIcon icon={siFacebook} fill={`#${siFacebook.hex}`} />}
+                />
+                <PlatformToggleButton
+                  tileId="x"
+                  label="X"
+                  active={mode === "x"}
+                  collapsed={socialExpanded && mode !== "x"}
+                  onClick={() => selectMode("x")}
+                  icon={<BrandSvgIcon icon={siX} fill={mode === "x" ? "#FFFFFF" : `#${siX.hex}`} />}
+                />
+                <PlatformToggleButton
+                  tileId="tiktok"
+                  label="TikTok"
+                  active={mode === "tiktok"}
+                  collapsed={socialExpanded && mode !== "tiktok"}
+                  onClick={() => selectMode("tiktok")}
+                  icon={
+                    <BrandSvgIcon
+                      icon={siTiktok}
+                      fill={mode === "tiktok" ? "#FFFFFF" : `#${siTiktok.hex}`}
+                    />
+                  }
+                />
+                <PlatformToggleButton
+                  tileId="social-ai-generate"
+                  label="AI Generate"
+                  active={socialAiPicker === "open"}
+                  collapsed={socialExpanded && socialAiPicker !== "open"}
+                  onClick={openSocialAiForm}
+                  icon={<AiSparkleIcon fill={socialAiPicker === "open" ? "#FFFFFF" : undefined} />}
+                />
+              </TileRail>
 
-        {socialAiPicker === "open" && (
-          <div className="mt-5 max-w-2xl rounded-lg border border-gray-200 bg-gray-50/50 p-4">
-            <h3 className="mb-3 text-base font-bold text-navy">AI Generate — Social Post</h3>
+              <AnimatePresence>
+                {socialAiPicker === "open" && (
+                  <TileExpandedPanel
+                    tileId="social-ai-generate"
+                    title="AI Generate — Social Post"
+                    onClose={() => setSocialAiPicker("closed")}
+                  >
+                    <Field label="Platform">
+                      <select
+                        value={socialAiPlatform}
+                        onChange={(e) => setSocialAiPlatform(e.target.value as SocialPostPlatform)}
+                        className="input"
+                      >
+                        {SOCIAL_POST_PLATFORMS.map((platform) => (
+                          <option key={platform} value={platform}>
+                            {PLATFORM_LABELS[platform]}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
 
-            <Field label="Platform">
-              <select
-                value={socialAiPlatform}
-                onChange={(e) => setSocialAiPlatform(e.target.value as SocialPostPlatform)}
-                className="input"
-              >
-                {SOCIAL_POST_PLATFORMS.map((platform) => (
-                  <option key={platform} value={platform}>
-                    {PLATFORM_LABELS[platform]}
-                  </option>
-                ))}
-              </select>
-            </Field>
+                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Field label="Series (optional)">
+                        <select
+                          value={socialAiSeries}
+                          onChange={(e) => setSocialAiSeries(e.target.value)}
+                          className="input"
+                        >
+                          <option value="">Not part of a series</option>
+                          {Object.entries(socialPostSeriesOptions ?? {}).map(([key, label]) => (
+                            <option key={key} value={key}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
 
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Series (optional)">
-                <select
-                  value={socialAiSeries}
-                  onChange={(e) => setSocialAiSeries(e.target.value)}
-                  className="input"
-                >
-                  <option value="">Not part of a series</option>
-                  {Object.entries(socialPostSeriesOptions ?? {}).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+                      <Field label="Tone (optional)">
+                        <select
+                          value={socialAiTone}
+                          onChange={(e) => setSocialAiTone(e.target.value)}
+                          className="input"
+                        >
+                          <option value="">Default</option>
+                          {Object.entries(socialPostTonesOptions ?? {}).map(([key, label]) => (
+                            <option key={key} value={key}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    </div>
 
-              <Field label="Tone (optional)">
-                <select
-                  value={socialAiTone}
-                  onChange={(e) => setSocialAiTone(e.target.value)}
-                  className="input"
-                >
-                  <option value="">Default</option>
-                  {Object.entries(socialPostTonesOptions ?? {}).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+                    <form onSubmit={handleSocialAiSubmit} className="mt-4 space-y-4">
+                      <Field label="Event Title">
+                        <input
+                          required
+                          type="text"
+                          value={socialAiEvent.title}
+                          onChange={(e) => updateSocialAiField("title", e.target.value)}
+                          className="input"
+                          placeholder="Money & Credit: Understanding Your Credit Report"
+                        />
+                      </Field>
+
+                      <Field label="Date">
+                        <input
+                          required
+                          type="text"
+                          value={socialAiEvent.date}
+                          onChange={(e) => updateSocialAiField("date", e.target.value)}
+                          className="input"
+                          placeholder="August 15, 2026 at 2:00 PM ET"
+                        />
+                      </Field>
+
+                      <Field label="Speaker">
+                        <input
+                          required
+                          type="text"
+                          value={socialAiEvent.speaker}
+                          onChange={(e) => updateSocialAiField("speaker", e.target.value)}
+                          className="input"
+                          placeholder="WVF Financial Education Team"
+                        />
+                      </Field>
+
+                      <Field label="Registration Link">
+                        <input
+                          required
+                          type="url"
+                          value={socialAiEvent.registration_link}
+                          onChange={(e) => updateSocialAiField("registration_link", e.target.value)}
+                          className="input"
+                          placeholder="https://www.womenventurefund.org/events/..."
+                        />
+                      </Field>
+
+                      <Field label="Target Audience">
+                        <input
+                          required
+                          type="text"
+                          value={socialAiEvent.audience}
+                          onChange={(e) => updateSocialAiField("audience", e.target.value)}
+                          className="input"
+                          placeholder="NYC-based women entrepreneurs, Spanish-speaking community welcome"
+                        />
+                      </Field>
+
+                      <Field label="Description">
+                        <textarea
+                          required
+                          rows={4}
+                          value={socialAiEvent.description}
+                          onChange={(e) => updateSocialAiField("description", e.target.value)}
+                          className="input"
+                          placeholder="Describe the event, what attendees will learn, and any relevant details..."
+                        />
+                      </Field>
+
+                      {socialAiError && (
+                        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          {socialAiError}
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={socialAiGenerating}
+                        className="rounded-md bg-navy px-6 py-3 font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {socialAiGenerating ? "Generating…" : "Generate Campaign"}
+                      </button>
+                    </form>
+                  </TileExpandedPanel>
+                )}
+
+                {activePlatform && (
+                  <TileExpandedPanel
+                    tileId={activePlatform}
+                    title={`${PLATFORM_LABELS[activePlatform]}: how do you want to start?`}
+                    onClose={() => selectMode(activePlatform)}
+                  >
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPlatformSubMode("ai")}
+                        className={`rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
+                          platformSubMode === "ai"
+                            ? "border-navy bg-navy text-white"
+                            : "border-gray-200 bg-white text-gray-600 hover:border-sky-blue hover:text-navy"
+                        }`}
+                      >
+                        AI Copy + AI Hashtags
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPlatformSubMode("fixed")}
+                        className={`rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
+                          platformSubMode === "fixed"
+                            ? "border-navy bg-navy text-white"
+                            : "border-gray-200 bg-white text-gray-600 hover:border-sky-blue hover:text-navy"
+                        }`}
+                      >
+                        Fixed template
+                      </button>
+                    </div>
+
+                    {platformSubMode === "ai" && (
+                      <div className="mt-3 space-y-4">
+                        <div className="space-y-2">
+                          <p className="text-xs text-gray-500">
+                            <span className="font-semibold text-navy">AI Copy:</span>{" "}
+                            {REAL_SAMPLE_GROUNDED_PLATFORMS.includes(activePlatform)
+                              ? `a new caption tailored to ${PLATFORM_LABELS[activePlatform]}'s real WVF style (grounded in real WVF posts).`
+                              : `a new caption following general ${PLATFORM_LABELS[activePlatform]} conventions — not yet grounded in real WVF ${PLATFORM_LABELS[activePlatform]} posts, since none have been reviewed for this platform.`}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            <span className="font-semibold text-navy">AI Hashtags:</span> a matching
+                            hashtag set, generated alongside the caption — you&apos;ll get 3 caption +
+                            hashtag pairs to compare on the review page.
+                          </p>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                          <Field label="Event Title">
+                            <input
+                              required
+                              type="text"
+                              value={event.title}
+                              onChange={(e) => updateField("title", e.target.value)}
+                              className="input"
+                              placeholder="Money & Credit: Understanding Your Credit Report"
+                            />
+                          </Field>
+
+                          <Field label="Date">
+                            <input
+                              required
+                              type="text"
+                              value={event.date}
+                              onChange={(e) => updateField("date", e.target.value)}
+                              className="input"
+                              placeholder="August 15, 2026 at 2:00 PM ET"
+                            />
+                          </Field>
+
+                          <Field label="Speaker">
+                            <input
+                              required
+                              type="text"
+                              value={event.speaker}
+                              onChange={(e) => updateField("speaker", e.target.value)}
+                              className="input"
+                              placeholder="WVF Financial Education Team"
+                            />
+                          </Field>
+
+                          <Field label="Registration Link">
+                            <input
+                              required
+                              type="url"
+                              value={event.registration_link}
+                              onChange={(e) => updateField("registration_link", e.target.value)}
+                              className="input"
+                              placeholder="https://www.womenventurefund.org/events/..."
+                            />
+                          </Field>
+
+                          <Field label="Target Audience">
+                            <input
+                              required
+                              type="text"
+                              value={event.audience}
+                              onChange={(e) => updateField("audience", e.target.value)}
+                              className="input"
+                              placeholder="NYC-based women entrepreneurs, Spanish-speaking community welcome"
+                            />
+                          </Field>
+
+                          <Field label="Description">
+                            <textarea
+                              required
+                              rows={4}
+                              value={event.description}
+                              onChange={(e) => updateField("description", e.target.value)}
+                              className="input"
+                              placeholder="Describe the event, what attendees will learn, and any relevant details..."
+                            />
+                          </Field>
+
+                          {error && (
+                            <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                              {error}
+                            </div>
+                          )}
+
+                          <button
+                            type="submit"
+                            disabled={isGenerating}
+                            className="rounded-md bg-navy px-6 py-3 font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isGenerating ? "Generating campaign…" : "Generate Campaign"}
+                          </button>
+                        </form>
+                      </div>
+                    )}
+
+                    {platformSubMode === "fixed" && activePlatform === "instagram" && (
+                      <div className="mt-3">
+                        {instagramTemplateError && (
+                          <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {instagramTemplateError}
+                          </div>
+                        )}
+                        <span className="mb-1 block text-sm font-medium text-navy">
+                          Which real Instagram post?
+                        </span>
+                        <select
+                          value={instagramTemplateKey}
+                          onChange={(e) => setInstagramTemplateKey(e.target.value)}
+                          className="input"
+                        >
+                          {Object.entries(instagramTemplates ?? {}).map(([key, label]) => (
+                            <option key={key} value={key}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+
+                        {instagramTemplateDetail && !instagramTemplateError && (
+                          <div className="mt-3 rounded-lg border border-gray-200 shadow-sm">
+                            <div className="rounded-t-lg bg-navy px-5 py-3">
+                              <h3 className="font-semibold text-white">
+                                {instagramTemplateDetail.label}
+                              </h3>
+                            </div>
+                            <div className="space-y-3 px-5 py-4">
+                              <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
+                                {instagramTemplateDetail.caption}
+                              </pre>
+                              {instagramTemplateDetail.hashtags.length > 0 && (
+                                <p className="text-sm text-sky-blue">
+                                  {instagramTemplateDetail.hashtags.join(" ")}
+                                </p>
+                              )}
+                              {instagramTemplateDetail.truncated && (
+                                <p className="text-xs font-semibold text-red-600">
+                                  ⚠ This post was cut off in the source screenshot — double-check the
+                                  full caption before reusing.
+                                </p>
+                              )}
+                              <p className="text-xs font-semibold text-amber-700">
+                                Real, previously-published WVF Instagram post — edit as needed before
+                                reuse.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {platformSubMode === "fixed" && activePlatform === "x" && (
+                      <div className="mt-3">
+                        {xTemplateError && (
+                          <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {xTemplateError}
+                          </div>
+                        )}
+                        <span className="mb-1 block text-sm font-medium text-navy">
+                          Which real X post?
+                        </span>
+                        <select
+                          value={xTemplateKey}
+                          onChange={(e) => setXTemplateKey(e.target.value)}
+                          className="input"
+                        >
+                          {Object.entries(xTemplates ?? {}).map(([key, label]) => (
+                            <option key={key} value={key}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+
+                        {xTemplateDetail && !xTemplateError && (
+                          <div className="mt-3 rounded-lg border border-gray-200 shadow-sm">
+                            <div className="rounded-t-lg bg-navy px-5 py-3">
+                              <h3 className="font-semibold text-white">{xTemplateDetail.label}</h3>
+                            </div>
+                            <div className="space-y-3 px-5 py-4">
+                              <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
+                                {xTemplateDetail.caption}
+                              </pre>
+                              {xTemplateDetail.hashtags.length > 0 && (
+                                <p className="text-sm text-sky-blue">
+                                  {xTemplateDetail.hashtags.join(" ")}
+                                </p>
+                              )}
+                              {xTemplateDetail.truncated && (
+                                <p className="text-xs font-semibold text-red-600">
+                                  ⚠ This post was cut off in the source screenshot (e.g. a shortened
+                                  link) — double-check the full caption before reusing.
+                                </p>
+                              )}
+                              <p className="text-xs font-semibold text-amber-700">
+                                Real, previously-published WVF X post — edit as needed before reuse.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {platformSubMode === "fixed" &&
+                      activePlatform !== "instagram" &&
+                      activePlatform !== "x" && (
+                        <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                          A fixed (non-AI) {PLATFORM_LABELS[activePlatform]} template isn&apos;t
+                          available yet — real sample WVF {PLATFORM_LABELS[activePlatform]} posts are
+                          needed to build one, so this doesn&apos;t show fabricated content in
+                          WVF&apos;s name. Use AI Copy in the meantime.
+                        </div>
+                      )}
+                  </TileExpandedPanel>
+                )}
+              </AnimatePresence>
             </div>
-
-            <form onSubmit={handleSocialAiSubmit} className="mt-4 space-y-4">
-              <Field label="Event Title">
-                <input
-                  required
-                  type="text"
-                  value={socialAiEvent.title}
-                  onChange={(e) => updateSocialAiField("title", e.target.value)}
-                  className="input"
-                  placeholder="Money & Credit: Understanding Your Credit Report"
-                />
-              </Field>
-
-              <Field label="Date">
-                <input
-                  required
-                  type="text"
-                  value={socialAiEvent.date}
-                  onChange={(e) => updateSocialAiField("date", e.target.value)}
-                  className="input"
-                  placeholder="August 15, 2026 at 2:00 PM ET"
-                />
-              </Field>
-
-              <Field label="Speaker">
-                <input
-                  required
-                  type="text"
-                  value={socialAiEvent.speaker}
-                  onChange={(e) => updateSocialAiField("speaker", e.target.value)}
-                  className="input"
-                  placeholder="WVF Financial Education Team"
-                />
-              </Field>
-
-              <Field label="Registration Link">
-                <input
-                  required
-                  type="url"
-                  value={socialAiEvent.registration_link}
-                  onChange={(e) => updateSocialAiField("registration_link", e.target.value)}
-                  className="input"
-                  placeholder="https://www.womenventurefund.org/events/..."
-                />
-              </Field>
-
-              <Field label="Target Audience">
-                <input
-                  required
-                  type="text"
-                  value={socialAiEvent.audience}
-                  onChange={(e) => updateSocialAiField("audience", e.target.value)}
-                  className="input"
-                  placeholder="NYC-based women entrepreneurs, Spanish-speaking community welcome"
-                />
-              </Field>
-
-              <Field label="Description">
-                <textarea
-                  required
-                  rows={4}
-                  value={socialAiEvent.description}
-                  onChange={(e) => updateSocialAiField("description", e.target.value)}
-                  className="input"
-                  placeholder="Describe the event, what attendees will learn, and any relevant details..."
-                />
-              </Field>
-
-              {socialAiError && (
-                <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {socialAiError}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={socialAiGenerating}
-                className="rounded-md bg-navy px-6 py-3 font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {socialAiGenerating ? "Generating…" : "Generate Campaign"}
-              </button>
-            </form>
-          </div>
-        )}
-
-        {activePlatform && (
-          <div className="mt-5 max-w-2xl rounded-lg border border-gray-200 bg-gray-50/50 p-4">
-            <h3 className="mb-3 text-base font-bold text-navy">
-              {PLATFORM_LABELS[activePlatform]}: how do you want to start?
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setPlatformSubMode("ai");
-                  setShowForm(false);
-                }}
-                className={`rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
-                  platformSubMode === "ai"
-                    ? "border-navy bg-navy text-white"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-sky-blue hover:text-navy"
-                }`}
-              >
-                AI Copy + AI Hashtags
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPlatformSubMode("fixed");
-                  setShowForm(false);
-                }}
-                className={`rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
-                  platformSubMode === "fixed"
-                    ? "border-navy bg-navy text-white"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-sky-blue hover:text-navy"
-                }`}
-              >
-                Fixed template
-              </button>
-            </div>
-
-            {platformSubMode === "ai" && (
-              <div className="mt-3 space-y-2">
-                <p className="text-xs text-gray-500">
-                  <span className="font-semibold text-navy">AI Copy:</span>{" "}
-                  {REAL_SAMPLE_GROUNDED_PLATFORMS.includes(activePlatform)
-                    ? `a new caption tailored to ${PLATFORM_LABELS[activePlatform]}'s real WVF style (grounded in real WVF posts).`
-                    : `a new caption following general ${PLATFORM_LABELS[activePlatform]} conventions — not yet grounded in real WVF ${PLATFORM_LABELS[activePlatform]} posts, since none have been reviewed for this platform.`}
-                </p>
-                <p className="text-xs text-gray-500">
-                  <span className="font-semibold text-navy">AI Hashtags:</span> a matching hashtag set,
-                  generated alongside the caption — you&apos;ll get 3 caption + hashtag pairs to compare
-                  on the review page.
-                </p>
-                <p className="text-xs text-gray-500">
-                  Fill in event details below and click Generate Campaign.
-                </p>
-              </div>
-            )}
-
-            {platformSubMode === "fixed" && activePlatform === "instagram" && (
-              <div className="mt-3">
-                {instagramTemplateError && (
-                  <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {instagramTemplateError}
-                  </div>
-                )}
-                <span className="mb-1 block text-sm font-medium text-navy">
-                  Which real Instagram post?
-                </span>
-                <select
-                  value={instagramTemplateKey}
-                  onChange={(e) => setInstagramTemplateKey(e.target.value)}
-                  className="input"
-                >
-                  {Object.entries(instagramTemplates ?? {}).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-
-                {instagramTemplateDetail && !instagramTemplateError && (
-                  <div className="mt-3 rounded-lg border border-gray-200 shadow-sm">
-                    <div className="rounded-t-lg bg-navy px-5 py-3">
-                      <h3 className="font-semibold text-white">{instagramTemplateDetail.label}</h3>
-                    </div>
-                    <div className="space-y-3 px-5 py-4">
-                      <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
-                        {instagramTemplateDetail.caption}
-                      </pre>
-                      {instagramTemplateDetail.hashtags.length > 0 && (
-                        <p className="text-sm text-sky-blue">
-                          {instagramTemplateDetail.hashtags.join(" ")}
-                        </p>
-                      )}
-                      {instagramTemplateDetail.truncated && (
-                        <p className="text-xs font-semibold text-red-600">
-                          ⚠ This post was cut off in the source screenshot — double-check the full
-                          caption before reusing.
-                        </p>
-                      )}
-                      <p className="text-xs font-semibold text-amber-700">
-                        Real, previously-published WVF Instagram post — edit as needed before reuse.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {platformSubMode === "fixed" && activePlatform === "x" && (
-              <div className="mt-3">
-                {xTemplateError && (
-                  <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {xTemplateError}
-                  </div>
-                )}
-                <span className="mb-1 block text-sm font-medium text-navy">Which real X post?</span>
-                <select
-                  value={xTemplateKey}
-                  onChange={(e) => setXTemplateKey(e.target.value)}
-                  className="input"
-                >
-                  {Object.entries(xTemplates ?? {}).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-
-                {xTemplateDetail && !xTemplateError && (
-                  <div className="mt-3 rounded-lg border border-gray-200 shadow-sm">
-                    <div className="rounded-t-lg bg-navy px-5 py-3">
-                      <h3 className="font-semibold text-white">{xTemplateDetail.label}</h3>
-                    </div>
-                    <div className="space-y-3 px-5 py-4">
-                      <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
-                        {xTemplateDetail.caption}
-                      </pre>
-                      {xTemplateDetail.hashtags.length > 0 && (
-                        <p className="text-sm text-sky-blue">{xTemplateDetail.hashtags.join(" ")}</p>
-                      )}
-                      {xTemplateDetail.truncated && (
-                        <p className="text-xs font-semibold text-red-600">
-                          ⚠ This post was cut off in the source screenshot (e.g. a shortened link) —
-                          double-check the full caption before reusing.
-                        </p>
-                      )}
-                      <p className="text-xs font-semibold text-amber-700">
-                        Real, previously-published WVF X post — edit as needed before reuse.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {platformSubMode === "fixed" && activePlatform !== "instagram" && activePlatform !== "x" && (
-              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                A fixed (non-AI) {PLATFORM_LABELS[activePlatform]} template isn&apos;t available yet —
-                real sample WVF {PLATFORM_LABELS[activePlatform]} posts are needed to build one, so this
-                doesn&apos;t show fabricated content in WVF&apos;s name. Use AI Copy in the meantime.
-              </div>
-            )}
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* --- Email Copy section --- */}
@@ -659,183 +770,183 @@ export default function EventFormPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-4">
-          <PlatformToggleButton
-            label="Keymakers Copy"
-            active={mode === "keymakers"}
-            onClick={() => selectMode("keymakers")}
-            disabled={keymakersDisabled}
-            icon={
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src="/wvf-logo.svg" alt="" className="h-16 w-auto max-w-none" />
-            }
-          />
-          <PlatformToggleButton
-            label="AI Generate"
-            active={mode === "ai"}
-            onClick={startEmailAiGenerate}
-            icon={<AiSparkleIcon fill={mode === "ai" ? "#FFFFFF" : undefined} />}
-          />
-        </div>
+        {(() => {
+          const emailExpanded = mode === "keymakers" || mode === "ai";
+          return (
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+              <TileRail expanded={emailExpanded}>
+                <PlatformToggleButton
+                  tileId="keymakers"
+                  label="Keymakers Copy"
+                  active={mode === "keymakers"}
+                  collapsed={emailExpanded && mode !== "keymakers"}
+                  onClick={() => selectMode("keymakers")}
+                  disabled={keymakersDisabled}
+                  icon={
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src="/wvf-logo.svg" alt="" className="h-16 w-auto max-w-none" />
+                  }
+                />
+                <PlatformToggleButton
+                  tileId="email-ai-generate"
+                  label="AI Generate"
+                  active={mode === "ai"}
+                  collapsed={emailExpanded && mode !== "ai"}
+                  onClick={startEmailAiGenerate}
+                  icon={<AiSparkleIcon fill={mode === "ai" ? "#FFFFFF" : undefined} />}
+                />
+              </TileRail>
 
-        {mode === "keymakers" && (
-          <div className="mt-4 max-w-2xl">
-            <span className="mb-1 block text-sm font-medium text-navy">Which Keymakers message?</span>
-            <select
-              value={keymakersStageKey}
-              onChange={(e) => setKeymakersStageKey(e.target.value)}
-              className="input"
-            >
-              {Object.entries(keymakersStages ?? {}).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              <AnimatePresence>
+                {mode === "keymakers" && (
+                  <TileExpandedPanel
+                    tileId="keymakers"
+                    title="Keymakers Copy"
+                    onClose={() => selectMode("keymakers")}
+                  >
+                    <span className="mb-1 block text-sm font-medium text-navy">
+                      Which Keymakers message?
+                    </span>
+                    <select
+                      value={keymakersStageKey}
+                      onChange={(e) => setKeymakersStageKey(e.target.value)}
+                      className="input"
+                    >
+                      {Object.entries(keymakersStages ?? {}).map(([key, label]) => (
+                        <option key={key} value={key}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
 
-            {keymakersDetailError && (
-              <div className="mt-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {keymakersDetailError}
-              </div>
-            )}
-
-            {keymakersDetail && !keymakersDetailError && (
-              <div className="mt-3 rounded-lg border border-gray-200 shadow-sm">
-                <div className="rounded-t-lg bg-navy px-5 py-3">
-                  <h3 className="font-semibold text-white">{keymakersDetail.label}</h3>
-                </div>
-                <div className="space-y-3 px-5 py-4">
-                  <p className="text-xs text-gray-500">
-                    Audience: {keymakersDetail.audience}
-                    {keymakersDetail.subject_options && keymakersDetail.subject_options.length > 0 && (
-                      <>
-                        <br />
-                        Subject line options: {keymakersDetail.subject_options.join(" · ")}
-                      </>
+                    {keymakersDetailError && (
+                      <div className="mt-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {keymakersDetailError}
+                      </div>
                     )}
-                  </p>
-                  <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
-                    {keymakersDetail.body}
-                  </pre>
-                  <p className="text-xs font-semibold text-amber-700">
-                    Real WVF reference copy — still needs Maria&apos;s approval before sending.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+
+                    {keymakersDetail && !keymakersDetailError && (
+                      <div className="mt-3 rounded-lg border border-gray-200 shadow-sm">
+                        <div className="rounded-t-lg bg-navy px-5 py-3">
+                          <h3 className="font-semibold text-white">{keymakersDetail.label}</h3>
+                        </div>
+                        <div className="space-y-3 px-5 py-4">
+                          <p className="text-xs text-gray-500">
+                            Audience: {keymakersDetail.audience}
+                            {keymakersDetail.subject_options &&
+                              keymakersDetail.subject_options.length > 0 && (
+                                <>
+                                  <br />
+                                  Subject line options: {keymakersDetail.subject_options.join(" · ")}
+                                </>
+                              )}
+                          </p>
+                          <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
+                            {keymakersDetail.body}
+                          </pre>
+                          <p className="text-xs font-semibold text-amber-700">
+                            Real WVF reference copy — still needs Maria&apos;s approval before sending.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </TileExpandedPanel>
+                )}
+
+                {mode === "ai" && (
+                  <TileExpandedPanel
+                    tileId="email-ai-generate"
+                    title="AI Generate — Newsletter"
+                    onClose={() => selectMode("ai")}
+                  >
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <Field label="Event Title">
+                        <input
+                          required
+                          type="text"
+                          value={event.title}
+                          onChange={(e) => updateField("title", e.target.value)}
+                          className="input"
+                          placeholder="Money & Credit: Understanding Your Credit Report"
+                        />
+                      </Field>
+
+                      <Field label="Date">
+                        <input
+                          required
+                          type="text"
+                          value={event.date}
+                          onChange={(e) => updateField("date", e.target.value)}
+                          className="input"
+                          placeholder="August 15, 2026 at 2:00 PM ET"
+                        />
+                      </Field>
+
+                      <Field label="Speaker">
+                        <input
+                          required
+                          type="text"
+                          value={event.speaker}
+                          onChange={(e) => updateField("speaker", e.target.value)}
+                          className="input"
+                          placeholder="WVF Financial Education Team"
+                        />
+                      </Field>
+
+                      <Field label="Registration Link">
+                        <input
+                          required
+                          type="url"
+                          value={event.registration_link}
+                          onChange={(e) => updateField("registration_link", e.target.value)}
+                          className="input"
+                          placeholder="https://www.womenventurefund.org/events/..."
+                        />
+                      </Field>
+
+                      <Field label="Target Audience">
+                        <input
+                          required
+                          type="text"
+                          value={event.audience}
+                          onChange={(e) => updateField("audience", e.target.value)}
+                          className="input"
+                          placeholder="NYC-based women entrepreneurs, Spanish-speaking community welcome"
+                        />
+                      </Field>
+
+                      <Field label="Description">
+                        <textarea
+                          required
+                          rows={4}
+                          value={event.description}
+                          onChange={(e) => updateField("description", e.target.value)}
+                          className="input"
+                          placeholder="Describe the event, what attendees will learn, and any relevant details..."
+                        />
+                      </Field>
+
+                      {error && (
+                        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          {error}
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={isGenerating}
+                        className="rounded-md bg-navy px-6 py-3 font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isGenerating ? "Generating campaign…" : "Generate Campaign"}
+                      </button>
+                    </form>
+                  </TileExpandedPanel>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })()}
       </div>
-
-      {(mode === "ai" || platformSubMode === "ai") && !showForm && (
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="rounded-md bg-navy px-6 py-3 font-semibold text-white transition hover:bg-navy/90"
-        >
-          + New Event Campaign
-        </button>
-      )}
-
-      {(mode === "ai" || platformSubMode === "ai") && showForm && (
-        <>
-          <div className="mb-1 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-navy">New Event Campaign</h2>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="text-sm font-semibold text-gray-500 hover:text-navy"
-            >
-              Cancel
-            </button>
-          </div>
-          <p className="mb-6 text-sm text-gray-600">
-            Enter event details to generate a complete WVF-branded marketing campaign.
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <Field label="Event Title">
-              <input
-                required
-                type="text"
-                value={event.title}
-                onChange={(e) => updateField("title", e.target.value)}
-                className="input"
-                placeholder="Money & Credit: Understanding Your Credit Report"
-              />
-            </Field>
-
-            <Field label="Date">
-              <input
-                required
-                type="text"
-                value={event.date}
-                onChange={(e) => updateField("date", e.target.value)}
-                className="input"
-                placeholder="August 15, 2026 at 2:00 PM ET"
-              />
-            </Field>
-
-            <Field label="Speaker">
-              <input
-                required
-                type="text"
-                value={event.speaker}
-                onChange={(e) => updateField("speaker", e.target.value)}
-                className="input"
-                placeholder="WVF Financial Education Team"
-              />
-            </Field>
-
-            <Field label="Registration Link">
-              <input
-                required
-                type="url"
-                value={event.registration_link}
-                onChange={(e) => updateField("registration_link", e.target.value)}
-                className="input"
-                placeholder="https://www.womenventurefund.org/events/..."
-              />
-            </Field>
-
-            <Field label="Target Audience">
-              <input
-                required
-                type="text"
-                value={event.audience}
-                onChange={(e) => updateField("audience", e.target.value)}
-                className="input"
-                placeholder="NYC-based women entrepreneurs, Spanish-speaking community welcome"
-              />
-            </Field>
-
-            <Field label="Description">
-              <textarea
-                required
-                rows={5}
-                value={event.description}
-                onChange={(e) => updateField("description", e.target.value)}
-                className="input"
-                placeholder="Describe the event, what attendees will learn, and any relevant details..."
-              />
-            </Field>
-
-            {error && (
-              <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isGenerating}
-              className="rounded-md bg-navy px-6 py-3 font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isGenerating ? "Generating campaign…" : "Generate Campaign"}
-            </button>
-          </form>
-        </>
-      )}
 
       <style jsx global>{`
         .input {
@@ -864,25 +975,55 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+/** A tile in a FLIP-animated tile row (see TileRail). `tileId` must be
+ * unique within the row and is what Framer Motion uses (via layoutId) to
+ * morph this exact tile into its matching TileExpandedPanel when
+ * selected — the two must share the same `tile-${tileId}` id. `collapsed`
+ * renders a compact icon-only square (for the rail state); otherwise the
+ * full card with label. */
 function PlatformToggleButton({
+  tileId,
   label,
   icon,
   active,
+  collapsed = false,
   disabled,
   onClick,
 }: {
+  tileId: string;
   label: string;
   icon: React.ReactNode;
   active: boolean;
+  collapsed?: boolean;
   disabled?: boolean;
   onClick: () => void;
 }) {
+  if (collapsed) {
+    return (
+      <motion.button
+        type="button"
+        layoutId={`tile-${tileId}`}
+        onClick={onClick}
+        disabled={disabled}
+        title={label}
+        transition={TILE_SPRING}
+        className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border-2 bg-white transition disabled:cursor-not-allowed disabled:opacity-40 ${
+          active ? "border-navy" : "border-gray-200 hover:border-sky-blue"
+        }`}
+      >
+        <span className="flex h-8 w-8 items-center justify-center">{icon}</span>
+      </motion.button>
+    );
+  }
+
   return (
-    <button
+    <motion.button
       type="button"
+      layoutId={`tile-${tileId}`}
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
+      transition={TILE_SPRING}
       className={`flex flex-col items-center gap-3 rounded-xl border-2 px-10 py-7 text-lg font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
         active
           ? "border-navy bg-navy text-white"
@@ -891,7 +1032,69 @@ function PlatformToggleButton({
     >
       <span className="flex h-16 w-16 items-center justify-center">{icon}</span>
       {label}
-    </button>
+    </motion.button>
+  );
+}
+
+const TILE_SPRING = { type: "spring", stiffness: 300, damping: 30 } as const;
+
+/** Wraps a row of tiles: renders as a wrapping grid when nothing is
+ * selected, or a compact vertical rail (tiles collapse to icon-only
+ * squares) once `expanded` is true — the FLIP/shared-layout transition
+ * between the two states is automatic via each tile's shared layoutId
+ * with its TileExpandedPanel. Mirrors the Profiles page's Key Maker
+ * rail pattern. */
+function TileRail({ expanded, children }: { expanded: boolean; children: React.ReactNode }) {
+  return (
+    <motion.div
+      layout
+      transition={TILE_SPRING}
+      className={
+        expanded
+          ? "flex flex-row gap-2 overflow-x-auto pb-1 lg:w-20 lg:flex-shrink-0 lg:flex-col lg:overflow-visible lg:pb-0"
+          : "flex flex-wrap gap-4"
+      }
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/** The expanded panel a tile morphs into when selected — shares the same
+ * `tile-${tileId}` layoutId as its PlatformToggleButton, so Framer Motion
+ * animates one continuous shape between the tile's collapsed position and
+ * this panel's full size/position rather than cross-fading two unrelated
+ * elements. `onClose` re-collapses back to the tile grid. */
+function TileExpandedPanel({
+  tileId,
+  title,
+  onClose,
+  children,
+}: {
+  tileId: string;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <motion.div
+      layoutId={`tile-${tileId}`}
+      transition={TILE_SPRING}
+      className="flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
+    >
+      <div className="flex items-center justify-between gap-4 bg-navy px-6 py-4">
+        <h3 className="text-lg font-bold text-white">{title}</h3>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Back to all options"
+          className="shrink-0 rounded-full px-3 py-1 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white"
+        >
+          ← Back
+        </button>
+      </div>
+      <div className="max-w-2xl p-6">{children}</div>
+    </motion.div>
   );
 }
 
