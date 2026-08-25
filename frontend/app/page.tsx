@@ -1163,11 +1163,19 @@ function BrandSvgIcon({
  * three times with real TikTok brand colors and small pixel offsets to
  * reproduce that layered look, rather than the flat black glyph. */
 function TikTokIcon() {
+  // viewBox is wider than the path's own 24x24 box (with the group
+  // shifted +1,+1 to re-center it) so the offset cyan/red copies have
+  // room to render fully instead of being clipped at the SVG bounds —
+  // the plain siTiktok path fills close to the full 24x24 already, so
+  // any translate() with no extra margin pushed part of the shape
+  // outside the viewBox and got cut off.
   return (
-    <svg viewBox="0 0 24 24" role="img" aria-label="TikTok" className="h-full w-full">
-      <path d={siTiktok.path} fill="#25F4EE" transform="translate(-0.6, -0.6)" />
-      <path d={siTiktok.path} fill="#FE2C55" transform="translate(0.6, 0.6)" />
-      <path d={siTiktok.path} fill="#000000" />
+    <svg viewBox="0 0 26 26" role="img" aria-label="TikTok" className="h-full w-full">
+      <g transform="translate(1, 1)">
+        <path d={siTiktok.path} fill="#25F4EE" transform="translate(-0.6, -0.6)" />
+        <path d={siTiktok.path} fill="#FE2C55" transform="translate(0.6, 0.6)" />
+        <path d={siTiktok.path} fill="#000000" />
+      </g>
     </svg>
   );
 }
