@@ -352,7 +352,7 @@ export default function EventFormPage() {
               active={mode === "tiktok"}
               collapsed={anyExpanded}
               onClick={() => selectMode("tiktok")}
-              icon={<BrandSvgIcon icon={siTiktok} fill={`#${siTiktok.hex}`} />}
+              icon={<TikTokIcon />}
             />
             <PlatformToggleButton
               tileId="social-ai-generate"
@@ -1152,6 +1152,22 @@ function BrandSvgIcon({
   return (
     <svg viewBox="0 0 24 24" role="img" aria-label={icon.title} className="h-full w-full" fill={fill}>
       <path d={icon.path} />
+    </svg>
+  );
+}
+
+/** TikTok's real mark is three offset-colored layers (cyan behind-left,
+ * red/pink behind-right, black on top) — simple-icons only ships a flat
+ * single-color brand path, same limitation Instagram's gradient works
+ * around (see InstagramGradientDef). Renders the same note-shape path
+ * three times with real TikTok brand colors and small pixel offsets to
+ * reproduce that layered look, rather than the flat black glyph. */
+function TikTokIcon() {
+  return (
+    <svg viewBox="0 0 24 24" role="img" aria-label="TikTok" className="h-full w-full">
+      <path d={siTiktok.path} fill="#25F4EE" transform="translate(-0.6, -0.6)" />
+      <path d={siTiktok.path} fill="#FE2C55" transform="translate(0.6, 0.6)" />
+      <path d={siTiktok.path} fill="#000000" />
     </svg>
   );
 }
