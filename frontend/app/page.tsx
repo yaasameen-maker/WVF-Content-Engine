@@ -329,7 +329,7 @@ export default function EventFormPage() {
                 tileId="instagram"
                 label="Instagram"
                 active={mode === "instagram"}
-                collapsed={anyExpanded && mode !== "instagram"}
+                collapsed={anyExpanded}
                 onClick={() => selectMode("instagram")}
                 icon={<BrandSvgIcon icon={siInstagram} fill={`url(#${IG_GRADIENT_ID})`} />}
               />
@@ -337,7 +337,7 @@ export default function EventFormPage() {
                 tileId="linkedin"
                 label="LinkedIn"
                 active={mode === "linkedin"}
-                collapsed={anyExpanded && mode !== "linkedin"}
+                collapsed={anyExpanded}
                 onClick={() => selectMode("linkedin")}
                 icon={<LinkedInMonogramIcon />}
               />
@@ -345,7 +345,7 @@ export default function EventFormPage() {
                 tileId="facebook"
                 label="Facebook"
                 active={mode === "facebook"}
-                collapsed={anyExpanded && mode !== "facebook"}
+                collapsed={anyExpanded}
                 onClick={() => selectMode("facebook")}
                 icon={<BrandSvgIcon icon={siFacebook} fill={`#${siFacebook.hex}`} />}
               />
@@ -353,7 +353,7 @@ export default function EventFormPage() {
                 tileId="x"
                 label="X"
                 active={mode === "x"}
-                collapsed={anyExpanded && mode !== "x"}
+                collapsed={anyExpanded}
                 onClick={() => selectMode("x")}
                 icon={<BrandSvgIcon icon={siX} fill={mode === "x" ? "#FFFFFF" : `#${siX.hex}`} />}
               />
@@ -361,7 +361,7 @@ export default function EventFormPage() {
                 tileId="tiktok"
                 label="TikTok"
                 active={mode === "tiktok"}
-                collapsed={anyExpanded && mode !== "tiktok"}
+                collapsed={anyExpanded}
                 onClick={() => selectMode("tiktok")}
                 icon={
                   <BrandSvgIcon
@@ -374,7 +374,7 @@ export default function EventFormPage() {
                 tileId="social-ai-generate"
                 label="AI Generate"
                 active={socialAiPicker === "open"}
-                collapsed={anyExpanded && socialAiPicker !== "open"}
+                collapsed={anyExpanded}
                 onClick={openSocialAiForm}
                 icon={<AiSparkleIcon fill={socialAiPicker === "open" ? "#FFFFFF" : undefined} />}
               />
@@ -382,7 +382,7 @@ export default function EventFormPage() {
                 tileId="keymakers"
                 label="Keymakers Copy"
                 active={mode === "keymakers"}
-                collapsed={anyExpanded && mode !== "keymakers"}
+                collapsed={anyExpanded}
                 onClick={() => selectMode("keymakers")}
                 disabled={keymakersDisabled}
                 icon={
@@ -399,7 +399,7 @@ export default function EventFormPage() {
                 tileId="email-ai-generate"
                 label="AI Generate"
                 active={mode === "ai"}
-                collapsed={anyExpanded && mode !== "ai"}
+                collapsed={anyExpanded}
                 onClick={startEmailAiGenerate}
                 icon={<AiSparkleIcon fill={mode === "ai" ? "#FFFFFF" : undefined} />}
               />

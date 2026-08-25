@@ -70,7 +70,7 @@ export default function ProfilesPage() {
               <KeyMakerCard
                 key={keyMaker.id}
                 keyMaker={keyMaker}
-                collapsed={selected !== null && selected.id !== keyMaker.id}
+                collapsed={selected !== null}
                 active={selected?.id === keyMaker.id}
                 onClick={() => setSelectedId(keyMaker.id)}
               />
