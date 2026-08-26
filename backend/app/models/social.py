@@ -26,11 +26,17 @@ from app.database import Base
 
 
 class SocialPlatform(str, enum.Enum):
-    """Platforms with an OAuth connection. Only X is implemented today —
-    the others are listed so future migrations can extend this enum
-    rather than each platform inventing its own."""
+    """Platforms with an OAuth connection. INSTAGRAM/FACEBOOK added Aug
+    2026 (see app/services/meta_client.py) — both go through the same
+    Meta Graph API app/OAuth flow, just different publish endpoints.
+    Their "Connect" buttons exist in the frontend, but posting won't
+    actually work until WVF's Meta Developer app passes App Review for
+    the content-publish permissions — that's an external approval step,
+    not something this codebase can complete on its own."""
 
     X = "x"
+    INSTAGRAM = "instagram"
+    FACEBOOK = "facebook"
 
 
 # SQLAlchemy's Enum type sends the Python member NAME ("X") by default, not

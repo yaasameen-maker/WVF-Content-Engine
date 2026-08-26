@@ -292,6 +292,40 @@ export async function disconnectX(): Promise<void> {
   await request<{ disconnected: boolean }>("/api/social/x/connection", { method: "DELETE" });
 }
 
+/** Instagram + Facebook both connect through one Meta Graph API OAuth
+ * dialog (see backend app/services/meta_client.py) — connecting works
+ * today, but publishing 403s until WVF's Meta Developer app passes App
+ * Review. The "Connect" buttons exist so the login step can be tested/
+ * used independently of that approval, which is out of this app's
+ * control and can take days to weeks once submitted. */
+export interface MetaConnectionStatus {
+  connected: boolean;
+  username: string | null;
+}
+
+export function getInstagramConnectionStatus(): Promise<MetaConnectionStatus> {
+  return request<MetaConnectionStatus>("/api/social/instagram/status");
+}
+
+export function getFacebookConnectionStatus(): Promise<MetaConnectionStatus> {
+  return request<MetaConnectionStatus>("/api/social/facebook/status");
+}
+
+/** Both Instagram and Facebook use the same Meta OAuth start route —
+ * which one gets connected depends on what the user's Facebook Page has
+ * linked, not which button was clicked (see meta_oauth_callback). */
+export function getMetaConnectStartUrl(): string {
+  return `${API_URL}/api/oauth/meta/start`;
+}
+
+export async function disconnectInstagram(): Promise<void> {
+  await request<{ disconnected: boolean }>("/api/social/instagram/connection", { method: "DELETE" });
+}
+
+export async function disconnectFacebook(): Promise<void> {
+  await request<{ disconnected: boolean }>("/api/social/facebook/connection", { method: "DELETE" });
+}
+
 /** Saves staff edits to a content item's body before it's posted/used
  * elsewhere — e.g. the edited caption in the review page's social post
  * editor, so "Post to X" publishes what's actually on screen rather

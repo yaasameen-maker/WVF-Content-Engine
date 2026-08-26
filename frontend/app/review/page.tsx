@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  disconnectFacebook,
+  disconnectInstagram,
   disconnectX,
+  getFacebookConnectionStatus,
+  getInstagramConnectionStatus,
+  getMetaConnectStartUrl,
   getXConnectionStatus,
   getXConnectStartUrl,
   postToX,
@@ -300,6 +305,10 @@ function SocialPostEditor({
           }}
         />
       )}
+      <div className="flex flex-wrap gap-2">
+        <MetaConnectButton platform="instagram" />
+        <MetaConnectButton platform="facebook" />
+      </div>
     </div>
   );
 }
@@ -407,6 +416,73 @@ function PostToXButton({
           {postError}
         </div>
       )}
+    </div>
+  );
+}
+
+const META_PLATFORM_LABELS = { instagram: "Instagram", facebook: "Facebook" } as const;
+
+/**
+ * Connect-only button for Instagram/Facebook — both go through Meta's
+ * Graph API (see backend app/services/meta_client.py). Unlike
+ * PostToXButton, this doesn't offer an actual "Post to..." action yet:
+ * publishing requires `pages_manage_posts`/`instagram_content_publish`,
+ * which stay locked behind Meta App Review until WVF's Meta Developer
+ * app is approved — that's a manual review on Meta's side, not something
+ * this app can complete on its own. Connecting the account (Facebook
+ * Login + picking up the linked Page/IG account) works today regardless.
+ */
+function MetaConnectButton({ platform }: { platform: "instagram" | "facebook" }) {
+  const [connected, setConnected] = useState<boolean | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+
+  const getStatus = platform === "instagram" ? getInstagramConnectionStatus : getFacebookConnectionStatus;
+  const disconnect = platform === "instagram" ? disconnectInstagram : disconnectFacebook;
+
+  useEffect(() => {
+    getStatus()
+      .then((status) => {
+        setConnected(status.connected);
+        setUsername(status.username);
+      })
+      .catch(() => setConnected(false));
+    // getStatus/disconnect are stable per platform prop, not per render —
+    // re-running this on every render would just re-fetch identical status.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform]);
+
+  async function handleDisconnect() {
+    await disconnect();
+    setConnected(false);
+    setUsername(null);
+  }
+
+  if (connected === null) {
+    return null; // still loading connection status
+  }
+
+  const label = META_PLATFORM_LABELS[platform];
+
+  if (!connected) {
+    return (
+      <button
+        type="button"
+        onClick={() => (window.location.href = getMetaConnectStartUrl())}
+        className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-navy hover:text-navy"
+      >
+        Connect {label}
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-md border border-gray-200 bg-gray-50/50 px-4 py-2">
+      <span className="text-sm font-semibold text-gray-700">
+        {label} connected ({username}) — publishing pending Meta App Review
+      </span>
+      <button type="button" onClick={handleDisconnect} className="text-xs font-semibold text-gray-500 hover:underline">
+        Disconnect
+      </button>
     </div>
   );
 }

@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import ContentItem, ContentStatus, ContentType, OAuthPkceState, SocialConnection, SocialPlatform, SocialPost
-from app.services import x_client
+from app.services import meta_client, x_client
 from app.services.token_encryption import decrypt_token, encrypt_token
 
 logger = logging.getLogger(__name__)
@@ -159,6 +159,174 @@ def disconnect_x(db: Session = Depends(get_db)) -> dict:
     connection = db.query(SocialConnection).filter(SocialConnection.platform == SocialPlatform.X).first()
     if not connection:
         raise HTTPException(status_code=404, detail="No X connection to disconnect")
+    db.delete(connection)
+    db.commit()
+    return {"disconnected": True}
+
+
+# ---------------------------------------------------------------------
+# Meta (Instagram + Facebook) — one OAuth dialog covers both, since a
+# Facebook Login grant exposes whichever Pages the user manages and
+# whichever Instagram Business account is linked to each Page. See
+# app/services/meta_client.py's module docstring: connecting works today,
+# but publishing will 403 until WVF's Meta app passes App Review.
+# ---------------------------------------------------------------------
+
+
+@router.get("/oauth/meta/start")
+def start_meta_oauth(db: Session = Depends(get_db)) -> RedirectResponse:
+    """Step 1: a staff member clicks "Connect Instagram" or "Connect
+    Facebook" — both land here, since Meta's login dialog isn't
+    platform-specific. Uses SocialPlatform.FACEBOOK as the PKCE state
+    row's platform value (arbitrary choice between the two Meta
+    platforms — code_verifier is unused for Meta's flow, which has no
+    PKCE, but OAuthPkceState is reused here rather than adding a
+    second state-tracking table for one extra column)."""
+    state = x_client.generate_state()
+    db.add(
+        OAuthPkceState(
+            platform=SocialPlatform.FACEBOOK,
+            state=state,
+            code_verifier="unused-meta-has-no-pkce",
+        )
+    )
+    db.commit()
+
+    authorize_url = meta_client.build_authorize_url(state)
+    return RedirectResponse(url=authorize_url)
+
+
+@router.get("/oauth/meta/callback")
+async def meta_oauth_callback(
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    """Step 2: Meta redirects here with a code. Exchanges it for a
+    long-lived user token, lists the Pages the user manages, and stores a
+    FACEBOOK connection for the (first, or only) Page plus an INSTAGRAM
+    connection if that Page has a linked IG Business account. WVF has one
+    real Page, so "first" is the practical choice rather than building a
+    picker UI for an org with only one Page to pick from."""
+    frontend_url = meta_client.get_frontend_url()
+
+    if error:
+        return RedirectResponse(url=f"{frontend_url}/?meta_connect=error&reason={error}")
+    if not code or not state:
+        return RedirectResponse(url=f"{frontend_url}/?meta_connect=error&reason=missing_params")
+
+    pkce_row = db.query(OAuthPkceState).filter(OAuthPkceState.state == state).first()
+    if not pkce_row:
+        return RedirectResponse(url=f"{frontend_url}/?meta_connect=error&reason=invalid_state")
+    if datetime.utcnow() - pkce_row.created_at > PKCE_STATE_MAX_AGE:
+        db.delete(pkce_row)
+        db.commit()
+        return RedirectResponse(url=f"{frontend_url}/?meta_connect=error&reason=expired_state")
+
+    db.delete(pkce_row)
+    db.commit()
+
+    try:
+        short_lived = await meta_client.exchange_code_for_user_token(code)
+        long_lived = await meta_client.exchange_for_long_lived_token(short_lived["access_token"])
+        pages = await meta_client.get_managed_pages(long_lived["access_token"])
+    except Exception:
+        logger.exception("Meta OAuth token exchange failed")
+        return RedirectResponse(url=f"{frontend_url}/?meta_connect=error&reason=token_exchange_failed")
+
+    if not pages:
+        return RedirectResponse(url=f"{frontend_url}/?meta_connect=error&reason=no_pages_found")
+
+    page = pages[0]
+    page_token_expires_at = None  # Page tokens derived from a long-lived user token don't expire on their own
+
+    existing_fb = db.query(SocialConnection).filter(SocialConnection.platform == SocialPlatform.FACEBOOK).first()
+    if existing_fb:
+        existing_fb.platform_account_id = page["id"]
+        existing_fb.username = page["name"]
+        existing_fb.access_token_encrypted = encrypt_token(page["access_token"])
+        existing_fb.token_expires_at = page_token_expires_at
+    else:
+        db.add(
+            SocialConnection(
+                platform=SocialPlatform.FACEBOOK,
+                platform_account_id=page["id"],
+                username=page["name"],
+                access_token_encrypted=encrypt_token(page["access_token"]),
+                token_expires_at=page_token_expires_at,
+            )
+        )
+
+    ig_account = page.get("instagram_business_account")
+    if ig_account:
+        existing_ig = (
+            db.query(SocialConnection).filter(SocialConnection.platform == SocialPlatform.INSTAGRAM).first()
+        )
+        if existing_ig:
+            existing_ig.platform_account_id = ig_account["id"]
+            existing_ig.username = page["name"]  # IG username needs a separate Graph call; Page name stands in for now
+            existing_ig.access_token_encrypted = encrypt_token(page["access_token"])
+            existing_ig.token_expires_at = page_token_expires_at
+        else:
+            db.add(
+                SocialConnection(
+                    platform=SocialPlatform.INSTAGRAM,
+                    platform_account_id=ig_account["id"],
+                    username=page["name"],
+                    access_token_encrypted=encrypt_token(page["access_token"]),
+                    token_expires_at=page_token_expires_at,
+                )
+            )
+
+    db.commit()
+    return RedirectResponse(url=f"{frontend_url}/?meta_connect=success")
+
+
+class MetaConnectionStatus(BaseModel):
+    connected: bool
+    username: str | None = None
+
+
+@router.get("/social/instagram/status", response_model=MetaConnectionStatus)
+def get_instagram_connection_status(db: Session = Depends(get_db)) -> MetaConnectionStatus:
+    connection = (
+        db.query(SocialConnection).filter(SocialConnection.platform == SocialPlatform.INSTAGRAM).first()
+    )
+    if not connection:
+        return MetaConnectionStatus(connected=False)
+    return MetaConnectionStatus(connected=True, username=connection.username)
+
+
+@router.delete("/social/instagram/connection")
+def disconnect_instagram(db: Session = Depends(get_db)) -> dict:
+    connection = (
+        db.query(SocialConnection).filter(SocialConnection.platform == SocialPlatform.INSTAGRAM).first()
+    )
+    if not connection:
+        raise HTTPException(status_code=404, detail="No Instagram connection to disconnect")
+    db.delete(connection)
+    db.commit()
+    return {"disconnected": True}
+
+
+@router.get("/social/facebook/status", response_model=MetaConnectionStatus)
+def get_facebook_connection_status(db: Session = Depends(get_db)) -> MetaConnectionStatus:
+    connection = (
+        db.query(SocialConnection).filter(SocialConnection.platform == SocialPlatform.FACEBOOK).first()
+    )
+    if not connection:
+        return MetaConnectionStatus(connected=False)
+    return MetaConnectionStatus(connected=True, username=connection.username)
+
+
+@router.delete("/social/facebook/connection")
+def disconnect_facebook(db: Session = Depends(get_db)) -> dict:
+    connection = (
+        db.query(SocialConnection).filter(SocialConnection.platform == SocialPlatform.FACEBOOK).first()
+    )
+    if not connection:
+        raise HTTPException(status_code=404, detail="No Facebook connection to disconnect")
     db.delete(connection)
     db.commit()
     return {"disconnected": True}
