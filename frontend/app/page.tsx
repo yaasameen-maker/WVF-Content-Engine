@@ -211,17 +211,25 @@ export default function EventFormPage() {
   }
 
   function selectMode(next: Mode) {
+    // Closes the standalone Social AI Generate picker whenever a platform
+    // tile is picked — both share the same collapsed rail/panel space, so
+    // leaving the AI Generate panel open while a platform panel also tries
+    // to open pinned the AI Generate panel on screen and made every other
+    // tile look unresponsive (they were still "active" underneath it).
+    setSocialAiPicker("closed");
     setMode((prev) => (prev === next ? null : next));
     setPlatformSubMode(null);
   }
 
-  /** Social Media Copy section's own standalone "AI Generate" button —
-   * fully independent of the platform tiles below it. Opening this never
-   * touches mode/platformSubMode, and opening a tile never touches this.
-   * Its platform is chosen via a dropdown inside its own form, not by
-   * picking a tile. */
+  /** Social Media Copy section's own standalone "AI Generate" button. Its
+   * platform is chosen via a dropdown inside its own form, not by picking a
+   * tile — but it shares the same rail/panel space as the platform tiles,
+   * so opening it closes whichever platform tile is active (see selectMode
+   * for the reverse direction). */
   function openSocialAiForm() {
     setSocialAiError(null);
+    setMode(null);
+    setPlatformSubMode(null);
     setSocialAiPicker((prev) => (prev === "open" ? "closed" : "open"));
   }
 

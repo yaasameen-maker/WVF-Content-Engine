@@ -33,6 +33,17 @@ class SocialPlatform(str, enum.Enum):
     X = "x"
 
 
+# SQLAlchemy's Enum type sends the Python member NAME ("X") by default, not
+# its .value ("x") — but the live Postgres `socialplatform` enum type (see
+# alembic migration) only has the lowercase value as a valid label. Every
+# Column(SQLEnum(SocialPlatform)) below must pass this so inserts/filters
+# send "x", matching the DB, instead of erroring with "invalid input value
+# for enum socialplatform: X".
+social_platform_enum = SQLEnum(
+    SocialPlatform, name="socialplatform", values_callable=lambda enum_cls: [e.value for e in enum_cls]
+)
+
+
 class SocialConnection(Base):
     """
     One row per connected platform account. At most one row per platform
@@ -47,7 +58,7 @@ class SocialConnection(Base):
     __tablename__ = "social_connections"
 
     id = Column(Integer, primary_key=True, index=True)
-    platform = Column(SQLEnum(SocialPlatform), nullable=False, index=True)
+    platform = Column(social_platform_enum, nullable=False, index=True)
     platform_account_id = Column(String(255), nullable=False)
     username = Column(String(255), nullable=False)
     access_token_encrypted = Column(Text, nullable=False)
@@ -78,7 +89,7 @@ class OAuthPkceState(Base):
     __tablename__ = "oauth_pkce_states"
 
     id = Column(Integer, primary_key=True, index=True)
-    platform = Column(SQLEnum(SocialPlatform), nullable=False, index=True)
+    platform = Column(social_platform_enum, nullable=False, index=True)
     state = Column(String(255), nullable=False, unique=True, index=True)
     code_verifier = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -99,7 +110,7 @@ class SocialPost(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     content_item_id = Column(Integer, ForeignKey("content_items.id"), nullable=False, index=True)
-    platform = Column(SQLEnum(SocialPlatform), nullable=False, index=True)
+    platform = Column(social_platform_enum, nullable=False, index=True)
     external_post_id = Column(String(255), nullable=True)
     status = Column(String(50), nullable=False)  # "success" | "failed"
     error_message = Column(Text, nullable=True)

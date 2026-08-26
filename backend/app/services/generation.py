@@ -72,15 +72,24 @@ def pydantic_to_anthropic_tool(schema_class, tool_name: str, description: str) -
     This forces Claude to return structured JSON matching our schemas.
     """
     json_schema = schema_class.model_json_schema()
-    
+
+    input_schema: dict[str, Any] = {
+        "type": "object",
+        "properties": json_schema.get("properties", {}),
+        "required": json_schema.get("required", []),
+    }
+    # Nested models (e.g. ContentCalendarOutput.entries: list[CalendarPostEntry])
+    # get hoisted by Pydantic into a top-level $defs block, with $ref pointers
+    # left in their place — without forwarding $defs, those refs point at
+    # nothing and Claude has to guess the nested shape (previously observed:
+    # calendar entries missing hashtags/platform/post_idea entirely).
+    if "$defs" in json_schema:
+        input_schema["$defs"] = json_schema["$defs"]
+
     return {
         "name": tool_name,
         "description": description,
-        "input_schema": {
-            "type": "object",
-            "properties": json_schema.get("properties", {}),
-            "required": json_schema.get("required", []),
-        },
+        "input_schema": input_schema,
     }
 
 
