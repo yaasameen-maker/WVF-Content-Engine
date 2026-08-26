@@ -218,9 +218,16 @@ function ExpandedKeyMakerPanel({
     .map((s) => s.trim())
     .filter(Boolean);
 
+  // Not a shared layoutId with KeyMakerCard: the active card stays visible
+  // in the rail too (highlighted, not hidden) while this panel is open, so
+  // both are on-screen simultaneously — only one mounted instance of a
+  // given layoutId animates correctly, so this uses a plain fade/slide-in
+  // instead of morphing from the rail card.
   return (
     <motion.div
-      layoutId={`key-maker-card-${keyMaker.id}`}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 8 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className="flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
     >

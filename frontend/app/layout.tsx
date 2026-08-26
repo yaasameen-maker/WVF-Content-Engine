@@ -45,7 +45,7 @@ export default function RootLayout({
           centered content. Not `fixed` — it scrolls with the page.
         */}
         <div className="relative w-full">
-          <div id="side-rail-slot" className="absolute left-6 top-8" />
+          <div id="side-rail-slot" className="absolute left-6 top-4" />
           <main className="mx-auto max-w-4xl px-6 py-8">{children}</main>
         </div>
       </body>

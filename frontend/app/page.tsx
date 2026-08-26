@@ -296,10 +296,6 @@ export default function EventFormPage() {
 
   const keymakersDisabled = !keymakersStages || Object.keys(keymakersStages).length === 0;
 
-  const socialActive = activePlatform !== null || socialAiPicker === "open";
-  const emailActive = mode === "keymakers" || mode === "ai";
-  const anySectionExpanded = socialActive || emailActive;
-
   return (
     <div>
       <InstagramGradientDef />
@@ -406,15 +402,15 @@ export default function EventFormPage() {
           <div className="mb-8">
             {anyExpanded ? (
               <SideRailPortal>
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-8">
                   <div>
-                    <p className="px-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-gray-400">
+                    <p className="m-0 px-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-gray-400">
                       Social
                     </p>
                     {socialTiles}
                   </div>
                   <div>
-                    <p className="px-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-gray-400">
+                    <p className="m-0 px-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-gray-400">
                       Email
                     </p>
                     {emailTiles}
@@ -446,7 +442,6 @@ export default function EventFormPage() {
             <AnimatePresence>
               {socialAiPicker === "open" && (
                   <TileExpandedPanel
-                    tileId="social-ai-generate"
                     title="AI Generate — Social Post"
                     onClose={() => setSocialAiPicker("closed")}
                   >
@@ -582,7 +577,6 @@ export default function EventFormPage() {
 
                 {activePlatform && (
                   <TileExpandedPanel
-                    tileId={activePlatform}
                     title={`${PLATFORM_LABELS[activePlatform]}: how do you want to start?`}
                     onClose={() => selectMode(activePlatform)}
                   >
@@ -831,7 +825,6 @@ export default function EventFormPage() {
 
                 {mode === "keymakers" && (
                   <TileExpandedPanel
-                    tileId="keymakers"
                     title="Keymakers Copy"
                     onClose={() => selectMode("keymakers")}
                   >
@@ -886,7 +879,6 @@ export default function EventFormPage() {
 
                 {mode === "ai" && (
                   <TileExpandedPanel
-                    tileId="email-ai-generate"
                     title="AI Generate — Newsletter"
                     onClose={() => selectMode("ai")}
                   >
@@ -1094,25 +1086,29 @@ function TileRail({ expanded, children }: { expanded: boolean; children: React.R
   );
 }
 
-/** The expanded panel a tile morphs into when selected — shares the same
- * `tile-${tileId}` layoutId as its PlatformToggleButton, so Framer Motion
- * animates one continuous shape between the tile's collapsed position and
- * this panel's full size/position rather than cross-fading two unrelated
- * elements. `onClose` re-collapses back to the tile grid. */
+/** The panel shown for the currently-active tile. Its matching rail icon
+ * (see PlatformToggleButton) stays visible in the rail too — highlighted
+ * with a navy ring — rather than morphing into this panel and
+ * disappearing from the rail, so nothing the user just clicked seems to
+ * vanish. Because both the rail icon and this panel are on-screen at
+ * once, they can't share one Framer Motion layoutId (only one mounted
+ * instance of a given layoutId animates correctly) — this uses a plain
+ * fade/slide-in instead of a shared-layout morph. `onClose` collapses
+ * back to the tile grid. */
 function TileExpandedPanel({
-  tileId,
   title,
   onClose,
   children,
 }: {
-  tileId: string;
   title: string;
   onClose: () => void;
   children: React.ReactNode;
 }) {
   return (
     <motion.div
-      layoutId={`tile-${tileId}`}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 8 }}
       transition={TILE_SPRING}
       className="flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
     >
