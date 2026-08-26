@@ -1210,17 +1210,12 @@ function InstagramGradientDef() {
  * glyph on brand blue #0A66C2 rounded-square badge) rather than a plain
  * text monogram — see the reference image this was built from (Aug 2026). */
 function LinkedInMonogramIcon() {
-  // Glyph proportions tuned against the real LinkedIn badge (large,
-  // near-edge-to-edge dot/stem/n, not a small centered mark) — a first
-  // pass here read as too small/thin at tile size.
+  // Badge is a drawn <rect> filling the full 0-24 viewBox, not a CSS
+  // background-color on the <svg> — that previous approach rendered
+  // visibly smaller/inset than the other brand tiles' full-bleed icons.
   return (
-    <svg
-      viewBox="0 0 24 24"
-      role="img"
-      aria-label="LinkedIn"
-      className="h-full w-full rounded-lg"
-      style={{ backgroundColor: "#0A66C2" }}
-    >
+    <svg viewBox="0 0 24 24" role="img" aria-label="LinkedIn" className="h-full w-full">
+      <rect x="0" y="0" width="24" height="24" rx="4.5" fill="#0A66C2" />
       {/* "i" dot */}
       <circle cx="5.3" cy="5.4" r="2.7" fill="#FFFFFF" />
       {/* "i" stem */}
