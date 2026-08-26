@@ -24,9 +24,16 @@ export default function RootLayout({
           docs/PROJECT_CONTEXT.md Brand Assets.
         */}
         <header className="border-b border-gray-200 bg-white">
-          <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/wvf-logo.svg" alt="Women's Venture Fund" className="h-10 w-auto" />
+          {/* Full-width, not mx-auto max-w-4xl: logo sits at the true left
+              edge of the window and nav at the true right edge, rather than
+              both centered together as one group within the narrower
+              content column. */}
+          <div className="flex items-center justify-between px-6 py-3">
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/wvf-logo.svg" alt="Women's Venture Fund" className="h-10 w-auto" />
+              <span className="text-lg font-bold text-navy">Content Engine</span>
+            </div>
             <SiteNav />
           </div>
         </header>
