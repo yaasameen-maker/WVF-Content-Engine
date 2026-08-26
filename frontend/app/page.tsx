@@ -1206,24 +1206,31 @@ function InstagramGradientDef() {
 
 /** LinkedIn has no icon in the installed simple-icons version (removed
  * from the package — see LinkedIn's own trademark enforcement history).
- * Rather than fabricate an inaccurate logo shape from memory, this is a
- * plain generic "in" monogram on LinkedIn's real brand blue (#0A66C2) —
- * not LinkedIn's real mark, but in its real color. Uses an inline color
- * (not the `text-white` class) so the letterform renders true #FFFFFF,
- * not a washed-out gray from anti-aliasing at small sizes. */
+ * Hand-drawn to match LinkedIn's real mark (dot-over-"i", bold "n", white
+ * glyph on brand blue #0A66C2 rounded-square badge) rather than a plain
+ * text monogram — see the reference image this was built from (Aug 2026). */
 function LinkedInMonogramIcon() {
-  // h-full w-full + text-[60%] (not fixed h-16/text-2xl): renders inside
-  // two very differently sized wrappers (64px full-tile slot, 32px
-  // collapsed-rail slot) — a fixed 24px glyph was oversized/clipped at
-  // the smaller size. 60% of the box height reads proportionate at both.
+  // Glyph proportions tuned against the real LinkedIn badge (large,
+  // near-edge-to-edge dot/stem/n, not a small centered mark) — a first
+  // pass here read as too small/thin at tile size.
   return (
-    <span
+    <svg
+      viewBox="0 0 24 24"
+      role="img"
       aria-label="LinkedIn"
-      style={{ backgroundColor: "#0A66C2", color: "#FFFFFF" }}
-      className="flex h-full w-full items-center justify-center rounded-lg text-[60%] font-bold leading-none"
+      className="h-full w-full rounded-lg"
+      style={{ backgroundColor: "#0A66C2" }}
     >
-      in
-    </span>
+      {/* "i" dot */}
+      <circle cx="5.3" cy="5.4" r="2.7" fill="#FFFFFF" />
+      {/* "i" stem */}
+      <rect x="3.15" y="9.8" width="4.3" height="11.4" fill="#FFFFFF" />
+      {/* "n" */}
+      <path
+        fill="#FFFFFF"
+        d="M10.1 9.8h4.1v1.9h.06c.57-1.05 1.96-2.15 4.03-2.15C22.5 9.55 23 12.3 23 15.9v5.3h-4.3v-4.7c0-1.12 0-2.56-1.56-2.56s-1.8 1.22-1.8 2.48v4.78h-4.3z"
+      />
+    </svg>
   );
 }
 
