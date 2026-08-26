@@ -1213,17 +1213,17 @@ function LinkedInMonogramIcon() {
   // Badge is a drawn <rect> filling the full 0-24 viewBox, not a CSS
   // background-color on the <svg> — that previous approach rendered
   // visibly smaller/inset than the other brand tiles' full-bleed icons.
+  // Glyph path is the standard open-source LinkedIn "in" mark (the same
+  // widely-published outline used by Font Awesome's brand set), not a
+  // hand-tuned approximation — earlier hand-drawn passes kept reading as
+  // too thin/small next to the reference image.
   return (
     <svg viewBox="0 0 24 24" role="img" aria-label="LinkedIn" className="h-full w-full">
       <rect x="0" y="0" width="24" height="24" rx="4.5" fill="#0A66C2" />
-      {/* "i" dot */}
-      <circle cx="5.3" cy="5.4" r="2.7" fill="#FFFFFF" />
-      {/* "i" stem */}
-      <rect x="3.15" y="9.8" width="4.3" height="11.4" fill="#FFFFFF" />
-      {/* "n" */}
       <path
         fill="#FFFFFF"
-        d="M10.1 9.8h4.1v1.9h.06c.57-1.05 1.96-2.15 4.03-2.15C22.5 9.55 23 12.3 23 15.9v5.3h-4.3v-4.7c0-1.12 0-2.56-1.56-2.56s-1.8 1.22-1.8 2.48v4.78h-4.3z"
+        transform="translate(3, 3) scale(0.04018)"
+        d="M100.28 448H7.4V148.9h92.88zM53.79 108.1C24.09 108.1 0 83.5 0 53.8a53.79 53.79 0 0 1 107.58 0c0 29.7-24.1 54.3-53.79 54.3zM447.9 448h-92.68V302.4c0-34.7-.7-79.2-48.29-79.2-48.29 0-55.69 37.7-55.69 76.7V448h-92.78V148.9h89.08v40.8h1.3c12.4-23.5 42.69-48.3 87.88-48.3 94 0 111.28 61.9 111.28 142.3V448z"
       />
     </svg>
   );
