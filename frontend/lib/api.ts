@@ -4,6 +4,10 @@ export interface EventInput {
   title: string;
   date: string;
   speaker: string;
+  // Optional (Aug 2026): staff can generate content before a link exists
+  // and add it later by editing the generated copy — see prompts.py's
+  // _registration_line() for how the backend omits any registration
+  // CTA/link when this is unset, rather than generating a broken one.
   registration_link: string;
   audience: string;
   description: string;
@@ -45,7 +49,9 @@ export interface NewsletterOutput {
   body: string;
   body_plain_text: string;
   cta_text: string;
-  cta_link: string;
+  // null when the event had no registration link at generation time —
+  // staff can add the real link later by editing the generated copy.
+  cta_link: string | null;
 }
 
 export interface FlyerOutput {

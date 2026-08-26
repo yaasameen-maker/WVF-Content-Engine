@@ -167,3 +167,20 @@ def test_x_and_tiktok_variants_include_event_details():
         prompt = build_social_post_prompt(SAMPLE_EVENT, variant=platform)
         assert SAMPLE_EVENT.title in prompt
         assert SAMPLE_EVENT.registration_link in prompt
+
+
+def test_missing_registration_link_is_not_interpolated_as_none():
+    """registration_link is optional (Aug 2026) — staff can add the real
+    link later by editing generated copy rather than being blocked from
+    generating without one. The prompt must never contain a literal
+    "None"/blank from naive interpolation, and must explicitly tell
+    Claude not to invent a placeholder link."""
+    event_no_link = SAMPLE_EVENT.model_copy(update={"registration_link": None})
+    prompt = build_social_post_prompt(event_no_link)
+    assert "- Registration: None" not in prompt
+    assert "do not invent a link" in prompt
+
+
+def test_present_registration_link_still_appears_normally():
+    prompt = build_social_post_prompt(SAMPLE_EVENT)
+    assert f"- Registration: {SAMPLE_EVENT.registration_link}" in prompt

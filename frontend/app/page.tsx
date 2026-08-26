@@ -525,9 +525,8 @@ export default function EventFormPage() {
                         />
                       </Field>
 
-                      <Field label="Registration Link">
+                      <Field label="Registration Link (optional — add later if not ready)">
                         <input
-                          required
                           type="url"
                           value={socialAiEvent.registration_link}
                           onChange={(e) => updateSocialAiField("registration_link", e.target.value)}
@@ -655,9 +654,8 @@ export default function EventFormPage() {
                             />
                           </Field>
 
-                          <Field label="Registration Link">
+                          <Field label="Registration Link (optional — add later if not ready)">
                             <input
-                              required
                               type="url"
                               value={event.registration_link}
                               onChange={(e) => updateField("registration_link", e.target.value)}
@@ -916,9 +914,8 @@ export default function EventFormPage() {
                         />
                       </Field>
 
-                      <Field label="Registration Link">
+                      <Field label="Registration Link (optional — add later if not ready)">
                         <input
-                          required
                           type="url"
                           value={event.registration_link}
                           onChange={(e) => updateField("registration_link", e.target.value)}

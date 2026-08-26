@@ -68,6 +68,19 @@ def test_generate_rejects_incomplete_event(client):
     assert resp.status_code == 422
 
 
+def test_generate_succeeds_without_registration_link(client):
+    """registration_link is the one optional EventInput field (Aug 2026)
+    — staff can generate content before a link exists and add it later
+    by editing the generated copy. Unlike test_generate_rejects_incomplete_event
+    above (a genuinely required field), omitting this one must succeed."""
+    no_link = {k: v for k, v in SAMPLE_EVENT.items() if k != "registration_link"}
+    resp = client.post("/api/generate", json=no_link)
+    assert resp.status_code == 200, resp.text
+
+    events = client.get("/api/events").json()
+    assert events[0]["registration_link"] is None
+
+
 def test_generate_persists_event_and_immediate_content_items(client):
     """social_post/hashtags are NOT persisted at generate time — only
     newsletter/flyer/calendar are (see POST /api/generate docstring and

@@ -69,7 +69,13 @@ class Event(Base):
     title = Column(String(255), nullable=False)
     date = Column(String(100), nullable=False)  # Stored as string for flexibility
     speaker = Column(String(255), nullable=False)
-    registration_link = Column(String(500), nullable=False)
+    # Nullable (Aug 2026): staff shouldn't be blocked from generating
+    # content just because a registration link isn't ready yet — it can
+    # be added later by editing the generated copy on the review page.
+    # Prompts (see prompts.py) omit the registration CTA/link entirely
+    # when this is null, never generate a broken "Register: " with
+    # nothing after it.
+    registration_link = Column(String(500), nullable=True)
     audience = Column(Text, nullable=False)
     description = Column(Text, nullable=False)
     

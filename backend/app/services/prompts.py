@@ -16,6 +16,18 @@ from app.schemas import EventInput
 from app.services.brand_voice import get_brand_voice_context
 
 
+def _registration_line(event: EventInput) -> str:
+    """Formats the "Registration:" fact line for an event-details block.
+    registration_link is optional (Aug 2026) — staff can add the real
+    link later by editing generated copy, rather than being blocked from
+    generating at all. When unset, tells Claude explicitly not to invent
+    a placeholder link, instead of silently interpolating "None"/blank
+    into the prompt and risking a fabricated or broken URL in the output."""
+    if event.registration_link:
+        return f"- Registration: {event.registration_link}"
+    return "- Registration: not provided yet — do not invent a link or URL; omit any registration link/CTA that would need one"
+
+
 SOCIAL_POST_VARIANTS: dict[str, dict[str, str]] = {
     "standard": {
         "label": "Standard",
@@ -244,7 +256,7 @@ Your task: Create a social media post for this event:
 - Title: {event.title}
 - Date: {event.date}
 - Speaker: {event.speaker}
-- Registration: {event.registration_link}
+{_registration_line(event)}
 - Target Audience: {event.audience}
 - Description: {event.description}
 
@@ -351,7 +363,7 @@ Your task: Adapt the reference message above into newsletter content, tailored t
 - Title: {event.title}
 - Date: {event.date}
 - Speaker: {event.speaker}
-- Registration: {event.registration_link}
+{_registration_line(event)}
 - Target Audience: {event.audience}
 - Description: {event.description}
 
@@ -361,6 +373,7 @@ Your task: Adapt the reference message above into newsletter content, tailored t
 - Email body (HTML): adapt the reference message's body — same structure/flow, but weave in the event/audience details above where they fit naturally. Keep the [SHARE YOUR KEY] / [VISIT KEYMAKERS] style bracketed CTA markers as-is.
 - Plain-text body: the same adapted content, reformatted as plain text (no tags, CTA rendered as "CTA text: URL" on its own line)
 - Do NOT invent specifics the reference message and event details don't support (no fabricated stats, quotes, or dates)
+- cta_link: use the registration link above if one was provided; otherwise return null — never invent a placeholder like "<UNKNOWN>" or a fake URL
 
 Return structured JSON matching the NewsletterOutput schema."""
 
@@ -376,7 +389,7 @@ Your task: Write newsletter content for this event:
 - Title: {event.title}
 - Date: {event.date}
 - Speaker: {event.speaker}
-- Registration: {event.registration_link}
+{_registration_line(event)}
 - Target Audience: {event.audience}
 - Description: {event.description}
 
@@ -388,6 +401,7 @@ Your task: Write newsletter content for this event:
 - Plain-text body: the same content as the HTML body, reformatted as plain text (no tags, CTA rendered as "CTA text: URL" on its own line) — most ESPs require both an HTML and a plain-text part for deliverability
 - Tone: warm, professional, benefit-forward (matching the brand examples)
 - Keep total email under 200 words (people skim on mobile)
+- cta_link: use the registration link above if one was provided; otherwise return null — never invent a placeholder like "<UNKNOWN>" or a fake URL
 
 Return structured JSON matching the NewsletterOutput schema."""
 
@@ -409,7 +423,7 @@ Your task: Write flyer copy for this event (text only — no image will be gener
 - Title: {event.title}
 - Date: {event.date}
 - Speaker: {event.speaker}
-- Registration: {event.registration_link}
+{_registration_line(event)}
 - Target Audience: {event.audience}
 - Description: {event.description}
 
@@ -451,7 +465,7 @@ Your task: Write a long-form, educational feature article related to this event/
 - Headline: clear, benefit-forward
 - Body: educational, long-form tone (like "Contracting With the Government") — teach the reader something useful related to the event topic, not just promote the event
 - CTA text: short "Read More" style prompt
-- Include a CTA link only if {event.registration_link} is directly relevant to the article; otherwise omit it
+- Include a CTA link only if a registration link was provided ({event.registration_link or "none provided"}) and it's directly relevant to the article; otherwise omit it — never invent a placeholder link
 
 Return structured JSON matching the FeatureArticleBlock schema."""
 
@@ -466,13 +480,13 @@ Your task: Create one events_list entry from this event's details (this block is
 - Title: {event.title}
 - Date: {event.date}
 - Speaker: {event.speaker}
-- Registration: {event.registration_link}
+{_registration_line(event)}
 
 **Requirements:**
 - title: use the event title as given, cleaned up for scannability if needed
 - date: extract just the date portion
 - time: extract the time portion if present in the date string, otherwise omit
-- registration_link: use the registration link as given
+- registration_link: use the registration link as given if one was provided above; otherwise return null — never invent a placeholder link
 
 Return structured JSON matching the EventsListBlock schema, with `entries` containing exactly one item for this event."""
 
@@ -497,7 +511,7 @@ Your task: Based on this event's context, draft ONE plausible, realistic grant/f
 - amount: dollar amount or range
 - deadline: a specific or relative deadline (e.g. "Rolling", "August 31, 2026")
 - eligibility: 1 short sentence on who qualifies
-- details_link: only include if {event.registration_link} is directly relevant, otherwise omit
+- details_link: only include if a registration link was provided ({event.registration_link or "none provided"}) and it's directly relevant, otherwise omit — never invent a placeholder link
 
 Return structured JSON matching the GrantFlyerBlock schema, with `entries` containing exactly one item. NOTE: staff should replace this with real, verified grant details before publishing — this is a draft starting point, not verified funding information."""
 
@@ -604,7 +618,7 @@ Your task: Build a {weeks}-week content calendar promoting this event:
 - Title: {event.title}
 - Date: {event.date}
 - Speaker: {event.speaker}
-- Registration: {event.registration_link}
+{_registration_line(event)}
 - Target Audience: {event.audience}
 - Description: {event.description}
 

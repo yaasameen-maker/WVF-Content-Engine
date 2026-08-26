@@ -8,7 +8,10 @@ class EventInput(BaseModel):
     title: str = Field(..., description="Event title")
     date: str = Field(..., description="Event date")
     speaker: str = Field(..., description="Speaker name(s)")
-    registration_link: str = Field(..., description="Registration URL")
+    # Optional (Aug 2026): a link isn't always ready at generation time —
+    # staff can add it later by editing the generated copy. Prompts omit
+    # the registration CTA/link entirely when this is unset.
+    registration_link: Optional[str] = Field(default=None, description="Registration URL, if known yet")
     audience: str = Field(..., description="Target audience")
     description: str = Field(..., description="Event description")
 
@@ -56,7 +59,11 @@ class NewsletterOutput(BaseModel):
         ..., description="Plain-text version of the email body, for ESPs that require both HTML and text parts"
     )
     cta_text: str = Field(..., description="Primary CTA button text")
-    cta_link: str = Field(..., description="CTA destination URL")
+    # Optional (Aug 2026): when the event has no registration_link yet,
+    # there's no real URL to put here — the prompt instructs Claude to
+    # return null rather than invent a placeholder (previously observed:
+    # a literal "<UNKNOWN>" string leaking into real output).
+    cta_link: Optional[str] = Field(default=None, description="CTA destination URL, if known yet")
 
 
 class FlyerOutput(BaseModel):
@@ -212,7 +219,7 @@ class EventResponse(BaseModel):
     title: str
     date: str
     speaker: str
-    registration_link: str
+    registration_link: Optional[str] = None
     audience: str
     description: str
     created_at: datetime
