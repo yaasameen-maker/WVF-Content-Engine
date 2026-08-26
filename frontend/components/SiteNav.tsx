@@ -16,6 +16,11 @@ const NAV_LINKS = [
  * expand, applied to a simpler case: one highlight element that glides
  * from the previous active link to the new one on navigation, instead of
  * an instant on/off state change.
+ *
+ * Colors are navy-on-white (not white-on-navy) — the header itself is a
+ * white bar, not the navy banner it used to be, since the logo file is a
+ * flattened raster image with no safe way to recolor it for a dark
+ * background. See RootLayout's header comment.
  */
 export function SiteNav() {
   const pathname = usePathname();
@@ -29,11 +34,11 @@ export function SiteNav() {
             {active && (
               <motion.span
                 layoutId="nav-active-pill"
-                className="absolute inset-0 rounded-md bg-white/15"
+                className="absolute inset-0 rounded-md bg-sky-blue/15"
                 transition={{ type: "spring", stiffness: 400, damping: 32 }}
               />
             )}
-            <span className={`relative ${active ? "text-white" : "text-white/80 hover:text-white"}`}>
+            <span className={`relative ${active ? "text-navy" : "text-gray-500 hover:text-navy"}`}>
               {label}
             </span>
           </Link>
