@@ -8,7 +8,6 @@ import {
   disconnectX,
   getFacebookConnectionStatus,
   getInstagramConnectionStatus,
-  getMetaConnectStartUrl,
   getXConnectionStatus,
   getXConnectStartUrl,
   postToX,
@@ -467,10 +466,11 @@ function MetaConnectButton({ platform }: { platform: "instagram" | "facebook" })
     return (
       <button
         type="button"
-        onClick={() => (window.location.href = getMetaConnectStartUrl())}
-        className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-navy hover:text-navy"
+        disabled
+        title="Instagram/Facebook connect is built but not usable yet — WVF's Meta Developer app still needs to be registered and pass Meta's App Review."
+        className="cursor-not-allowed rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-400"
       >
-        Connect {label}
+        Connect {label} (Coming soon)
       </button>
     );
   }
