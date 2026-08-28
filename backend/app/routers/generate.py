@@ -3,6 +3,7 @@ API router for content generation endpoints.
 """
 
 import json
+from datetime import date as date_type
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -178,6 +179,67 @@ def get_x_template_detail(template_key: str) -> XTemplateDetail:
         raise HTTPException(status_code=404, detail=str(e))
 
 
+class ScheduleTemplateRequest(BaseModel):
+    """Body for POST /api/content/schedule-template: persists a real,
+    unedited (or staff-edited) template post as a social_post ContentItem
+    with a target publish date, so it shows up on /calendar. Templates
+    aren't generated from an event form, so unlike select-social-variant
+    there's no event_id — event_id stays null on the resulting row, same
+    as newsletter_block rows that aren't tied to one event (see
+    ContentItem.event_id's model comment)."""
+
+    platform: str
+    caption: str
+    hashtags: list[str] = Field(default_factory=list)
+    scheduled_date: str  # required here — the whole point of this endpoint
+
+
+@router.post("/content/schedule-template", response_model=ContentItemResponse)
+def schedule_template(request: ScheduleTemplateRequest, db: Session = Depends(get_db)) -> ContentItemResponse:
+    """Persist a fixed-template post (Instagram/X "Fixed template" mode)
+    as a real, scheduled content_items row. Purely an organizational save
+    for /calendar — does not post anything and never queues auto-posting
+    (see ContentItem.scheduled_date's model comment)."""
+    try:
+        parsed_scheduled_date = date_type.fromisoformat(request.scheduled_date)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="scheduled_date must be an ISO date string (YYYY-MM-DD)")
+
+    item = ContentItem(
+        event_id=None,
+        content_type=ContentType.SOCIAL_POST,
+        platform=request.platform,
+        structure_variant="fixed_template",
+        body=json.dumps(
+            {
+                "caption": request.caption,
+                "hashtags": request.hashtags,
+                "cta": "",
+                "suggested_image_prompt": "",
+            }
+        ),
+        scheduled_date=parsed_scheduled_date,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+
+    return ContentItemResponse(
+        id=item.id,
+        event_id=item.event_id,
+        key_maker_id=item.key_maker_id,
+        content_type=item.content_type.value,
+        block_type=item.block_type.value if item.block_type else None,
+        platform=item.platform,
+        status=item.status.value,
+        structure_variant=item.structure_variant,
+        body=json.loads(item.body),
+        scheduled_date=item.scheduled_date.isoformat() if item.scheduled_date else None,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
 def _recent_variants(db: Session, content_type: ContentType, limit: int) -> list[str]:
     """Most recent non-null structure_variant values used for a content
     type, most recent first — used to drive "avoid_recent" selection."""
@@ -289,6 +351,11 @@ class SelectSocialVariantRequest(BaseModel):
     event_id: int
     social_post_variant: SocialPostVariant
     hashtags: HashtagsOutput
+    # Optional staff-picked target publish date (see
+    # ContentItem.scheduled_date) — purely a /calendar tag, never queues
+    # posting. ISO date string (YYYY-MM-DD); omitted/null falls back to
+    # the event's own date on the calendar view.
+    scheduled_date: Optional[str] = None
 
 
 @router.post("/content/select-social-variant", response_model=list[ContentItemResponse])
@@ -305,11 +372,21 @@ def select_social_variant(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
+    parsed_scheduled_date = None
+    if request.scheduled_date:
+        try:
+            parsed_scheduled_date = date_type.fromisoformat(request.scheduled_date)
+        except ValueError:
+            raise HTTPException(
+                status_code=422, detail="scheduled_date must be an ISO date string (YYYY-MM-DD)"
+            )
+
     social_post_item = ContentItem(
         event_id=event.id,
         content_type=ContentType.SOCIAL_POST,
         body=request.social_post_variant.post.model_dump_json(),
         structure_variant=request.social_post_variant.structure_variant,
+        scheduled_date=parsed_scheduled_date,
     )
     hashtags_item = ContentItem(
         event_id=event.id,
@@ -336,6 +413,7 @@ def select_social_variant(
             status=item.status.value,
             structure_variant=item.structure_variant,
             body=json.loads(item.body),
+            scheduled_date=item.scheduled_date.isoformat() if item.scheduled_date else None,
             created_at=item.created_at,
             updated_at=item.updated_at,
         )

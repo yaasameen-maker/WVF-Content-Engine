@@ -3,6 +3,7 @@ CRUD endpoints for events and their generated content items.
 """
 
 import json
+from datetime import date as date_type
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -25,6 +26,7 @@ def _serialize_content_item(item: ContentItem) -> ContentItemResponse:
         status=item.status.value,
         structure_variant=item.structure_variant,
         body=json.loads(item.body),
+        scheduled_date=item.scheduled_date.isoformat() if item.scheduled_date else None,
         created_at=item.created_at,
         updated_at=item.updated_at,
     )
@@ -106,6 +108,24 @@ def get_key_maker(key_maker_id: int, db: Session = Depends(get_db)) -> KeyMakerR
     return _serialize_key_maker(key_maker)
 
 
+@router.get("/content/scheduled", response_model=list[ContentItemResponse])
+def list_scheduled_unscoped_content(db: Session = Depends(get_db)) -> list[ContentItemResponse]:
+    """Content items with a scheduled_date but no parent event — e.g. a
+    fixed-template post scheduled via POST /api/content/schedule-template.
+    GET /api/events already returns event-scoped items nested under their
+    event; /calendar fetches both and merges them, since an event-less
+    item is otherwise invisible to that event-nested query. Declared
+    before /content/{content_id} so "scheduled" isn't swallowed as a
+    content_id path param."""
+    items = (
+        db.query(ContentItem)
+        .filter(ContentItem.event_id.is_(None), ContentItem.scheduled_date.isnot(None))
+        .order_by(ContentItem.scheduled_date.asc())
+        .all()
+    )
+    return [_serialize_content_item(item) for item in items]
+
+
 @router.get("/content/{content_id}", response_model=ContentItemResponse)
 def get_content_item(content_id: int, db: Session = Depends(get_db)) -> ContentItemResponse:
     """Get a single content item."""
@@ -119,7 +139,10 @@ def get_content_item(content_id: int, db: Session = Depends(get_db)) -> ContentI
 def update_content_item(
     content_id: int, update: ContentItemUpdate, db: Session = Depends(get_db)
 ) -> ContentItemResponse:
-    """Update a content item's body (staff edits) and/or status."""
+    """Update a content item's body (staff edits), status, and/or
+    scheduled_date. scheduled_date is purely a /calendar organizational
+    tag (see ContentItem.scheduled_date's model comment) — setting it
+    never triggers posting."""
     item = db.query(ContentItem).filter(ContentItem.id == content_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Content item not found")
@@ -128,6 +151,13 @@ def update_content_item(
         item.body = json.dumps(update.body)
     if update.status is not None:
         item.status = ContentStatus(update.status)
+    if update.scheduled_date is not None:
+        try:
+            item.scheduled_date = date_type.fromisoformat(update.scheduled_date)
+        except ValueError:
+            raise HTTPException(
+                status_code=422, detail="scheduled_date must be an ISO date string (YYYY-MM-DD)"
+            )
 
     db.commit()
     db.refresh(item)

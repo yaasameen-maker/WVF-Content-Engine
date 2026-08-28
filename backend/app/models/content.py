@@ -14,6 +14,7 @@ This "generation vs. state" split allows:
 from datetime import datetime
 from sqlalchemy import (
     Column,
+    Date,
     Integer,
     String,
     Text,
@@ -127,6 +128,16 @@ class ContentItem(Base):
     # For hashtags: {"primary_hashtags": [...], "topic_hashtags": [...], "rationale": "..."}
     # For newsletter_block: shape varies by block_type — see app/schemas/content.py
     body = Column(Text, nullable=False)  # JSON serialized content
+
+    # Nullable, staff-set target publish date (Aug 2026) — distinct from
+    # the parent event's own date, since a post/newsletter isn't always
+    # published the same day its event happens (e.g. a reminder post 3
+    # days out). Purely a calendar/organizational tag: setting this does
+    # NOT queue or auto-publish anything — posting is still always a
+    # manual "Post to X" click. See app/models/social.py's "no queue, no
+    # scheduled_for field" note, which is about auto-posting, not this.
+    # /calendar falls back to the parent event's date when this is null.
+    scheduled_date = Column(Date, nullable=True, index=True)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

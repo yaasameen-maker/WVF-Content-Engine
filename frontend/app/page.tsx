@@ -15,6 +15,7 @@ import {
   listSocialPostSeries,
   listSocialPostTones,
   listXTemplates,
+  scheduleTemplate,
   SOCIAL_POST_PLATFORMS,
   type EventInput,
   type InstagramTemplateDetail,
@@ -512,13 +513,9 @@ export default function EventFormPage() {
                       </Field>
 
                       <Field label="Date">
-                        <input
-                          required
-                          type="text"
+                        <EventDateTimePicker
                           value={socialAiEvent.date}
-                          onChange={(e) => updateSocialAiField("date", e.target.value)}
-                          className="input"
-                          placeholder="August 15, 2026 at 2:00 PM ET"
+                          onChange={(next) => updateSocialAiField("date", next)}
                         />
                       </Field>
 
@@ -641,14 +638,7 @@ export default function EventFormPage() {
                           </Field>
 
                           <Field label="Date">
-                            <input
-                              required
-                              type="text"
-                              value={event.date}
-                              onChange={(e) => updateField("date", e.target.value)}
-                              className="input"
-                              placeholder="August 15, 2026 at 2:00 PM ET"
-                            />
+                            <EventDateTimePicker value={event.date} onChange={(next) => updateField("date", next)} />
                           </Field>
 
                           <Field label="Speaker">
@@ -759,6 +749,11 @@ export default function EventFormPage() {
                                 Real, previously-published WVF Instagram post — edit as needed before
                                 reuse.
                               </p>
+                              <ScheduleTemplateButton
+                                platform="instagram"
+                                caption={instagramTemplateDetail.caption}
+                                hashtags={instagramTemplateDetail.hashtags}
+                              />
                             </div>
                           </div>
                         )}
@@ -810,6 +805,11 @@ export default function EventFormPage() {
                               <p className="text-xs font-semibold text-amber-700">
                                 Real, previously-published WVF X post — edit as needed before reuse.
                               </p>
+                              <ScheduleTemplateButton
+                                platform="x"
+                                caption={xTemplateDetail.caption}
+                                hashtags={xTemplateDetail.hashtags}
+                              />
                             </div>
                           </div>
                         )}
@@ -901,14 +901,7 @@ export default function EventFormPage() {
                       </Field>
 
                       <Field label="Date">
-                        <input
-                          required
-                          type="text"
-                          value={event.date}
-                          onChange={(e) => updateField("date", e.target.value)}
-                          className="input"
-                          placeholder="August 15, 2026 at 2:00 PM ET"
-                        />
+                        <EventDateTimePicker value={event.date} onChange={(next) => updateField("date", next)} />
                       </Field>
 
                       <Field label="Speaker">
@@ -999,6 +992,174 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="mb-1 block text-sm font-medium text-navy">{label}</span>
       {children}
     </label>
+  );
+}
+
+// Matches "August 15, 2026 at 2:00 PM ET" — the free-text format this
+// field has always stored (see EventInput.date in lib/api.ts: plain
+// string, interpolated as-is into every prompt in prompts.py, never
+// parsed). Used to pre-fill the picker's date/time inputs when editing
+// an existing value written in this exact shape; anything else (a
+// value typed before this picker existed, or hand-edited) just leaves
+// the picker blank rather than guessing a bad partial parse.
+const EVENT_DATE_STRING_RE =
+  /^([A-Za-z]+ \d{1,2}, \d{4})(?: at (\d{1,2}):(\d{2}) (AM|PM))? ET$/;
+
+function formatEventDateTime(dateStr: string, timeStr: string): string {
+  if (!dateStr) return "";
+  // dateStr is "YYYY-MM-DD" from <input type="date">, parsed as local
+  // (not UTC) by splitting manually — `new Date("YYYY-MM-DD")` parses as
+  // UTC midnight and can roll back a day once formatted in a local zone
+  // behind UTC.
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dateLabel = new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  if (!timeStr) return dateLabel;
+  const [hh, mm] = timeStr.split(":").map(Number);
+  const period = hh >= 12 ? "PM" : "AM";
+  const hour12 = hh % 12 === 0 ? 12 : hh % 12;
+  return `${dateLabel} at ${hour12}:${String(mm).padStart(2, "0")} ${period} ET`;
+}
+
+/**
+ * Event date + time picker — two native inputs (<input type="date"> and
+ * <input type="time">), each of which browsers already render as a
+ * pop-up picker on click/focus, composed into the same free-text
+ * "August 15, 2026 at 2:00 PM ET" string this field has always stored
+ * (see EventInput.date — interpolated as-is into every generation
+ * prompt, never parsed as a real Date). Replaces free-typing that string
+ * by hand.
+ */
+function EventDateTimePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const match = value.match(EVENT_DATE_STRING_RE);
+  const [datePart, setDatePart] = useState("");
+  const [timePart, setTimePart] = useState("");
+
+  useEffect(() => {
+    if (!match) return;
+    const parsedDate = new Date(match[1]);
+    if (Number.isNaN(parsedDate.getTime())) return;
+    const y = parsedDate.getFullYear();
+    const m = String(parsedDate.getMonth() + 1).padStart(2, "0");
+    const d = String(parsedDate.getDate()).padStart(2, "0");
+    setDatePart(`${y}-${m}-${d}`);
+    if (match[2]) {
+      let hh = Number(match[2]) % 12;
+      if (match[4] === "PM") hh += 12;
+      setTimePart(`${String(hh).padStart(2, "0")}:${match[3]}`);
+    }
+    // Only re-derive when the incoming value changes shape (e.g. loading a
+    // different draft) — not on every keystroke, since this effect's own
+    // onChange calls would otherwise fight the user's in-progress edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  function handleDateChange(next: string) {
+    setDatePart(next);
+    onChange(formatEventDateTime(next, timePart));
+  }
+
+  function handleTimeChange(next: string) {
+    setTimePart(next);
+    onChange(formatEventDateTime(datePart, next));
+  }
+
+  return (
+    <div className="flex gap-3">
+      <input
+        required
+        type="date"
+        value={datePart}
+        onChange={(e) => handleDateChange(e.target.value)}
+        className="input"
+      />
+      <input
+        type="time"
+        value={timePart}
+        onChange={(e) => handleTimeChange(e.target.value)}
+        className="input"
+      />
+    </div>
+  );
+}
+
+/**
+ * "Schedule this post" for a real fixed-template post — date picker
+ * (native <input type="date">, which browsers already render as a
+ * pop-up calendar) plus a save button. Templates are display-only until
+ * this is clicked; saving persists it as a real content_items row via
+ * POST /api/content/schedule-template so it shows up on /calendar.
+ * Purely organizational — does not post anything (see
+ * ContentItemResponse.scheduled_date's comment in lib/api.ts).
+ */
+function ScheduleTemplateButton({
+  platform,
+  caption,
+  hashtags,
+}: {
+  platform: string;
+  caption: string;
+  hashtags: string[];
+}) {
+  const [date, setDate] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<number | null>(null);
+
+  async function handleSchedule() {
+    if (!date) {
+      setError("Pick a date first.");
+      return;
+    }
+    setError(null);
+    setIsSaving(true);
+    try {
+      const saved = await scheduleTemplate({ platform, caption, hashtags, scheduledDate: date });
+      setSavedId(saved.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to schedule this post.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  if (savedId !== null) {
+    return (
+      <p className="mt-3 text-sm font-semibold text-green-700">
+        Scheduled for {date} — it now shows on the{" "}
+        <a href="/calendar" className="underline">
+          Content Calendar
+        </a>
+        .
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap items-end gap-3">
+      <div className="w-48">
+        <Field label="Post date">
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="input"
+          />
+        </Field>
+      </div>
+      <button
+        type="button"
+        onClick={handleSchedule}
+        disabled={isSaving}
+        className="rounded-md bg-navy px-4 py-2 text-sm font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {isSaving ? "Scheduling…" : "Schedule this post"}
+      </button>
+      {error && <p className="w-full text-xs text-red-600">{error}</p>}
+    </div>
   );
 }
 

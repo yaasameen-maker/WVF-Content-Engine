@@ -2,14 +2,27 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { listEvents, type ContentItemResponse, type EventWithContentResponse } from "@/lib/api";
+import {
+  listEvents,
+  listScheduledUnscopedContent,
+  type ContentItemResponse,
+  type EventWithContentResponse,
+} from "@/lib/api";
 import { ContentItemDetailModal } from "@/components/ContentItemDetailModal";
 
 /**
- * Content calendar: groups already-generated, persisted content items
- * (from GET /api/events) by their event date. Scoped to social posts and
- * newsletters only for now — flyer/hashtag/calendar-preview items are
- * left out until there's a real destination/workflow decision for them.
+ * Content calendar: groups already-generated, persisted content items by
+ * their target date. Scoped to social posts and newsletters only for now
+ * — flyer/hashtag/calendar-preview items are left out until there's a
+ * real destination/workflow decision for them.
+ *
+ * Two sources are fetched and merged: GET /api/events (content nested
+ * under the event it was generated for) and GET /api/content/scheduled
+ * (event-less items, e.g. a fixed-template post saved via "Schedule this
+ * post" — see ScheduleTemplateButton on the New Campaign page). A given
+ * item's date comes from item.scheduled_date when staff set one (see
+ * PostDatePicker on the review page / ScheduleTemplateButton), falling
+ * back to the parent event's own date otherwise.
  *
  * Two views, matching the WVF SMB/stitch_wvf_content_engine calendar
  * mockup's Month/List toggle: a real month grid (day cells, entries
@@ -21,6 +34,8 @@ import { ContentItemDetailModal } from "@/components/ContentItemDetailModal";
  * `events.date` is free text (see docs/SCHEMA.sql note on Event), so
  * parsing is best-effort: entries that don't parse to a real date are
  * listed separately rather than silently dropped, in both views.
+ * item.scheduled_date is a real ISO "YYYY-MM-DD" string instead, so it's
+ * parsed directly rather than through the free-text path.
  */
 
 const SCOPED_CONTENT_TYPES = new Set(["social_post", "newsletter"]);
@@ -28,7 +43,8 @@ const SCOPED_CONTENT_TYPES = new Set(["social_post", "newsletter"]);
 type ViewMode = "month" | "list";
 
 interface CalendarEntry {
-  event: EventWithContentResponse;
+  // Null for event-less items (see GET /api/content/scheduled above).
+  event: EventWithContentResponse | null;
   item: ContentItemResponse;
 }
 
@@ -41,6 +57,17 @@ interface DayGroup {
 function parseEventDate(raw: string): Date | null {
   const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** item.scheduled_date is always "YYYY-MM-DD" (see ContentItemResponse),
+ * parsed as local calendar values directly rather than through `new
+ * Date(iso)`, which reads an unqualified ISO date as UTC midnight and can
+ * roll back a day once rendered in a timezone behind UTC. */
+function parseScheduledDate(iso: string): Date | null {
+  const parts = iso.split("-").map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+  const [y, m, d] = parts;
+  return new Date(y, m - 1, d);
 }
 
 function dateKeyOf(d: Date): string {
@@ -64,6 +91,7 @@ function typeStyles(contentType: string): string {
 
 export default function CalendarPage() {
   const [events, setEvents] = useState<EventWithContentResponse[] | null>(null);
+  const [unscopedItems, setUnscopedItems] = useState<ContentItemResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("month");
   const [monthCursor, setMonthCursor] = useState(() => {
@@ -76,39 +104,55 @@ export default function CalendarPage() {
     listEvents()
       .then(setEvents)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load calendar."));
+    listScheduledUnscopedContent()
+      .then(setUnscopedItems)
+      .catch(() => setUnscopedItems([])); // non-fatal — event-scoped items still show
   }, []);
 
   const { byDateKey, groupedDays, undated } = useMemo(() => {
     const days = new Map<string, DayGroup>();
     const undatedItems: CalendarEntry[] = [];
 
+    function place(entry: CalendarEntry, dateOverride: Date | null) {
+      const parsed = dateOverride ?? (entry.event ? parseEventDate(entry.event.date) : null);
+      if (!parsed) {
+        undatedItems.push(entry);
+        return;
+      }
+
+      const dateKey = dateKeyOf(parsed);
+      const label = parsed.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      });
+
+      if (!days.has(dateKey)) {
+        days.set(dateKey, { dateKey, label, items: [] });
+      }
+      days.get(dateKey)!.items.push(entry);
+    }
+
     for (const event of events ?? []) {
-      const parsed = parseEventDate(event.date);
       for (const item of event.content_items) {
         if (!SCOPED_CONTENT_TYPES.has(item.content_type)) continue;
-
-        if (!parsed) {
-          undatedItems.push({ event, item });
-          continue;
-        }
-
-        const dateKey = dateKeyOf(parsed);
-        const label = parsed.toLocaleDateString("en-US", {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-        });
-
-        if (!days.has(dateKey)) {
-          days.set(dateKey, { dateKey, label, items: [] });
-        }
-        days.get(dateKey)!.items.push({ event, item });
+        // A staff-picked scheduled_date overrides the event's own date
+        // (e.g. a reminder post scheduled a few days before the event);
+        // falls back to the event date when unset.
+        const override = item.scheduled_date ? parseScheduledDate(item.scheduled_date) : null;
+        place({ event, item }, override);
       }
+    }
+
+    for (const item of unscopedItems ?? []) {
+      if (!SCOPED_CONTENT_TYPES.has(item.content_type)) continue;
+      const parsed = item.scheduled_date ? parseScheduledDate(item.scheduled_date) : null;
+      place({ event: null, item }, parsed);
     }
 
     const sorted = Array.from(days.values()).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
     return { byDateKey: days, groupedDays: sorted, undated: undatedItems };
-  }, [events]);
+  }, [events, unscopedItems]);
 
   return (
     <div className="space-y-6">
@@ -344,7 +388,7 @@ function MonthCellEntry({
   item,
   onClick,
 }: {
-  event: EventWithContentResponse;
+  event: EventWithContentResponse | null;
   item: ContentItemResponse;
   onClick: () => void;
 }) {
@@ -355,7 +399,9 @@ function MonthCellEntry({
       className={`w-full rounded px-1.5 py-1 text-left text-[10px] leading-tight transition hover:brightness-95 ${typeStyles(item.content_type)}`}
     >
       <span className="font-bold uppercase tracking-wide text-navy">{typeLabel(item.content_type)}</span>
-      <p className="truncate text-gray-700">{event.title}</p>
+      <p className="truncate text-gray-700">
+        {event ? event.title : `Scheduled ${item.platform ?? "post"}`}
+      </p>
     </button>
   );
 }
@@ -366,7 +412,7 @@ function CalendarItemCard({
   showRawDate = false,
   onClick,
 }: {
-  event: EventWithContentResponse;
+  event: EventWithContentResponse | null;
   item: ContentItemResponse;
   showRawDate?: boolean;
   onClick: () => void;
@@ -389,11 +435,13 @@ function CalendarItemCard({
         <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
           {item.status}
         </span>
-        {showRawDate && (
+        {showRawDate && event && (
           <span className="text-[10px] text-gray-500">raw date: &quot;{event.date}&quot;</span>
         )}
       </div>
-      <p className="text-sm font-medium text-gray-800">{event.title}</p>
+      <p className="text-sm font-medium text-gray-800">
+        {event ? event.title : `Scheduled ${item.platform ?? "post"}`}
+      </p>
       {bodyPreview && <p className="truncate text-xs text-gray-600">{bodyPreview}</p>}
     </button>
   );

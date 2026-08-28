@@ -97,6 +97,10 @@ export interface ContentItemResponse {
   status: string;
   structure_variant: string | null;
   body: Record<string, unknown>;
+  /** Staff-set target publish date shown on /calendar, ISO "YYYY-MM-DD".
+   * Null falls back to the parent event's own date there. Purely
+   * organizational — never queues or triggers posting. */
+  scheduled_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -338,6 +342,50 @@ export function updateContentItemBody(
     method: "PATCH",
     body: JSON.stringify({ body }),
   });
+}
+
+/** Sets/clears a content item's target publish date, shown on /calendar.
+ * Purely an organizational tag (see backend ContentItem.scheduled_date's
+ * model comment) — never queues or triggers posting; "Post to X" is
+ * still always a manual click regardless of this value. Pass null to
+ * clear it. */
+export function updateContentItemScheduledDate(
+  contentItemId: number,
+  scheduledDate: string | null
+): Promise<ContentItemResponse> {
+  return request<ContentItemResponse>(`/api/content/${contentItemId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ scheduled_date: scheduledDate }),
+  });
+}
+
+/** Persists a fixed-template post (real WVF Instagram/X copy, not
+ * AI-generated) as a scheduled content item — templates have no source
+ * event, so unlike selectSocialVariant() this doesn't take an event_id.
+ * See backend POST /api/content/schedule-template. */
+export function scheduleTemplate(params: {
+  platform: string;
+  caption: string;
+  hashtags: string[];
+  scheduledDate: string;
+}): Promise<ContentItemResponse> {
+  return request<ContentItemResponse>("/api/content/schedule-template", {
+    method: "POST",
+    body: JSON.stringify({
+      platform: params.platform,
+      caption: params.caption,
+      hashtags: params.hashtags,
+      scheduled_date: params.scheduledDate,
+    }),
+  });
+}
+
+/** Content items with a scheduled_date but no parent event (e.g. saved
+ * via scheduleTemplate()) — GET /api/events only returns event-scoped
+ * items nested under their event, so /calendar fetches this separately
+ * and merges the two. */
+export function listScheduledUnscopedContent(): Promise<ContentItemResponse[]> {
+  return request<ContentItemResponse[]>("/api/content/scheduled");
 }
 
 export interface PostToXResponse {

@@ -13,6 +13,7 @@ import {
   postToX,
   selectSocialVariant,
   updateContentItemBody,
+  updateContentItemScheduledDate,
   type GeneratedContentResponse,
   type HashtagsOutput,
   type SocialPostVariant,
@@ -122,6 +123,38 @@ function LabeledInput({
       </span>
       <input
         type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-sky-blue focus:outline-none focus:ring-2 focus:ring-sky-blue/30"
+      />
+    </label>
+  );
+}
+
+/**
+ * "Post date" field — a native <input type="date">, which every modern
+ * browser already renders as a small pop-up calendar on click/focus, so
+ * no date-picker library is pulled in for this. Purely tags the item for
+ * the /calendar view (see ContentItemResponse.scheduled_date) — never
+ * queues or triggers posting, "Post to X" is still always a manual
+ * click regardless of what's set here.
+ */
+function PostDatePicker({
+  value,
+  onChange,
+  label = "Post date (optional — shows on the Content Calendar)",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {label}
+      </span>
+      <input
+        type="date"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-sky-blue focus:outline-none focus:ring-2 focus:ring-sky-blue/30"
@@ -260,6 +293,19 @@ function SocialPostEditor({
 }) {
   const [caption, setCaption] = useState(variant.post.caption);
   const [cta, setCta] = useState(variant.post.cta);
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [dateSaveError, setDateSaveError] = useState<string | null>(null);
+
+  async function handleDateChange(next: string) {
+    setScheduledDate(next);
+    setDateSaveError(null);
+    if (contentItemId === null) return;
+    try {
+      await updateContentItemScheduledDate(contentItemId, next || null);
+    } catch (err) {
+      setDateSaveError(err instanceof Error ? err.message : "Failed to save post date.");
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -271,6 +317,8 @@ function SocialPostEditor({
           ← Compare options again
         </button>
       </div>
+      <PostDatePicker value={scheduledDate} onChange={handleDateChange} />
+      {dateSaveError && <p className="text-xs text-red-600">{dateSaveError}</p>}
       <LabeledTextArea label="Caption" value={caption} onChange={setCaption} rows={5} />
       <LabeledInput label="Call to Action" value={cta} onChange={setCta} />
       <div>

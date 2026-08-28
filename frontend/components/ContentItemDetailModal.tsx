@@ -57,7 +57,10 @@ export function ContentItemDetailModal({
   item,
   onClose,
 }: {
-  event: EventWithContentResponse;
+  // Null for items with no source event — e.g. a fixed-template post
+  // scheduled via POST /api/content/schedule-template, which has no
+  // event form behind it at all.
+  event: EventWithContentResponse | null;
   item: ContentItemResponse;
   onClose: () => void;
 }) {
@@ -85,7 +88,9 @@ export function ContentItemDetailModal({
             <span className="mb-1 inline-block rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
               {contentTypeLabel(item.content_type)}
             </span>
-            <h3 className="text-base font-bold text-white">{event.title}</h3>
+            <h3 className="text-base font-bold text-white">
+              {event ? event.title : "Scheduled template post"}
+            </h3>
           </div>
           <button
             type="button"
@@ -108,7 +113,9 @@ export function ContentItemDetailModal({
                 {item.status}
               </span>
             </DetailField>
-            <DetailField label="Event Date">{event.date || "—"}</DetailField>
+            <DetailField label={event ? "Event Date" : "Scheduled Date"}>
+              {event ? event.date || "—" : item.scheduled_date || "—"}
+            </DetailField>
             <DetailField label="Platform">{item.platform ?? "—"}</DetailField>
             <DetailField label="Structure Variant">{item.structure_variant ?? "—"}</DetailField>
             <DetailField label="Created">{formatTimestamp(item.created_at)}</DetailField>

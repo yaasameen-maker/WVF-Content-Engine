@@ -207,6 +207,10 @@ class ContentItemResponse(BaseModel):
     status: str
     structure_variant: Optional[str] = None
     body: dict
+    # Staff-set target publish date shown on /calendar — see
+    # ContentItem.scheduled_date's model comment. Null falls back to the
+    # parent event's own date on the calendar view.
+    scheduled_date: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -268,3 +272,4 @@ class ContentItemUpdate(BaseModel):
     """Fields a staff member can edit on a content item before approval"""
     body: Optional[dict] = None
     status: Optional[Literal["draft", "approved", "published"]] = None
+    scheduled_date: Optional[str] = None
