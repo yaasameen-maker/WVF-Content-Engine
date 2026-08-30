@@ -344,6 +344,16 @@ export function updateContentItemBody(
   });
 }
 
+/** Moves a content item from draft to approved — the single-approver
+ * (Nancy) sign-off step described in docs/PROJECT_CONTEXT.md. Doesn't
+ * post/send anything by itself; "Post to X" is still a separate manual
+ * click. */
+export function approveContentItem(contentItemId: number): Promise<ContentItemResponse> {
+  return request<ContentItemResponse>(`/api/content/${contentItemId}/approve`, {
+    method: "POST",
+  });
+}
+
 /** Sets/clears a content item's target publish date, shown on /calendar.
  * Purely an organizational tag (see backend ContentItem.scheduled_date's
  * model comment) — never queues or triggers posting; "Post to X" is

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  approveContentItem,
   disconnectFacebook,
   disconnectInstagram,
   disconnectX,
@@ -294,18 +295,6 @@ function SocialPostEditor({
   const [caption, setCaption] = useState(variant.post.caption);
   const [cta, setCta] = useState(variant.post.cta);
   const [scheduledDate, setScheduledDate] = useState("");
-  const [dateSaveError, setDateSaveError] = useState<string | null>(null);
-
-  async function handleDateChange(next: string) {
-    setScheduledDate(next);
-    setDateSaveError(null);
-    if (contentItemId === null) return;
-    try {
-      await updateContentItemScheduledDate(contentItemId, next || null);
-    } catch (err) {
-      setDateSaveError(err instanceof Error ? err.message : "Failed to save post date.");
-    }
-  }
 
   return (
     <div className="space-y-3">
@@ -317,8 +306,6 @@ function SocialPostEditor({
           ← Compare options again
         </button>
       </div>
-      <PostDatePicker value={scheduledDate} onChange={handleDateChange} />
-      {dateSaveError && <p className="text-xs text-red-600">{dateSaveError}</p>}
       <LabeledTextArea label="Caption" value={caption} onChange={setCaption} rows={5} />
       <LabeledInput label="Call to Action" value={cta} onChange={setCta} />
       <div>
@@ -342,20 +329,131 @@ function SocialPostEditor({
       </div>
 
       {contentItemId !== null && (
-        <PostToXButton
-          contentItemId={contentItemId}
-          currentBody={{
-            caption,
-            cta,
-            hashtags: [...hashtags.primary_hashtags, ...hashtags.topic_hashtags],
-            suggested_image_prompt: variant.post.suggested_image_prompt,
-          }}
-        />
+        <>
+          <SaveToCalendarRow
+            contentItemId={contentItemId}
+            scheduledDate={scheduledDate}
+            onScheduledDateChange={setScheduledDate}
+          />
+          <ApproveButton contentItemId={contentItemId} />
+          <PostToXButton
+            contentItemId={contentItemId}
+            currentBody={{
+              caption,
+              cta,
+              hashtags: [...hashtags.primary_hashtags, ...hashtags.topic_hashtags],
+              suggested_image_prompt: variant.post.suggested_image_prompt,
+            }}
+          />
+        </>
       )}
       <div className="flex flex-wrap gap-2">
         <MetaConnectButton platform="instagram" />
         <MetaConnectButton platform="facebook" />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Explicit "pick a date, then click Save" row — not an auto-save on every
+ * date change, so staff gets clear confirmation the date actually stuck.
+ * Purely tags the item for /calendar (see ContentItemResponse.scheduled_date's
+ * comment in lib/api.ts) — never queues or triggers posting.
+ */
+function SaveToCalendarRow({
+  contentItemId,
+  scheduledDate,
+  onScheduledDateChange,
+}: {
+  contentItemId: number;
+  scheduledDate: string;
+  onScheduledDateChange: (value: string) => void;
+}) {
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  async function handleSave() {
+    setError(null);
+    setIsSaving(true);
+    try {
+      await updateContentItemScheduledDate(contentItemId, scheduledDate || null);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save post date.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-end gap-3 rounded-md border border-gray-200 bg-gray-50/50 px-4 py-3">
+      <div className="w-48">
+        <PostDatePicker
+          value={scheduledDate}
+          onChange={onScheduledDateChange}
+          label="Post date"
+        />
+      </div>
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={isSaving}
+        className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-navy hover:text-navy disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {isSaving ? "Saving…" : "Save to Calendar"}
+      </button>
+      {saved && <span className="text-xs font-semibold text-green-700">Saved — shows on the Content Calendar.</span>}
+      {error && <p className="w-full text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Explicit sign-off action — moves a content item from draft to approved
+ * (see POST /api/content/{id}/approve). This is the single-approver
+ * (Nancy) confirmation step described in docs/PROJECT_CONTEXT.md; it does
+ * not post/send anything — "Post to X" stays a separate manual click.
+ */
+function ApproveButton({ contentItemId }: { contentItemId: number }) {
+  const [status, setStatus] = useState<"draft" | "approved">("draft");
+  const [isApproving, setIsApproving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleApprove() {
+    setError(null);
+    setIsApproving(true);
+    try {
+      const updated = await approveContentItem(contentItemId);
+      setStatus(updated.status === "approved" ? "approved" : "draft");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve.");
+    } finally {
+      setIsApproving(false);
+    }
+  }
+
+  if (status === "approved") {
+    return (
+      <p className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+        ✓ Approved
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={handleApprove}
+        disabled={isApproving}
+        className="rounded-md bg-green-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {isApproving ? "Approving…" : "Approve"}
+      </button>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
 }
