@@ -27,6 +27,7 @@ def _serialize_content_item(item: ContentItem) -> ContentItemResponse:
         structure_variant=item.structure_variant,
         body=json.loads(item.body),
         scheduled_date=item.scheduled_date.isoformat() if item.scheduled_date else None,
+        scheduled_time=item.scheduled_time,
         created_at=item.created_at,
         updated_at=item.updated_at,
     )
@@ -139,10 +140,11 @@ def get_content_item(content_id: int, db: Session = Depends(get_db)) -> ContentI
 def update_content_item(
     content_id: int, update: ContentItemUpdate, db: Session = Depends(get_db)
 ) -> ContentItemResponse:
-    """Update a content item's body (staff edits), status, and/or
-    scheduled_date. scheduled_date is purely a /calendar organizational
-    tag (see ContentItem.scheduled_date's model comment) — setting it
-    never triggers posting."""
+    """Update a content item's body (staff edits), status, scheduled_date,
+    and/or scheduled_time. scheduled_date/scheduled_time are purely a
+    /calendar organizational tag and display-only time reminder (see
+    ContentItem.scheduled_date/scheduled_time's model comments) — setting
+    them never triggers posting."""
     item = db.query(ContentItem).filter(ContentItem.id == content_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Content item not found")
@@ -158,6 +160,8 @@ def update_content_item(
             raise HTTPException(
                 status_code=422, detail="scheduled_date must be an ISO date string (YYYY-MM-DD)"
             )
+    if update.scheduled_time is not None:
+        item.scheduled_time = update.scheduled_time or None
 
     db.commit()
     db.refresh(item)

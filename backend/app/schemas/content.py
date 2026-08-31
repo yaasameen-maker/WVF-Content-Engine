@@ -211,6 +211,9 @@ class ContentItemResponse(BaseModel):
     # ContentItem.scheduled_date's model comment. Null falls back to the
     # parent event's own date on the calendar view.
     scheduled_date: Optional[str] = None
+    # Optional free-text time-of-day reminder (e.g. "2:30 PM") — display
+    # only, see ContentItem.scheduled_time's model comment.
+    scheduled_time: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -273,3 +276,4 @@ class ContentItemUpdate(BaseModel):
     body: Optional[dict] = None
     status: Optional[Literal["draft", "approved", "published"]] = None
     scheduled_date: Optional[str] = None
+    scheduled_time: Optional[str] = None

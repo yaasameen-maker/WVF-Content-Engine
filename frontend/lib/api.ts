@@ -101,6 +101,10 @@ export interface ContentItemResponse {
    * Null falls back to the parent event's own date there. Purely
    * organizational — never queues or triggers posting. */
   scheduled_date: string | null;
+  /** Optional free-text time-of-day reminder (e.g. "2:30 PM") — display
+   * only, not combined into a real datetime and not read by any
+   * automation. Posting stays a manual "Post to X" click regardless. */
+  scheduled_time: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -354,18 +358,23 @@ export function approveContentItem(contentItemId: number): Promise<ContentItemRe
   });
 }
 
-/** Sets/clears a content item's target publish date, shown on /calendar.
- * Purely an organizational tag (see backend ContentItem.scheduled_date's
- * model comment) — never queues or triggers posting; "Post to X" is
- * still always a manual click regardless of this value. Pass null to
- * clear it. */
+/** Sets/clears a content item's target publish date and/or an optional
+ * free-text time-of-day reminder, shown on /calendar. Purely an
+ * organizational tag/note (see backend ContentItem.scheduled_date/
+ * scheduled_time's model comments) — never queues or triggers posting;
+ * "Post to X" is still always a manual click regardless of these values.
+ * Pass null to clear a field. */
 export function updateContentItemScheduledDate(
   contentItemId: number,
-  scheduledDate: string | null
+  scheduledDate: string | null,
+  scheduledTime?: string | null
 ): Promise<ContentItemResponse> {
   return request<ContentItemResponse>(`/api/content/${contentItemId}`, {
     method: "PATCH",
-    body: JSON.stringify({ scheduled_date: scheduledDate }),
+    body: JSON.stringify({
+      scheduled_date: scheduledDate,
+      ...(scheduledTime !== undefined ? { scheduled_time: scheduledTime } : {}),
+    }),
   });
 }
 
@@ -378,6 +387,7 @@ export function scheduleTemplate(params: {
   caption: string;
   hashtags: string[];
   scheduledDate: string;
+  scheduledTime?: string;
 }): Promise<ContentItemResponse> {
   return request<ContentItemResponse>("/api/content/schedule-template", {
     method: "POST",
@@ -386,6 +396,7 @@ export function scheduleTemplate(params: {
       caption: params.caption,
       hashtags: params.hashtags,
       scheduled_date: params.scheduledDate,
+      scheduled_time: params.scheduledTime || null,
     }),
   });
 }

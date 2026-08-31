@@ -370,6 +370,7 @@ function SaveToCalendarRow({
   scheduledDate: string;
   onScheduledDateChange: (value: string) => void;
 }) {
+  const [scheduledTime, setScheduledTime] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -378,7 +379,7 @@ function SaveToCalendarRow({
     setError(null);
     setIsSaving(true);
     try {
-      await updateContentItemScheduledDate(contentItemId, scheduledDate || null);
+      await updateContentItemScheduledDate(contentItemId, scheduledDate || null, scheduledTime || null);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
@@ -396,6 +397,19 @@ function SaveToCalendarRow({
           onChange={onScheduledDateChange}
           label="Post date"
         />
+      </div>
+      <div className="w-40">
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Time (optional)
+          </span>
+          <input
+            type="time"
+            value={scheduledTime}
+            onChange={(e) => setScheduledTime(e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-sky-blue focus:outline-none focus:ring-2 focus:ring-sky-blue/30"
+          />
+        </label>
       </div>
       <button
         type="button"

@@ -192,6 +192,9 @@ class ScheduleTemplateRequest(BaseModel):
     caption: str
     hashtags: list[str] = Field(default_factory=list)
     scheduled_date: str  # required here — the whole point of this endpoint
+    # Optional free-text time-of-day reminder (e.g. "2:30 PM") — display
+    # only, see ContentItem.scheduled_time's model comment.
+    scheduled_time: Optional[str] = None
 
 
 @router.post("/content/schedule-template", response_model=ContentItemResponse)
@@ -219,6 +222,7 @@ def schedule_template(request: ScheduleTemplateRequest, db: Session = Depends(ge
             }
         ),
         scheduled_date=parsed_scheduled_date,
+        scheduled_time=request.scheduled_time or None,
     )
     db.add(item)
     db.commit()
@@ -235,6 +239,7 @@ def schedule_template(request: ScheduleTemplateRequest, db: Session = Depends(ge
         structure_variant=item.structure_variant,
         body=json.loads(item.body),
         scheduled_date=item.scheduled_date.isoformat() if item.scheduled_date else None,
+        scheduled_time=item.scheduled_time,
         created_at=item.created_at,
         updated_at=item.updated_at,
     )
@@ -414,6 +419,7 @@ def select_social_variant(
             structure_variant=item.structure_variant,
             body=json.loads(item.body),
             scheduled_date=item.scheduled_date.isoformat() if item.scheduled_date else None,
+            scheduled_time=item.scheduled_time,
             created_at=item.created_at,
             updated_at=item.updated_at,
         )

@@ -1105,6 +1105,7 @@ function ScheduleTemplateButton({
   hashtags: string[];
 }) {
   const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<number | null>(null);
@@ -1117,7 +1118,13 @@ function ScheduleTemplateButton({
     setError(null);
     setIsSaving(true);
     try {
-      const saved = await scheduleTemplate({ platform, caption, hashtags, scheduledDate: date });
+      const saved = await scheduleTemplate({
+        platform,
+        caption,
+        hashtags,
+        scheduledDate: date,
+        scheduledTime: time || undefined,
+      });
       setSavedId(saved.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to schedule this post.");
@@ -1129,7 +1136,8 @@ function ScheduleTemplateButton({
   if (savedId !== null) {
     return (
       <p className="mt-3 text-sm font-semibold text-green-700">
-        Scheduled for {date} — it now shows on the{" "}
+        Scheduled for {date}
+        {time ? ` at ${time}` : ""} — it now shows on the{" "}
         <a href="/calendar" className="underline">
           Content Calendar
         </a>
@@ -1146,6 +1154,16 @@ function ScheduleTemplateButton({
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
+            className="input"
+          />
+        </Field>
+      </div>
+      <div className="w-40">
+        <Field label="Time (optional)">
+          <input
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
             className="input"
           />
         </Field>

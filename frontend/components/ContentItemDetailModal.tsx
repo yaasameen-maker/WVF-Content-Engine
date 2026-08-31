@@ -113,8 +113,12 @@ export function ContentItemDetailModal({
                 {item.status}
               </span>
             </DetailField>
-            <DetailField label={event ? "Event Date" : "Scheduled Date"}>
-              {event ? event.date || "—" : item.scheduled_date || "—"}
+            <DetailField label={item.scheduled_date ? "Scheduled Date" : "Event Date"}>
+              {item.scheduled_date
+                ? `${item.scheduled_date}${item.scheduled_time ? ` at ${item.scheduled_time}` : ""}`
+                : event
+                  ? event.date || "—"
+                  : "—"}
             </DetailField>
             <DetailField label="Platform">{item.platform ?? "—"}</DetailField>
             <DetailField label="Structure Variant">{item.structure_variant ?? "—"}</DetailField>

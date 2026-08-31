@@ -138,6 +138,13 @@ class ContentItem(Base):
     # scheduled_for field" note, which is about auto-posting, not this.
     # /calendar falls back to the parent event's date when this is null.
     scheduled_date = Column(Date, nullable=True, index=True)
+    # Optional free-text time-of-day reminder (e.g. "2:30 PM"), stored
+    # alongside scheduled_date but NOT combined into a real datetime — a
+    # display-only note for staff about when they intend to click "Post
+    # to X" that day, not something any automation reads. Kept as a
+    # plain string (not a Time column) since it's purely informational,
+    # same rationale as EventInput.date storing free text.
+    scheduled_time = Column(String(20), nullable=True)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
