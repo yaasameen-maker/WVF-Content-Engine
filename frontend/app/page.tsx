@@ -724,38 +724,11 @@ export default function EventFormPage() {
                         </select>
 
                         {instagramTemplateDetail && !instagramTemplateError && (
-                          <div className="mt-3 rounded-lg border border-gray-200 shadow-sm">
-                            <div className="rounded-t-lg bg-navy px-5 py-3">
-                              <h3 className="font-semibold text-white">
-                                {instagramTemplateDetail.label}
-                              </h3>
-                            </div>
-                            <div className="space-y-3 px-5 py-4">
-                              <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
-                                {instagramTemplateDetail.caption}
-                              </pre>
-                              {instagramTemplateDetail.hashtags.length > 0 && (
-                                <p className="text-sm text-sky-blue">
-                                  {instagramTemplateDetail.hashtags.join(" ")}
-                                </p>
-                              )}
-                              {instagramTemplateDetail.truncated && (
-                                <p className="text-xs font-semibold text-red-600">
-                                  ⚠ This post was cut off in the source screenshot — double-check the
-                                  full caption before reusing.
-                                </p>
-                              )}
-                              <p className="text-xs font-semibold text-amber-700">
-                                Real, previously-published WVF Instagram post — edit as needed before
-                                reuse.
-                              </p>
-                              <ScheduleTemplateButton
-                                platform="instagram"
-                                caption={instagramTemplateDetail.caption}
-                                hashtags={instagramTemplateDetail.hashtags}
-                              />
-                            </div>
-                          </div>
+                          <EditableTemplatePreview
+                            key={instagramTemplateKey}
+                            platform="instagram"
+                            detail={instagramTemplateDetail}
+                          />
                         )}
                       </div>
                     )}
@@ -783,35 +756,7 @@ export default function EventFormPage() {
                         </select>
 
                         {xTemplateDetail && !xTemplateError && (
-                          <div className="mt-3 rounded-lg border border-gray-200 shadow-sm">
-                            <div className="rounded-t-lg bg-navy px-5 py-3">
-                              <h3 className="font-semibold text-white">{xTemplateDetail.label}</h3>
-                            </div>
-                            <div className="space-y-3 px-5 py-4">
-                              <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
-                                {xTemplateDetail.caption}
-                              </pre>
-                              {xTemplateDetail.hashtags.length > 0 && (
-                                <p className="text-sm text-sky-blue">
-                                  {xTemplateDetail.hashtags.join(" ")}
-                                </p>
-                              )}
-                              {xTemplateDetail.truncated && (
-                                <p className="text-xs font-semibold text-red-600">
-                                  ⚠ This post was cut off in the source screenshot (e.g. a shortened
-                                  link) — double-check the full caption before reusing.
-                                </p>
-                              )}
-                              <p className="text-xs font-semibold text-amber-700">
-                                Real, previously-published WVF X post — edit as needed before reuse.
-                              </p>
-                              <ScheduleTemplateButton
-                                platform="x"
-                                caption={xTemplateDetail.caption}
-                                hashtags={xTemplateDetail.hashtags}
-                              />
-                            </div>
-                          </div>
+                          <EditableTemplatePreview key={xTemplateKey} platform="x" detail={xTemplateDetail} />
                         )}
                       </div>
                     )}
@@ -1082,6 +1027,71 @@ function EventDateTimePicker({ value, onChange }: { value: string; onChange: (va
         onChange={(e) => handleTimeChange(e.target.value)}
         className="input"
       />
+    </div>
+  );
+}
+
+/**
+ * Real fixed-template post preview, with genuinely editable caption and
+ * hashtags — previously this was a read-only <pre> block whose own
+ * caption text said "edit as needed before reuse" with no actual way to
+ * edit anything, and ScheduleTemplateButton saved the raw unedited
+ * template every time. Now caption/hashtags are real inputs, and the
+ * edited values (not the original template) are what gets scheduled.
+ *
+ * Pass a `key` prop tied to the template key at the call site so this
+ * component's local edit state resets when staff switches to a
+ * different template, instead of leaking edits from the previous pick.
+ */
+function EditableTemplatePreview({
+  platform,
+  detail,
+}: {
+  platform: string;
+  detail: { label: string; caption: string; hashtags: string[]; truncated: boolean };
+}) {
+  const [caption, setCaption] = useState(detail.caption);
+  const [hashtagsText, setHashtagsText] = useState(detail.hashtags.join(" "));
+
+  const hashtags = hashtagsText
+    .split(/\s+/)
+    .map((h) => h.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="mt-3 rounded-lg border border-gray-200 shadow-sm">
+      <div className="rounded-t-lg bg-navy px-5 py-3">
+        <h3 className="font-semibold text-white">{detail.label}</h3>
+      </div>
+      <div className="space-y-3 px-5 py-4">
+        <Field label="Caption">
+          <textarea
+            rows={5}
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            className="input"
+          />
+        </Field>
+        <Field label="Hashtags (space-separated)">
+          <input
+            type="text"
+            value={hashtagsText}
+            onChange={(e) => setHashtagsText(e.target.value)}
+            className="input"
+          />
+        </Field>
+        {detail.truncated && (
+          <p className="text-xs font-semibold text-red-600">
+            ⚠ This post was cut off in the source screenshot — double-check the full caption before
+            reusing.
+          </p>
+        )}
+        <p className="text-xs font-semibold text-amber-700">
+          Real, previously-published WVF {PLATFORM_LABELS[platform as SocialPostPlatform] ?? platform}{" "}
+          post — edited above before reuse.
+        </p>
+        <ScheduleTemplateButton platform={platform} caption={caption} hashtags={hashtags} />
+      </div>
     </div>
   );
 }
