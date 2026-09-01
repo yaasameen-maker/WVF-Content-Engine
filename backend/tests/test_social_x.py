@@ -291,3 +291,224 @@ def test_token_encryption_round_trips(x_env):
     encrypted = encrypt_token("a-real-looking-secret-token")
     assert encrypted != "a-real-looking-secret-token"
     assert decrypt_token(encrypted) == "a-real-looking-secret-token"
+
+
+# ---------------------------------------------------------------------
+# Scheduled auto-posting (POST /api/social/x/run-scheduled-posts) — the
+# one deliberate exception to manual-click-only, see social.py's module
+# docstring. Approval is a hard gate: these tests specifically cover that
+# an approved+due item posts but a draft+due item never does, even with
+# an identical scheduled_date/time.
+# ---------------------------------------------------------------------
+
+import datetime as dt
+
+
+@pytest.fixture(autouse=True)
+def scheduler_secret_env(monkeypatch):
+    monkeypatch.setenv("SCHEDULER_SECRET", "test-scheduler-secret")
+
+
+def _seed_scheduled_social_post(
+    db_session_factory,
+    *,
+    status,
+    scheduled_date,
+    scheduled_time=None,
+    connected=True,
+):
+    """Seeds one social_post ContentItem with the given status/schedule,
+    and a connected X account unless connected=False. Returns
+    content_item_id."""
+    from app.models import Event
+    from app.services.token_encryption import encrypt_token
+
+    db = db_session_factory()
+    if connected:
+        db.add(
+            SocialConnection(
+                platform=SocialPlatform.X,
+                platform_account_id="1",
+                username="WomensVFund",
+                access_token_encrypted=encrypt_token("valid-access-token"),
+            )
+        )
+    event = Event(**SAMPLE_EVENT)
+    db.add(event)
+    db.flush()
+    item = ContentItem(
+        event_id=event.id,
+        content_type=ContentType.SOCIAL_POST,
+        body=json.dumps({"caption": "Scheduled post caption", "hashtags": ["#WVF"]}),
+        status=status,
+        scheduled_date=scheduled_date,
+        scheduled_time=scheduled_time,
+    )
+    db.add(item)
+    db.commit()
+    content_item_id = item.id
+    db.close()
+    return content_item_id
+
+
+def test_run_scheduled_posts_rejects_missing_secret(client):
+    resp = client.post("/api/social/x/run-scheduled-posts")
+    assert resp.status_code == 401
+
+
+def test_run_scheduled_posts_rejects_wrong_secret(client):
+    resp = client.post(
+        "/api/social/x/run-scheduled-posts", headers={"X-Scheduler-Secret": "wrong"}
+    )
+    assert resp.status_code == 401
+
+
+def test_run_scheduled_posts_503s_when_secret_not_configured(client, monkeypatch):
+    monkeypatch.delenv("SCHEDULER_SECRET", raising=False)
+    resp = client.post(
+        "/api/social/x/run-scheduled-posts", headers={"X-Scheduler-Secret": "anything"}
+    )
+    assert resp.status_code == 503
+
+
+def test_run_scheduled_posts_publishes_approved_due_item(client, db_session_factory, monkeypatch):
+    yesterday = dt.date.today() - dt.timedelta(days=1)
+    content_item_id = _seed_scheduled_social_post(
+        db_session_factory, status=ContentStatus.APPROVED, scheduled_date=yesterday
+    )
+
+    async def fake_post_tweet(access_token, text):
+        return {"data": {"id": "555", "text": text}}
+
+    monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
+
+    resp = client.post(
+        "/api/social/x/run-scheduled-posts", headers={"X-Scheduler-Secret": "test-scheduler-secret"}
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["checked"] == 1
+    assert body["posted"] == [
+        {"content_item_id": content_item_id, "status": "success", "external_post_id": "555", "error": None}
+    ]
+
+    db = db_session_factory()
+    item = db.query(ContentItem).filter(ContentItem.id == content_item_id).first()
+    assert item.status == ContentStatus.PUBLISHED
+    db.close()
+
+
+def test_run_scheduled_posts_never_publishes_a_draft(client, db_session_factory, monkeypatch):
+    """The hard gate this whole feature depends on: scheduling alone
+    (even with a due date) must never be enough to publish — approval
+    is required. This is the test that would catch a regression letting
+    unapproved content go out under WVF's real account."""
+    yesterday = dt.date.today() - dt.timedelta(days=1)
+    content_item_id = _seed_scheduled_social_post(
+        db_session_factory, status=ContentStatus.DRAFT, scheduled_date=yesterday
+    )
+
+    async def fake_post_tweet(access_token, text):
+        pytest.fail("Should never be called — item is not approved")
+
+    monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
+
+    resp = client.post(
+        "/api/social/x/run-scheduled-posts", headers={"X-Scheduler-Secret": "test-scheduler-secret"}
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"checked": 0, "posted": []}
+
+    db = db_session_factory()
+    item = db.query(ContentItem).filter(ContentItem.id == content_item_id).first()
+    assert item.status == ContentStatus.DRAFT
+    db.close()
+
+
+def test_run_scheduled_posts_skips_future_date(client, db_session_factory, monkeypatch):
+    tomorrow = dt.date.today() + dt.timedelta(days=1)
+    content_item_id = _seed_scheduled_social_post(
+        db_session_factory, status=ContentStatus.APPROVED, scheduled_date=tomorrow
+    )
+
+    async def fake_post_tweet(access_token, text):
+        pytest.fail("Should never be called — scheduled_date is in the future")
+
+    monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
+
+    resp = client.post(
+        "/api/social/x/run-scheduled-posts", headers={"X-Scheduler-Secret": "test-scheduler-secret"}
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"checked": 0, "posted": []}
+
+    db = db_session_factory()
+    item = db.query(ContentItem).filter(ContentItem.id == content_item_id).first()
+    assert item.status == ContentStatus.APPROVED
+    db.close()
+
+
+def test_run_scheduled_posts_respects_time_today(client, db_session_factory, monkeypatch):
+    """Same-day items with a scheduled_time in the future should not
+    post yet — only date-past-due or time-already-passed items are due."""
+    today = dt.date.today()
+    future_time = (dt.datetime.now() + dt.timedelta(hours=2)).strftime("%I:%M %p")
+    content_item_id = _seed_scheduled_social_post(
+        db_session_factory, status=ContentStatus.APPROVED, scheduled_date=today, scheduled_time=future_time
+    )
+
+    async def fake_post_tweet(access_token, text):
+        pytest.fail("Should never be called — scheduled_time hasn't arrived yet")
+
+    monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
+
+    resp = client.post(
+        "/api/social/x/run-scheduled-posts", headers={"X-Scheduler-Secret": "test-scheduler-secret"}
+    )
+    assert resp.status_code == 200
+    # checked counts SQL-level candidates (scheduled_date <= today, which
+    # includes today regardless of time) — the time-of-day filter happens
+    # in Python afterward, so posted must be empty even though checked isn't.
+    assert resp.json() == {"checked": 1, "posted": []}
+
+    db = db_session_factory()
+    item = db.query(ContentItem).filter(ContentItem.id == content_item_id).first()
+    assert item.status == ContentStatus.APPROVED
+    db.close()
+
+
+def test_run_scheduled_posts_publishes_when_time_today_has_passed(client, db_session_factory, monkeypatch):
+    today = dt.date.today()
+    past_time = (dt.datetime.now() - dt.timedelta(minutes=5)).strftime("%I:%M %p")
+    content_item_id = _seed_scheduled_social_post(
+        db_session_factory, status=ContentStatus.APPROVED, scheduled_date=today, scheduled_time=past_time
+    )
+
+    async def fake_post_tweet(access_token, text):
+        return {"data": {"id": "777", "text": text}}
+
+    monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
+
+    resp = client.post(
+        "/api/social/x/run-scheduled-posts", headers={"X-Scheduler-Secret": "test-scheduler-secret"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["posted"][0]["status"] == "success"
+
+    db = db_session_factory()
+    item = db.query(ContentItem).filter(ContentItem.id == content_item_id).first()
+    assert item.status == ContentStatus.PUBLISHED
+    db.close()
+
+
+def test_run_scheduled_posts_no_connection_is_a_noop_not_an_error(client, db_session_factory):
+    yesterday = dt.date.today() - dt.timedelta(days=1)
+    _seed_scheduled_social_post(
+        db_session_factory, status=ContentStatus.APPROVED, scheduled_date=yesterday, connected=False
+    )
+
+    resp = client.post(
+        "/api/social/x/run-scheduled-posts", headers={"X-Scheduler-Secret": "test-scheduler-secret"}
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"checked": 0, "posted": []}

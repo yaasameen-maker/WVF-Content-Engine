@@ -1,10 +1,15 @@
 """
-X account connection (OAuth 2.0 + PKCE) and manual-click publishing.
+X account connection (OAuth 2.0 + PKCE), manual-click publishing, and
+scheduled auto-posting.
 
-Manual-click only — see docs/STATUS_AND_SCOPE.md's Aug 8 scope decision.
-Every route here either sets up/completes an OAuth connect flow a human
-initiated, or publishes a single post because a human clicked a button.
-Nothing here runs on a timer or queue.
+Originally manual-click only (see docs/STATUS_AND_SCOPE.md's Aug 8 scope
+decision) — every route here either set up/completed an OAuth connect
+flow a human initiated, or published a single post because a human
+clicked a button. POST /social/x/run-scheduled-posts (Sept 2026) is the
+one deliberate exception: it publishes approved+due items without a
+click, called periodically by an external scheduler (Railway Cron Job),
+not from the frontend. Approval remains a hard gate — see that route's
+docstring.
 
 Single shared WVF connection per platform, not per-user — see
 app/models/social.py's SocialConnection docstring for why.
@@ -12,9 +17,10 @@ app/models/social.py's SocialConnection docstring for why.
 
 import json
 import logging
-from datetime import datetime, timedelta
+import os
+from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -365,20 +371,15 @@ class PostToXResponse(BaseModel):
     status: str
 
 
-@router.post("/social/x/post", response_model=PostToXResponse)
-async def post_to_x(request: PostToXRequest, db: Session = Depends(get_db)) -> PostToXResponse:
+async def _publish_item_to_x(db: Session, connection: SocialConnection, item: ContentItem) -> str:
     """
-    Publishes an existing social_post ContentItem to X. Called ONLY when
-    a staff member clicks "Post to X" on the review page — this is the
-    manual-click publish action, not a queued/scheduled job.
+    Shared publish logic — one code path for "what happens when we post a
+    content item to X," used by both the manual POST /social/x/post click
+    and the scheduled auto-post job below, so the two can't drift (token
+    refresh, SocialPost audit row, marking PUBLISHED all happen exactly
+    once, the same way, regardless of which caller triggered it).
+    Raises HTTPException on any failure; caller handles the response shape.
     """
-    connection = db.query(SocialConnection).filter(SocialConnection.platform == SocialPlatform.X).first()
-    if not connection:
-        raise HTTPException(status_code=409, detail="X is not connected — connect it first.")
-
-    item = db.query(ContentItem).filter(ContentItem.id == request.content_item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Content item not found")
     if item.content_type != ContentType.SOCIAL_POST:
         raise HTTPException(status_code=400, detail="Content item is not a social post")
 
@@ -393,7 +394,7 @@ async def post_to_x(request: PostToXRequest, db: Session = Depends(get_db)) -> P
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("X publish failed for content_item_id=%s", request.content_item_id)
+        logger.exception("X publish failed for content_item_id=%s", item.id)
         db.add(
             SocialPost(
                 content_item_id=item.id,
@@ -417,4 +418,147 @@ async def post_to_x(request: PostToXRequest, db: Session = Depends(get_db)) -> P
     item.status = ContentStatus.PUBLISHED
     db.commit()
 
+    return external_post_id
+
+
+@router.post("/social/x/post", response_model=PostToXResponse)
+async def post_to_x(request: PostToXRequest, db: Session = Depends(get_db)) -> PostToXResponse:
+    """
+    Publishes an existing social_post ContentItem to X. Called when a
+    staff member clicks "Post to X" on the review page — the manual-click
+    publish action. See also POST /social/x/run-scheduled-posts below,
+    which publishes approved+due items without a click, for staff who
+    used the "Schedule this post" / "Save to Calendar" date pickers and
+    want it to actually go out automatically once approved.
+    """
+    connection = db.query(SocialConnection).filter(SocialConnection.platform == SocialPlatform.X).first()
+    if not connection:
+        raise HTTPException(status_code=409, detail="X is not connected — connect it first.")
+
+    item = db.query(ContentItem).filter(ContentItem.id == request.content_item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Content item not found")
+
+    external_post_id = await _publish_item_to_x(db, connection, item)
     return PostToXResponse(external_post_id=external_post_id, status="success")
+
+
+# ---------------------------------------------------------------------
+# Scheduled auto-posting (Sept 2026) — the one deliberate exception to
+# this module's original manual-click-only scope decision. Added after
+# staff expected "Schedule this post" / "Save to Calendar" (which only
+# ever tagged a target date for /calendar — see ContentItem.scheduled_date's
+# model comment) to actually publish automatically. Approval is a hard
+# gate: only status=approved items post here — a scheduled item nobody
+# approved just sits there, same as before. No in-process loop; an
+# external scheduler (Railway Cron Job) calls this endpoint periodically.
+# ---------------------------------------------------------------------
+
+
+def _parse_scheduled_time(raw: str) -> tuple[int, int] | None:
+    """Best-effort parse of scheduled_time's free-text value (e.g.
+    "2:30 PM", "14:30") into (hour, minute). Returns None if it can't be
+    parsed — callers treat that as "no specific time," i.e. due as soon
+    as the date arrives, rather than blocking a post forever on a
+    malformed string a staff member typed."""
+    raw = raw.strip()
+    for fmt in ("%I:%M %p", "%H:%M", "%I:%M%p"):
+        try:
+            parsed = datetime.strptime(raw, fmt)
+            return parsed.hour, parsed.minute
+        except ValueError:
+            continue
+    return None
+
+
+def _is_due(item: ContentItem, now: datetime) -> bool:
+    if item.scheduled_date is None:
+        return False
+    if item.scheduled_date > now.date():
+        return False
+    if item.scheduled_date < now.date():
+        return True
+    # Same day: only gate on time if scheduled_time parses to something
+    # meaningful — an unparsed/unset time means "due as soon as today
+    # arrives," not "never," so it doesn't block posting.
+    if not item.scheduled_time:
+        return True
+    parsed = _parse_scheduled_time(item.scheduled_time)
+    if parsed is None:
+        return True
+    hour, minute = parsed
+    return (now.hour, now.minute) >= (hour, minute)
+
+
+class ScheduledPostResult(BaseModel):
+    content_item_id: int
+    status: str  # "success" | "failed"
+    external_post_id: str | None = None
+    error: str | None = None
+
+
+class RunScheduledPostsResponse(BaseModel):
+    checked: int
+    posted: list[ScheduledPostResult]
+
+
+@router.post("/social/x/run-scheduled-posts", response_model=RunScheduledPostsResponse)
+async def run_scheduled_x_posts(
+    db: Session = Depends(get_db),
+    x_scheduler_secret: str | None = Header(default=None, alias="X-Scheduler-Secret"),
+) -> RunScheduledPostsResponse:
+    """
+    Publishes every approved social_post ContentItem whose scheduled_date
+    (+ scheduled_time, if parseable) has arrived. Meant to be called
+    periodically by an external scheduler (Railway Cron Job), not by
+    staff directly or from the frontend — protected by a shared-secret
+    header since there's no auth/user system yet (see CLAUDE.md Status)
+    and this can publish real content to WVF's connected X account.
+
+    Approval is a hard gate: only status=approved items are eligible.
+    A draft with a scheduled_date that nobody approved is left alone,
+    same as before this endpoint existed — scheduling alone was never
+    enough to publish, and still isn't.
+    """
+    scheduler_secret = os.getenv("SCHEDULER_SECRET")
+    if not scheduler_secret:
+        raise HTTPException(
+            status_code=503,
+            detail="SCHEDULER_SECRET environment variable not set — scheduled posting is disabled "
+            "until it's configured.",
+        )
+    if x_scheduler_secret != scheduler_secret:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Scheduler-Secret header")
+
+    connection = db.query(SocialConnection).filter(SocialConnection.platform == SocialPlatform.X).first()
+    if not connection:
+        # Not an error — there's just nothing to do without a connected
+        # account. Scheduled items stay approved+pending until one exists.
+        return RunScheduledPostsResponse(checked=0, posted=[])
+
+    candidates = (
+        db.query(ContentItem)
+        .filter(
+            ContentItem.content_type == ContentType.SOCIAL_POST,
+            ContentItem.status == ContentStatus.APPROVED,
+            ContentItem.scheduled_date.isnot(None),
+            ContentItem.scheduled_date <= date.today(),
+        )
+        .all()
+    )
+
+    now = datetime.now()
+    due = [item for item in candidates if _is_due(item, now)]
+
+    results: list[ScheduledPostResult] = []
+    for item in due:
+        try:
+            external_post_id = await _publish_item_to_x(db, connection, item)
+            results.append(ScheduledPostResult(content_item_id=item.id, status="success", external_post_id=external_post_id))
+        except HTTPException as e:
+            # _publish_item_to_x already recorded a failed SocialPost row
+            # for X-side failures; this also catches pre-checks (missing
+            # caption, wrong content type) that never reach that point.
+            results.append(ScheduledPostResult(content_item_id=item.id, status="failed", error=str(e.detail)))
+
+    return RunScheduledPostsResponse(checked=len(candidates), posted=results)
