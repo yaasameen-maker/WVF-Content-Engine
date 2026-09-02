@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#ffffff" />
+  <text
+    x="6"
+    y="42"
+    font-family="Arial, Helvetica, sans-serif"
+    font-weight="700"
+    font-size="26"
+    letter-spacing="-1"
+  >
+    <tspan fill="#141b4d">W</tspan><tspan fill="#6e9fce">VF</tspan>
+  </text>
+  <!-- leaf accent: two simple petal shapes, not freehand letterforms -->
+  <g transform="translate(46, 6) rotate(20)">
+    <ellipse cx="0" cy="0" rx="7" ry="3.2" fill="#6e9fce" />
+    <ellipse cx="6" cy="-4" rx="6" ry="2.8" fill="#141b4d" transform="rotate(-25 6 -4)" />
+  </g>
+</svg>
