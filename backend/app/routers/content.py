@@ -5,11 +5,13 @@ CRUD endpoints for events and their generated content items.
 import json
 from datetime import date as date_type
 
+import bcrypt
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import ContentItem, ContentStatus, Event, KeyMaker
+from app.models import Approver, ContentItem, ContentStatus, Event, KeyMaker
 from app.schemas import ContentItemResponse, ContentItemUpdate, EventWithContentResponse, KeyMakerResponse
 
 router = APIRouter(prefix="/api", tags=["content"])
@@ -28,6 +30,7 @@ def _serialize_content_item(item: ContentItem) -> ContentItemResponse:
         body=json.loads(item.body),
         scheduled_date=item.scheduled_date.isoformat() if item.scheduled_date else None,
         scheduled_time=item.scheduled_time,
+        approved_by_name=item.approved_by.name if item.approved_by else None,
         created_at=item.created_at,
         updated_at=item.updated_at,
     )
@@ -168,14 +171,35 @@ def update_content_item(
     return _serialize_content_item(item)
 
 
+class ApproveContentItemRequest(BaseModel):
+    """Body for POST /content/{id}/approve — a named approver's passcode
+    (see app/models/approver.py). Required: approval now gates scheduled
+    auto-posting to X (see app/routers/social.py's run_scheduled_x_posts),
+    so it needs to record who actually approved something, not just that
+    someone clicked a button."""
+
+    approver_name: str
+    passcode: str
+
+
 @router.post("/content/{content_id}/approve", response_model=ContentItemResponse)
-def approve_content_item(content_id: int, db: Session = Depends(get_db)) -> ContentItemResponse:
-    """Mark a content item as approved."""
+def approve_content_item(
+    content_id: int, request: ApproveContentItemRequest, db: Session = Depends(get_db)
+) -> ContentItemResponse:
+    """Mark a content item as approved — passcode-gated (see
+    ApproveContentItemRequest). Wrong name/passcode returns 401 without
+    revealing which part was wrong, so a caller can't enumerate valid
+    approver names."""
     item = db.query(ContentItem).filter(ContentItem.id == content_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Content item not found")
 
+    approver = db.query(Approver).filter(Approver.name == request.approver_name).first()
+    if not approver or not bcrypt.checkpw(request.passcode.encode(), approver.passcode_hash.encode()):
+        raise HTTPException(status_code=401, detail="Invalid approver name or passcode")
+
     item.status = ContentStatus.APPROVED
+    item.approved_by_id = approver.id
     db.commit()
     db.refresh(item)
     return _serialize_content_item(item)

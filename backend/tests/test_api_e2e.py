@@ -8,8 +8,20 @@ breaks (renamed fields, wrong status codes, broken FK relationships) before
 they reach a PR.
 """
 
-from app.models import KeyMaker
+from app.models import Approver, KeyMaker
 from tests.conftest import SAMPLE_EVENT
+
+
+def _seed_approver(db_session_factory, name="Nancy", passcode="TEST1234"):
+    """Creates a real Approver row with a known (test-only) passcode, for
+    tests that need to exercise the passcode-gated /approve endpoint."""
+    import bcrypt
+
+    db = db_session_factory()
+    db.add(Approver(name=name, passcode_hash=bcrypt.hashpw(passcode.encode(), bcrypt.gensalt()).decode()))
+    db.commit()
+    db.close()
+    return name, passcode
 
 
 def test_health_check_reports_db_connected(client):
@@ -370,7 +382,9 @@ def test_get_content_item_returns_404_when_missing(client):
     assert resp.status_code == 404
 
 
-def test_content_item_full_lifecycle_edit_then_approve(client):
+def test_content_item_full_lifecycle_edit_then_approve(client, db_session_factory):
+    name, passcode = _seed_approver(db_session_factory)
+
     client.post("/api/generate", json=SAMPLE_EVENT)
     events = client.get("/api/events").json()
     content_item = events[0]["content_items"][0]
@@ -383,13 +397,44 @@ def test_content_item_full_lifecycle_edit_then_approve(client):
     assert patch_resp.status_code == 200, patch_resp.text
     assert patch_resp.json()["status"] == "draft"
 
-    approve_resp = client.post(f"/api/content/{content_id}/approve")
-    assert approve_resp.status_code == 200
+    approve_resp = client.post(
+        f"/api/content/{content_id}/approve", json={"approver_name": name, "passcode": passcode}
+    )
+    assert approve_resp.status_code == 200, approve_resp.text
     assert approve_resp.json()["status"] == "approved"
+    assert approve_resp.json()["approved_by_name"] == name
 
     fetched = client.get(f"/api/content/{content_id}").json()
     assert fetched["status"] == "approved"
     assert fetched["body"] == edited_body
+
+
+def test_approve_content_item_rejects_wrong_passcode(client, db_session_factory):
+    name, _ = _seed_approver(db_session_factory)
+
+    client.post("/api/generate", json=SAMPLE_EVENT)
+    events = client.get("/api/events").json()
+    content_id = events[0]["content_items"][0]["id"]
+
+    resp = client.post(
+        f"/api/content/{content_id}/approve", json={"approver_name": name, "passcode": "wrong-code"}
+    )
+    assert resp.status_code == 401
+
+    fetched = client.get(f"/api/content/{content_id}").json()
+    assert fetched["status"] == "draft"
+
+
+def test_approve_content_item_rejects_unknown_approver(client, db_session_factory):
+    client.post("/api/generate", json=SAMPLE_EVENT)
+    events = client.get("/api/events").json()
+    content_id = events[0]["content_items"][0]["id"]
+
+    resp = client.post(
+        f"/api/content/{content_id}/approve",
+        json={"approver_name": "Nobody", "passcode": "anything"},
+    )
+    assert resp.status_code == 401
 
 
 def test_patch_rejects_invalid_status_value(client):
@@ -405,8 +450,11 @@ def test_patch_content_item_404_when_missing(client):
     assert resp.status_code == 404
 
 
-def test_approve_content_item_404_when_missing(client):
-    resp = client.post("/api/content/999999/approve")
+def test_approve_content_item_404_when_missing(client, db_session_factory):
+    name, passcode = _seed_approver(db_session_factory)
+    resp = client.post(
+        "/api/content/999999/approve", json={"approver_name": name, "passcode": passcode}
+    )
     assert resp.status_code == 404
 
 

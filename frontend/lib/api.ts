@@ -105,6 +105,10 @@ export interface ContentItemResponse {
    * only, not combined into a real datetime and not read by any
    * automation. Posting stays a manual "Post to X" click regardless. */
   scheduled_time: string | null;
+  /** Name of the approver who approved this item (see backend
+   * app/models/approver.py) — null until a passcode-gated approve
+   * actually happens. Never the passcode itself. */
+  approved_by_name: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -348,13 +352,21 @@ export function updateContentItemBody(
   });
 }
 
-/** Moves a content item from draft to approved — the single-approver
- * (Nancy) sign-off step described in docs/PROJECT_CONTEXT.md. Doesn't
- * post/send anything by itself; "Post to X" is still a separate manual
- * click. */
-export function approveContentItem(contentItemId: number): Promise<ContentItemResponse> {
+/** Moves a content item from draft to approved — passcode-gated (see
+ * backend app/models/approver.py): Nancy and Maria each have their own
+ * name + passcode, so approval records who actually signed off, which
+ * matters now that approval is the hard gate before scheduled
+ * auto-posting to X. Doesn't post/send anything by itself; "Post to X"
+ * is still a separate manual click. Throws (via request()'s non-ok
+ * handling) with a 401 message on wrong name/passcode. */
+export function approveContentItem(
+  contentItemId: number,
+  approverName: string,
+  passcode: string
+): Promise<ContentItemResponse> {
   return request<ContentItemResponse>(`/api/content/${contentItemId}/approve`, {
     method: "POST",
+    body: JSON.stringify({ approver_name: approverName, passcode }),
   });
 }
 

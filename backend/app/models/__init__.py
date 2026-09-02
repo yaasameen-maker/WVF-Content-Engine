@@ -18,6 +18,7 @@ from app.models.social import (
     SocialPlatform,
     SocialPost,
 )
+from app.models.approver import Approver
 
 __all__ = [
     "Base",
@@ -32,4 +33,5 @@ __all__ = [
     "SocialConnection",
     "SocialPlatform",
     "SocialPost",
+    "Approver",
 ]

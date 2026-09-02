@@ -452,7 +452,16 @@ def test_run_scheduled_posts_respects_time_today(client, db_session_factory, mon
     """Same-day items with a scheduled_time in the future should not
     post yet — only date-past-due or time-already-passed items are due."""
     today = dt.date.today()
-    future_time = (dt.datetime.now() + dt.timedelta(hours=2)).strftime("%I:%M %p")
+    now = dt.datetime.now()
+    # Push the "future" time forward by whatever's left until midnight,
+    # capped well short of it — a fixed +2h offset can cross into the
+    # next calendar day (e.g. a run at 11pm), and _is_due only compares
+    # hour:minute with no date awareness, so a wrapped-around time reads
+    # as "already passed" instead of "future". Halving the remaining time
+    # to midnight guarantees this stays same-day regardless of when the
+    # suite runs.
+    minutes_until_midnight = (24 * 60) - (now.hour * 60 + now.minute)
+    future_time = (now + dt.timedelta(minutes=max(minutes_until_midnight // 2, 1))).strftime("%I:%M %p")
     content_item_id = _seed_scheduled_social_post(
         db_session_factory, status=ContentStatus.APPROVED, scheduled_date=today, scheduled_time=future_time
     )

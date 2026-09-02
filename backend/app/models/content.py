@@ -110,6 +110,10 @@ class ContentItem(Base):
     # Only set when content_type == NEWSLETTER_BLOCK and block_type ==
     # MEMBER_SPOTLIGHT — which real Key Maker this spotlight is about.
     key_maker_id = Column(Integer, ForeignKey("key_makers.id"), nullable=True, index=True)
+    # Nullable — who approved this item (see app/models/approver.py).
+    # Set only when status moves to APPROVED via the passcode-gated
+    # approve flow; never set for still-draft items.
+    approved_by_id = Column(Integer, ForeignKey("approvers.id"), nullable=True, index=True)
 
     # Content metadata
     content_type = Column(SQLEnum(ContentType), nullable=False, index=True)
@@ -153,6 +157,7 @@ class ContentItem(Base):
     # Relationships
     event = relationship("Event", back_populates="content_items")
     key_maker = relationship("KeyMaker")
+    approved_by = relationship("Approver")
 
     def __repr__(self):
         return f"<ContentItem(id={self.id}, type={self.content_type}, status={self.status})>"

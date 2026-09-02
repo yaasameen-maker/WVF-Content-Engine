@@ -214,6 +214,10 @@ class ContentItemResponse(BaseModel):
     # Optional free-text time-of-day reminder (e.g. "2:30 PM") — display
     # only, see ContentItem.scheduled_time's model comment.
     scheduled_time: Optional[str] = None
+    # Name of the Approver who approved this item (see
+    # app/models/approver.py) — null until a passcode-gated approve
+    # actually happens. Never the passcode itself.
+    approved_by_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
