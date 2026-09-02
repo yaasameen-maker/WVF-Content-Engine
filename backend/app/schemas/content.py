@@ -1,6 +1,20 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _as_utc(value: datetime) -> datetime:
+    """Stamps a naive datetime as UTC (never converts an already-aware
+    one, which would be wrong). ContentItem/Event's created_at/updated_at
+    are always naive-UTC internally (see their model comments —
+    datetime.utcnow() everywhere), but Pydantic serializes a naive
+    datetime to JSON with NO timezone suffix — the frontend's `new
+    Date(iso)` then reads it as local time, not UTC, silently shifting
+    the displayed timestamp. Attaching real tzinfo here makes every
+    ContentItemResponse/EventResponse timestamp round-trip correctly."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
 
 
 class EventInput(BaseModel):
@@ -231,6 +245,8 @@ class ContentItemResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    _stamp_utc = field_validator("created_at", "updated_at")(_as_utc)
+
 
 class EventResponse(BaseModel):
     """A persisted event, with input fields plus DB metadata"""
@@ -245,6 +261,8 @@ class EventResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    _stamp_utc = field_validator("created_at", "updated_at")(_as_utc)
 
 
 class EventWithContentResponse(EventResponse):

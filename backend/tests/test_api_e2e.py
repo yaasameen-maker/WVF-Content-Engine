@@ -120,6 +120,27 @@ def test_generate_persists_event_and_immediate_content_items(client):
     assert all(item["status"] == "draft" for item in event["content_items"])
 
 
+def test_event_and_content_item_timestamps_are_utc_marked(client):
+    """created_at/updated_at are stored as naive UTC internally
+    (datetime.utcnow() everywhere in the models) — Pydantic serializes a
+    naive datetime with NO timezone suffix, which the frontend's
+    `new Date(iso)` then silently misreads as local time instead of UTC,
+    shifting the displayed timestamp by the browser's UTC offset (the
+    real bug a user hit live: a post created "now" showed as created
+    hours in the future). Every timestamp in the JSON response must end
+    in Z (or a numeric UTC offset) so JS parses it correctly."""
+    resp = client.post("/api/generate", json=SAMPLE_EVENT)
+    assert resp.status_code == 200
+
+    event = client.get("/api/events").json()[0]
+    assert event["created_at"].endswith("Z") or "+00:00" in event["created_at"]
+    assert event["updated_at"].endswith("Z") or "+00:00" in event["updated_at"]
+
+    for item in event["content_items"]:
+        assert item["created_at"].endswith("Z") or "+00:00" in item["created_at"], item["created_at"]
+        assert item["updated_at"].endswith("Z") or "+00:00" in item["updated_at"], item["updated_at"]
+
+
 def test_select_social_variant_persists_the_picked_pair(client):
     gen_resp = client.post("/api/generate", json=SAMPLE_EVENT)
     generated = gen_resp.json()
