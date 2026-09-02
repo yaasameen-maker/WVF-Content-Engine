@@ -2,18 +2,21 @@
 
 import { useEffect } from "react";
 import type { ContentItemResponse, EventWithContentResponse } from "@/lib/api";
+import { ApproveButton } from "@/components/ApproveButton";
 
 /**
  * Full detail popup for a single planned/generated content item, opened by
  * clicking an entry on the Calendar page. Shows every real field that
  * exists on the item today.
  *
- * "Who approved it" is intentionally NOT shown as a name — there is no
- * auth/user system built yet (see CLAUDE.md Status: "Auth/user system not
- * built — users.role exists in schema, no login yet"), so ContentItem has
- * no approved_by column. Only `status` (draft/approved/published) and
- * `updated_at` are real. Showing a fabricated approver name here would be
- * worse than admitting the gap.
+ * Includes the real Approve action (Sept 2026) — this used to be the
+ * only place content lives that has NO path to approval at all: the
+ * review page's Approve button only exists right after generating,
+ * before navigating away, so anything saved via "Schedule this post"
+ * (a fixed template, never generated through /review) had no way to
+ * ever be approved. Only shown for social_post items, matching the
+ * review page's ApproveButton — other content types don't have an
+ * approve flow built yet.
  */
 
 const STATUS_STYLES: Record<string, string> = {
@@ -126,18 +129,18 @@ export function ContentItemDetailModal({
             <DetailField label="Last Updated">{formatTimestamp(item.updated_at)}</DetailField>
           </dl>
 
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Approved By
-            </p>
-            {item.approved_by_name ? (
-              <p className="text-sm text-gray-800">{item.approved_by_name}</p>
-            ) : (
-              <p className="text-sm italic text-gray-400">
-                Not yet approved — approve it from the Review page to record who signed off.
+          {item.content_type === "social_post" && (
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Approval
               </p>
-            )}
-          </div>
+              <ApproveButton
+                contentItemId={item.id}
+                initialStatus={item.status}
+                initialApprovedByName={item.approved_by_name}
+              />
+            </div>
+          )}
 
           <ContentBody item={item} />
         </div>
