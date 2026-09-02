@@ -18,6 +18,7 @@ from app.services.generation import generate_all_content
 from app.services.instagram_templates import get_instagram_template, list_instagram_templates
 from app.services.keymakers_campaign import get_keymakers_stage, list_keymakers_stages
 from app.services.prompts import list_social_post_series, list_social_post_tones, list_variants
+from app.services.scheduling import is_stale
 from app.services.x_templates import get_x_template, list_x_templates
 
 router = APIRouter(prefix="/api", tags=["generation"])
@@ -240,6 +241,7 @@ def schedule_template(request: ScheduleTemplateRequest, db: Session = Depends(ge
         body=json.loads(item.body),
         scheduled_date=item.scheduled_date.isoformat() if item.scheduled_date else None,
         scheduled_time=item.scheduled_time,
+        is_stale=is_stale(item),
         created_at=item.created_at,
         updated_at=item.updated_at,
     )
@@ -420,6 +422,7 @@ def select_social_variant(
             body=json.loads(item.body),
             scheduled_date=item.scheduled_date.isoformat() if item.scheduled_date else None,
             scheduled_time=item.scheduled_time,
+            is_stale=is_stale(item),
             created_at=item.created_at,
             updated_at=item.updated_at,
         )

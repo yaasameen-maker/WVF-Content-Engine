@@ -3,20 +3,21 @@
 import { useEffect } from "react";
 import type { ContentItemResponse, EventWithContentResponse } from "@/lib/api";
 import { ApproveButton } from "@/components/ApproveButton";
+import { PostToXButton } from "@/components/PostToXButton";
 
 /**
  * Full detail popup for a single planned/generated content item, opened by
  * clicking an entry on the Calendar page. Shows every real field that
  * exists on the item today.
  *
- * Includes the real Approve action (Sept 2026) — this used to be the
- * only place content lives that has NO path to approval at all: the
- * review page's Approve button only exists right after generating,
- * before navigating away, so anything saved via "Schedule this post"
- * (a fixed template, never generated through /review) had no way to
- * ever be approved. Only shown for social_post items, matching the
- * review page's ApproveButton — other content types don't have an
- * approve flow built yet.
+ * Includes the real Approve and Post to X actions (Sept 2026) — this
+ * used to be the only place content lives that has NO path to approval
+ * or manual posting at all: both actions previously only existed on the
+ * review page right after generating, before navigating away, so
+ * anything saved via "Schedule this post" (a fixed template, never
+ * generated through /review) had no way to ever be approved or posted.
+ * Both only shown for social_post items, matching the review page —
+ * other content types don't have approve/post flows built yet.
  */
 
 const STATUS_STYLES: Record<string, string> = {
@@ -129,16 +130,28 @@ export function ContentItemDetailModal({
             <DetailField label="Last Updated">{formatTimestamp(item.updated_at)}</DetailField>
           </dl>
 
+          {item.is_stale && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <span className="font-semibold">Scheduled time passed — not auto-posted.</span> This
+              was approved more than 72 hours after its scheduled date/time, so automatic posting
+              skipped it. It&apos;s still approved — use &quot;Post to X&quot; below if you still
+              want to send it.
+            </div>
+          )}
+
           {item.content_type === "social_post" && (
-            <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Approval
-              </p>
-              <ApproveButton
-                contentItemId={item.id}
-                initialStatus={item.status}
-                initialApprovedByName={item.approved_by_name}
-              />
+            <div className="space-y-3">
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Approval
+                </p>
+                <ApproveButton
+                  contentItemId={item.id}
+                  initialStatus={item.status}
+                  initialApprovedByName={item.approved_by_name}
+                />
+              </div>
+              <PostToXButton contentItemId={item.id} currentBody={item.body} />
             </div>
           )}
 

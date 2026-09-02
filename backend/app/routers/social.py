@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import ContentItem, ContentStatus, ContentType, OAuthPkceState, SocialConnection, SocialPlatform, SocialPost
 from app.services import meta_client, x_client
+from app.services.scheduling import is_due, is_stale
 from app.services.token_encryption import decrypt_token, encrypt_token
 
 logger = logging.getLogger(__name__)
@@ -455,39 +456,12 @@ async def post_to_x(request: PostToXRequest, db: Session = Depends(get_db)) -> P
 # ---------------------------------------------------------------------
 
 
-def _parse_scheduled_time(raw: str) -> tuple[int, int] | None:
-    """Best-effort parse of scheduled_time's free-text value (e.g.
-    "2:30 PM", "14:30") into (hour, minute). Returns None if it can't be
-    parsed — callers treat that as "no specific time," i.e. due as soon
-    as the date arrives, rather than blocking a post forever on a
-    malformed string a staff member typed."""
-    raw = raw.strip()
-    for fmt in ("%I:%M %p", "%H:%M", "%I:%M%p"):
-        try:
-            parsed = datetime.strptime(raw, fmt)
-            return parsed.hour, parsed.minute
-        except ValueError:
-            continue
-    return None
-
-
-def _is_due(item: ContentItem, now: datetime) -> bool:
-    if item.scheduled_date is None:
-        return False
-    if item.scheduled_date > now.date():
-        return False
-    if item.scheduled_date < now.date():
-        return True
-    # Same day: only gate on time if scheduled_time parses to something
-    # meaningful — an unparsed/unset time means "due as soon as today
-    # arrives," not "never," so it doesn't block posting.
-    if not item.scheduled_time:
-        return True
-    parsed = _parse_scheduled_time(item.scheduled_time)
-    if parsed is None:
-        return True
-    hour, minute = parsed
-    return (now.hour, now.minute) >= (hour, minute)
+# is_due / is_stale / STALE_AFTER live in app/services/scheduling.py —
+# shared with the ContentItemResponse serializers (content.py,
+# generate.py) so "due"/"stale" can never be defined differently in two
+# places. Imported at module level below (see the isort-style import
+# block near the top of this file — kept here as a pointer since these
+# names used to be defined locally).
 
 
 class ScheduledPostResult(BaseModel):
@@ -548,7 +522,7 @@ async def run_scheduled_x_posts(
     )
 
     now = datetime.now()
-    due = [item for item in candidates if _is_due(item, now)]
+    due = [item for item in candidates if is_due(item, now) and not is_stale(item, now)]
 
     results: list[ScheduledPostResult] = []
     for item in due:

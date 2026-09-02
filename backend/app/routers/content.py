@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models import Approver, ContentItem, ContentStatus, Event, KeyMaker
 from app.schemas import ContentItemResponse, ContentItemUpdate, EventWithContentResponse, KeyMakerResponse
+from app.services.scheduling import is_stale as _is_stale
 
 router = APIRouter(prefix="/api", tags=["content"])
 
@@ -31,6 +32,7 @@ def _serialize_content_item(item: ContentItem) -> ContentItemResponse:
         scheduled_date=item.scheduled_date.isoformat() if item.scheduled_date else None,
         scheduled_time=item.scheduled_time,
         approved_by_name=item.approved_by.name if item.approved_by else None,
+        is_stale=_is_stale(item),
         created_at=item.created_at,
         updated_at=item.updated_at,
     )

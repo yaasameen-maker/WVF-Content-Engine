@@ -218,6 +218,14 @@ class ContentItemResponse(BaseModel):
     # app/models/approver.py) — null until a passcode-gated approve
     # actually happens. Never the passcode itself.
     approved_by_name: Optional[str] = None
+    # True once this item's scheduled_date/time is more than
+    # social.STALE_AFTER (72h) in the past AND it was never actually
+    # published — the scheduler stops treating it as an auto-post
+    # candidate at that point (see social.py's _is_stale), but leaves
+    # status alone so a human can still manually "Post to X". Always
+    # False for items with no scheduled_date, or once status is
+    # published/draft-never-scheduled.
+    is_stale: bool = False
     created_at: datetime
     updated_at: datetime
 

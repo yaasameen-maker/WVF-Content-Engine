@@ -521,3 +521,105 @@ def test_run_scheduled_posts_no_connection_is_a_noop_not_an_error(client, db_ses
     )
     assert resp.status_code == 200
     assert resp.json() == {"checked": 0, "posted": []}
+
+
+# ---------------------------------------------------------------------
+# Staleness cutoff (Sept 2026) — an approved item that's more than 72h
+# past its scheduled moment is skipped by the auto-poster (but stays
+# approved so a human can still manually "Post to X"), covering the
+# real scenario: a post scheduled for a specific moment, approved late,
+# should still fire IF the approval was reasonably prompt, but not fire
+# automatically if it sat unapproved for days.
+# ---------------------------------------------------------------------
+
+
+def test_run_scheduled_posts_skips_stale_approved_item(client, db_session_factory, monkeypatch):
+    four_days_ago = dt.date.today() - dt.timedelta(days=4)
+    content_item_id = _seed_scheduled_social_post(
+        db_session_factory, status=ContentStatus.APPROVED, scheduled_date=four_days_ago
+    )
+
+    async def fake_post_tweet(access_token, text):
+        pytest.fail("Should never be called — item is stale (>72h past scheduled moment)")
+
+    monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
+
+    resp = client.post(
+        "/api/social/x/run-scheduled-posts", headers={"X-Scheduler-Secret": "test-scheduler-secret"}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    # Still a candidate at the SQL level (scheduled_date <= today), just
+    # excluded from posted once the staleness check runs.
+    assert body["checked"] == 1
+    assert body["posted"] == []
+
+    db = db_session_factory()
+    item = db.query(ContentItem).filter(ContentItem.id == content_item_id).first()
+    # Approval is untouched — a human can still manually "Post to X" for
+    # a stale item if they actually want to send it late.
+    assert item.status == ContentStatus.APPROVED
+    db.close()
+
+
+def test_run_scheduled_posts_publishes_late_approval_within_staleness_window(
+    client, db_session_factory, monkeypatch
+):
+    """The real scenario from the "is this a conflict" question: a post
+    scheduled for a moment that has already passed, approved late but
+    still within the 72h grace window, should post on the very next
+    cron tick after approval — not be silently skipped just because the
+    original scheduled moment already passed."""
+    two_days_ago = dt.date.today() - dt.timedelta(days=2)
+    content_item_id = _seed_scheduled_social_post(
+        db_session_factory, status=ContentStatus.APPROVED, scheduled_date=two_days_ago
+    )
+
+    async def fake_post_tweet(access_token, text):
+        return {"data": {"id": "888", "text": text}}
+
+    monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
+
+    resp = client.post(
+        "/api/social/x/run-scheduled-posts", headers={"X-Scheduler-Secret": "test-scheduler-secret"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["posted"][0]["status"] == "success"
+
+    db = db_session_factory()
+    item = db.query(ContentItem).filter(ContentItem.id == content_item_id).first()
+    assert item.status == ContentStatus.PUBLISHED
+    db.close()
+
+
+def test_is_stale_helper_directly_covers_boundary_and_published_short_circuit():
+    from app.services.scheduling import STALE_AFTER, is_stale
+
+    class FakeItem:
+        def __init__(self, scheduled_date, scheduled_time=None, status="approved"):
+            self.scheduled_date = scheduled_date
+            self.scheduled_time = scheduled_time
+            self.status = status
+
+    now = dt.datetime(2026, 9, 10, 12, 0)
+
+    # Exactly at the boundary — not yet stale (uses > not >=).
+    at_boundary = FakeItem(scheduled_date=(now - STALE_AFTER).date(), scheduled_time="12:00 PM")
+    assert is_stale(at_boundary, now) is False
+
+    # One minute past the boundary — stale.
+    past_boundary_date = (now - STALE_AFTER - dt.timedelta(days=1)).date()
+    past_boundary = FakeItem(scheduled_date=past_boundary_date, scheduled_time="12:01 PM")
+    assert is_stale(past_boundary, now) is True
+
+    # A published item is never "stale" regardless of how old its
+    # scheduled moment is — the staleness concept only applies to
+    # items still waiting to be auto-posted.
+    published_and_old = FakeItem(
+        scheduled_date=(now - dt.timedelta(days=30)).date(), status="published"
+    )
+    assert is_stale(published_and_old, now) is False
+
+    # No scheduled_date at all — never stale (never a candidate).
+    never_scheduled = FakeItem(scheduled_date=None)
+    assert is_stale(never_scheduled, now) is False

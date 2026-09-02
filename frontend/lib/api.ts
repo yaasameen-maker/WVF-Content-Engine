@@ -109,6 +109,11 @@ export interface ContentItemResponse {
    * app/models/approver.py) — null until a passcode-gated approve
    * actually happens. Never the passcode itself. */
   approved_by_name: string | null;
+  /** True once this item's scheduled_date/time is more than 72 hours in
+   * the past and it was never actually published — the scheduler stops
+   * auto-posting it at that point (see backend app/services/scheduling.py),
+   * but status is left alone so a human can still manually "Post to X". */
+  is_stale: boolean;
   created_at: string;
   updated_at: string;
 }
