@@ -370,6 +370,31 @@ export function approveContentItem(
   });
 }
 
+/** Requests a passcode reset link be emailed to the approver, if that
+ * name matches a real approver with an email on file — always resolves
+ * the same way regardless, so this can't be used to enumerate valid
+ * approver names (see backend POST /api/approvers/forgot-passcode). */
+export async function requestPasscodeReset(approverName: string): Promise<void> {
+  await request<{ ok: boolean }>("/api/approvers/forgot-passcode", {
+    method: "POST",
+    body: JSON.stringify({ approver_name: approverName }),
+  });
+}
+
+/** Consumes a reset link's token (from the emailed URL's ?approver=
+ * &token= query params) to set a new passcode. Throws with a 400 message
+ * if the link is invalid/expired/already used. */
+export async function resetPasscode(
+  approverId: number,
+  token: string,
+  newPasscode: string
+): Promise<void> {
+  await request<{ ok: boolean }>("/api/approvers/reset-passcode", {
+    method: "POST",
+    body: JSON.stringify({ approver_id: approverId, token, new_passcode: newPasscode }),
+  });
+}
+
 /** Sets/clears a content item's target publish date and/or an optional
  * free-text time-of-day reminder, shown on /calendar. Purely an
  * organizational tag/note (see backend ContentItem.scheduled_date/

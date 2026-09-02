@@ -130,10 +130,13 @@ export function ContentItemDetailModal({
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
               Approved By
             </p>
-            <p className="text-sm italic text-gray-400">
-              Not available — WVF Content Engine has no login/approver tracking yet. Status above
-              reflects the last known review state.
-            </p>
+            {item.approved_by_name ? (
+              <p className="text-sm text-gray-800">{item.approved_by_name}</p>
+            ) : (
+              <p className="text-sm italic text-gray-400">
+                Not yet approved — approve it from the Review page to record who signed off.
+              </p>
+            )}
           </div>
 
           <ContentBody item={item} />

@@ -18,7 +18,7 @@ from app.models.social import (
     SocialPlatform,
     SocialPost,
 )
-from app.models.approver import Approver
+from app.models.approver import Approver, PasscodeResetToken
 
 __all__ = [
     "Base",
@@ -34,4 +34,5 @@ __all__ = [
     "SocialPlatform",
     "SocialPost",
     "Approver",
+    "PasscodeResetToken",
 ]

@@ -12,6 +12,7 @@ import {
   getXConnectionStatus,
   getXConnectStartUrl,
   postToX,
+  requestPasscodeReset,
   selectSocialVariant,
   updateContentItemBody,
   updateContentItemScheduledDate,
@@ -439,6 +440,8 @@ function ApproveButton({ contentItemId }: { contentItemId: number }) {
   const [passcode, setPasscode] = useState("");
   const [isApproving, setIsApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetRequested, setResetRequested] = useState(false);
+  const [isRequestingReset, setIsRequestingReset] = useState(false);
 
   async function handleApprove(e: React.FormEvent) {
     e.preventDefault();
@@ -452,6 +455,25 @@ function ApproveButton({ contentItemId }: { contentItemId: number }) {
       setError(err instanceof Error ? err.message : "Failed to approve — check the name and passcode.");
     } finally {
       setIsApproving(false);
+    }
+  }
+
+  async function handleForgotPasscode() {
+    if (!approverName.trim()) {
+      setError("Type your name first, then click \"Forgot passcode?\"");
+      return;
+    }
+    setError(null);
+    setIsRequestingReset(true);
+    try {
+      await requestPasscodeReset(approverName.trim());
+      setResetRequested(true);
+    } catch {
+      // Deliberately generic — same as the backend's response shape, so
+      // this never reveals whether the name matched a real approver.
+      setResetRequested(true);
+    } finally {
+      setIsRequestingReset(false);
     }
   }
 
@@ -512,6 +534,20 @@ function ApproveButton({ contentItemId }: { contentItemId: number }) {
       >
         Cancel
       </button>
+      {!resetRequested ? (
+        <button
+          type="button"
+          onClick={handleForgotPasscode}
+          disabled={isRequestingReset}
+          className="text-xs font-semibold text-sky-blue hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isRequestingReset ? "Sending…" : "Forgot passcode?"}
+        </button>
+      ) : (
+        <p className="text-xs text-gray-600">
+          If that name has an email on file, a reset link was sent to it.
+        </p>
+      )}
       {error && <p className="w-full text-xs text-red-600">{error}</p>}
     </form>
   );
