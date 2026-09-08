@@ -158,24 +158,30 @@ function KeyMakerCard({
       layoutId={`key-maker-card-${keyMaker.id}`}
       onClick={onClick}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="w-full overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm transition hover:border-sky-blue"
+      className="flex h-full w-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm transition hover:border-sky-blue"
     >
-      {keyMaker.photo_url && !imageFailed && (
-        // object-contain (not cover): sources vary wildly in aspect ratio
-        // (tall headshots, circular logos, wide banners) — cover was
-        // cropping people's faces/logos out of frame.
-        <div className="flex h-40 w-full items-center justify-center bg-gray-50">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+      {/* Always reserve the same h-40 image band, even without a
+          working photo (missing photo_url, or a broken URL caught by
+          onError) — otherwise a card with no photo collapses to a
+          shorter height than its row-mates, misaligning every card in
+          that row. object-contain (not cover): sources vary wildly in
+          aspect ratio (tall headshots, circular logos, wide banners) —
+          cover was cropping people's faces/logos out of frame. */}
+      <div className="flex h-40 w-full shrink-0 items-center justify-center bg-gray-50">
+        {keyMaker.photo_url && !imageFailed ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={keyMaker.photo_url}
             alt={`${keyMaker.business_name} photo`}
             className="h-full w-full object-contain"
             onError={() => setImageFailed(true)}
           />
-        </div>
-      )}
+        ) : (
+          <span className="text-2xl font-bold text-navy">{initials}</span>
+        )}
+      </div>
 
-      <div className="bg-navy px-5 py-3">
+      <div className="shrink-0 bg-navy px-5 py-3">
         <h3 className="text-sm font-bold text-white">{keyMaker.business_name}</h3>
         <p className="text-xs text-sky-blue">{keyMaker.owner_name}</p>
       </div>
