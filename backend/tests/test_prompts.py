@@ -184,3 +184,26 @@ def test_missing_registration_link_is_not_interpolated_as_none():
 def test_present_registration_link_still_appears_normally():
     prompt = build_social_post_prompt(SAMPLE_EVENT)
     assert f"- Registration: {SAMPLE_EVENT.registration_link}" in prompt
+
+
+def test_prompt_explicitly_instructs_link_in_caption_body():
+    """Real bug caught live (Sept 2026): a scheduled+auto-posted tweet
+    shipped with a text CTA ("Register Now") but no URL at all — the
+    Event Details block surfaced the link as a fact (see
+    _registration_line/test_present_registration_link_still_appears_normally
+    above), but nothing told Claude to actually put it IN the caption
+    text. X (and every platform this app posts to directly) has no
+    separate clickable CTA element — a link only works if it's written
+    into the post body. This must be an explicit Requirements
+    instruction, not just a fact Claude might infer."""
+    prompt = build_social_post_prompt(SAMPLE_EVENT)
+    assert SAMPLE_EVENT.registration_link is not None  # precondition for this test's premise
+    assert f"Include the actual registration link ({SAMPLE_EVENT.registration_link})" in prompt
+    assert "caption text" in prompt
+
+
+def test_prompt_does_not_demand_a_link_when_none_provided():
+    event_no_link = SAMPLE_EVENT.model_copy(update={"registration_link": None})
+    prompt = build_social_post_prompt(event_no_link)
+    assert "Include the actual registration link" not in prompt
+    assert "do not invent one" in prompt

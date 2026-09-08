@@ -28,6 +28,21 @@ def _registration_line(event: EventInput) -> str:
     return "- Registration: not provided yet — do not invent a link or URL; omit any registration link/CTA that would need one"
 
 
+def _caption_link_instruction(event: EventInput) -> str:
+    """Explicit instruction for the caption's Requirements block — the
+    Event Details section already surfaces the registration link as a
+    fact (see _registration_line), but nothing told Claude to actually
+    put it IN the caption text. X (and every platform this app posts to
+    directly, unlike a webpage's separate button) has no clickable CTA
+    element — a link only becomes clickable if it's literally written
+    into the post body. Without this, real posts were shipping with a
+    text-only CTA like "Register Now" and no URL at all (caught live,
+    Sept 2026: a scheduled+auto-posted tweet had no link)."""
+    if event.registration_link:
+        return f"- Include the actual registration link ({event.registration_link}) directly in the caption text, near the CTA — a CTA phrase alone (e.g. \"Register Now\") is not clickable on its own; the URL must be written into the post"
+    return "- No registration link was provided — do not invent one; the CTA can still be a phrase like \"Learn more\" or \"Stay tuned for details\" without a URL"
+
+
 SOCIAL_POST_VARIANTS: dict[str, dict[str, str]] = {
     "standard": {
         "label": "Standard",
@@ -262,6 +277,7 @@ Your task: Create a social media post for this event:
 
 **Requirements:**
 {structure}
+{_caption_link_instruction(event)}
 - Suggest 5-7 hashtags from the brand list + topic-specific ones
 - Write a DALL-E style image prompt (describe a professional, engaging visual)
 - Match the tone from the examples: direct, benefit-forward, warm but professional{emoji_guidance}{angle_instruction}{series_instruction}{tone_instruction}
