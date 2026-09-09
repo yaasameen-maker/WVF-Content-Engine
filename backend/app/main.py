@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from sqlalchemy import text
 
 from app.database import engine
-from app.routers import approvers, content, generate, newsletter_blocks, social
+from app.routers import approvers, content, generate, media, newsletter_blocks, social
 
 # Load environment variables
 load_dotenv()
@@ -46,6 +46,7 @@ app.include_router(content.router)
 app.include_router(newsletter_blocks.router)
 app.include_router(social.router)
 app.include_router(approvers.router)
+app.include_router(media.router)
 
 
 @app.get("/")

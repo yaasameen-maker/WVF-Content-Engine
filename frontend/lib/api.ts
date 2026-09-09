@@ -498,3 +498,100 @@ export function listKeyMakers(): Promise<KeyMakerResponse[]> {
 export function getKeyMaker(keyMakerId: number): Promise<KeyMakerResponse> {
   return request<KeyMakerResponse>(`/api/key-makers/${keyMakerId}`);
 }
+
+/** A staff-uploaded photo (event photos, Key Maker headshots, etc.) —
+ * see backend app/models/media.py. Proposed scope addition, not yet
+ * approved by WVF. */
+export interface PhotoAssetResponse {
+  id: number;
+  object_key: string;
+  public_url: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  key_maker_id: number | null;
+  event_id: number | null;
+  caption: string | null;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
+interface PresignUploadResponse {
+  upload_url: string;
+  object_key: string;
+}
+
+/** Step 1 of 3 for uploading a photo: ask the backend for a URL to
+ * upload straight to R2. The backend never receives the file bytes —
+ * see confirmPhotoUpload() for step 3 and object_storage.py for why. */
+function presignPhotoUpload(filename: string, contentType: string): Promise<PresignUploadResponse> {
+  return request<PresignUploadResponse>("/api/media/presign-upload", {
+    method: "POST",
+    body: JSON.stringify({ filename, content_type: contentType }),
+  });
+}
+
+/** Step 3 of 3: tell the backend the direct-to-R2 upload (step 2)
+ * succeeded, so it can persist the photo's metadata row. */
+function confirmPhotoUpload(params: {
+  objectKey: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  keyMakerId?: number;
+  eventId?: number;
+  caption?: string;
+  uploadedBy?: string;
+}): Promise<PhotoAssetResponse> {
+  return request<PhotoAssetResponse>("/api/media/photos", {
+    method: "POST",
+    body: JSON.stringify({
+      object_key: params.objectKey,
+      filename: params.filename,
+      content_type: params.contentType,
+      size_bytes: params.sizeBytes,
+      key_maker_id: params.keyMakerId ?? null,
+      event_id: params.eventId ?? null,
+      caption: params.caption ?? null,
+      uploaded_by: params.uploadedBy ?? null,
+    }),
+  });
+}
+
+/** Full upload flow: presign -> direct browser PUT to R2 -> confirm.
+ * Callers just need a File object; this handles all three steps. */
+export async function uploadPhoto(
+  file: File,
+  metadata?: { keyMakerId?: number; eventId?: number; caption?: string; uploadedBy?: string }
+): Promise<PhotoAssetResponse> {
+  const { upload_url, object_key } = await presignPhotoUpload(file.name, file.type);
+
+  const uploadRes = await fetch(upload_url, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  if (!uploadRes.ok) {
+    throw new Error(`Upload to storage failed (${uploadRes.status})`);
+  }
+
+  return confirmPhotoUpload({
+    objectKey: object_key,
+    filename: file.name,
+    contentType: file.type,
+    sizeBytes: file.size,
+    ...metadata,
+  });
+}
+
+export function listPhotos(params?: { keyMakerId?: number; eventId?: number }): Promise<PhotoAssetResponse[]> {
+  const query = new URLSearchParams();
+  if (params?.keyMakerId != null) query.set("key_maker_id", String(params.keyMakerId));
+  if (params?.eventId != null) query.set("event_id", String(params.eventId));
+  const qs = query.toString();
+  return request<PhotoAssetResponse[]>(`/api/media/photos${qs ? `?${qs}` : ""}`);
+}
+
+export function deletePhoto(photoId: number): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/api/media/photos/${photoId}`, { method: "DELETE" });
+}

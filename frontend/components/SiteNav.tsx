@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { href: "/", label: "New Campaign" },
   { href: "/calendar", label: "Calendar" },
   { href: "/profiles", label: "Profiles" },
+  { href: "/photos", label: "Photos" },
 ];
 
 /**
