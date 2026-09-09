@@ -411,7 +411,11 @@ export default function EventFormPage() {
           <div className="mb-8">
             {anyExpanded ? (
               <SideRailPortal>
-                <div className="flex flex-col gap-8">
+                {/* Horizontal strip below sm (matching side-rail-slot's
+                    own mobile layout), vertical column at sm+ — see
+                    RootLayout's comment on why the rail can't dock to
+                    the true window edge on a narrow screen. */}
+                <div className="flex shrink-0 flex-row gap-6 sm:flex-col sm:gap-8">
                   <div>
                     <p className="m-0 px-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-gray-400">
                       Social
@@ -1158,7 +1162,7 @@ function ScheduleTemplateButton({
 
   return (
     <div className="mt-3 flex flex-wrap items-end gap-3">
-      <div className="w-48">
+      <div className="w-full sm:w-48">
         <Field label="Post date">
           <input
             type="date"
@@ -1168,7 +1172,7 @@ function ScheduleTemplateButton({
           />
         </Field>
       </div>
-      <div className="w-40">
+      <div className="w-full sm:w-40">
         <Field label="Time (optional)">
           <input
             type="time"
@@ -1182,7 +1186,7 @@ function ScheduleTemplateButton({
         type="button"
         onClick={handleSchedule}
         disabled={isSaving}
-        className="rounded-md bg-navy px-4 py-2 text-sm font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-md bg-navy px-4 py-2 text-sm font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
       >
         {isSaving ? "Scheduling…" : "Schedule this post"}
       </button>
@@ -1265,13 +1269,17 @@ const TILE_SPRING = { type: "spring", stiffness: 300, damping: 30 } as const;
  * silently never applied on any normal window size and the rail/panel
  * rendered stacked instead of side by side. */
 function TileRail({ expanded, children }: { expanded: boolean; children: React.ReactNode }) {
+  // Collapsed rail lays out as a horizontal strip below sm (matching
+  // side-rail-slot's own mobile layout — see RootLayout's comment on
+  // why the slot can't dock to the true window edge on a narrow
+  // screen) and as the usual vertical column at sm and above.
   return (
     <motion.div
       layout
       transition={TILE_SPRING}
       className={
         expanded
-          ? "flex w-20 shrink-0 flex-col gap-2"
+          ? "flex shrink-0 flex-row gap-2 sm:w-20 sm:flex-col"
           : "flex flex-wrap gap-4"
       }
     >

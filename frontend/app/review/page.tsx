@@ -298,7 +298,11 @@ function SocialPostEditor({
         <span className="rounded-full bg-sky-blue/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy">
           {variant.structure_label}
         </span>
-        <button type="button" onClick={onChangeOption} className="text-xs font-semibold text-sky-blue hover:underline">
+        <button
+          type="button"
+          onClick={onChangeOption}
+          className="-my-2 inline-block py-2 text-xs font-semibold text-sky-blue hover:underline"
+        >
           ← Compare options again
         </button>
       </div>
@@ -387,14 +391,14 @@ function SaveToCalendarRow({
 
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-md border border-gray-200 bg-gray-50/50 px-4 py-3">
-      <div className="w-48">
+      <div className="w-full sm:w-48">
         <PostDatePicker
           value={scheduledDate}
           onChange={onScheduledDateChange}
           label="Post date"
         />
       </div>
-      <div className="w-40">
+      <div className="w-full sm:w-40">
         <label className="block">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
             Time (optional)
@@ -411,7 +415,7 @@ function SaveToCalendarRow({
         type="button"
         onClick={handleSave}
         disabled={isSaving}
-        className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-navy hover:text-navy disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-navy hover:text-navy disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
       >
         {isSaving ? "Saving…" : "Save to Calendar"}
       </button>
@@ -482,7 +486,11 @@ function MetaConnectButton({ platform }: { platform: "instagram" | "facebook" })
       <span className="text-sm font-semibold text-gray-700">
         {label} connected ({username}) — publishing pending Meta App Review
       </span>
-      <button type="button" onClick={handleDisconnect} className="text-xs font-semibold text-gray-500 hover:underline">
+      <button
+        type="button"
+        onClick={handleDisconnect}
+        className="-my-2 inline-block py-2 text-xs font-semibold text-gray-500 hover:underline"
+      >
         Disconnect
       </button>
     </div>
@@ -559,7 +567,7 @@ function CopyButton({ value }: { value: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="text-xs font-semibold text-sky-blue hover:underline"
+      className="-my-2 inline-block py-2 text-xs font-semibold text-sky-blue hover:underline"
     >
       {copied ? "Copied!" : "Copy"}
     </button>

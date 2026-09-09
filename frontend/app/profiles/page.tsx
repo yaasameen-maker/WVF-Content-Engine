@@ -72,9 +72,12 @@ export default function ProfilesPage() {
       {keyMakers && keyMakers.length > 0 && selected && (
         <>
           <SideRailPortal>
+            {/* Horizontal strip below sm, vertical column at sm+ —
+                matches side-rail-slot's own mobile layout (see
+                RootLayout's comment). */}
             <motion.div
               layout
-              className="flex w-14 flex-col gap-2"
+              className="flex shrink-0 flex-row gap-2 sm:w-14 sm:flex-col"
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
             >
               {keyMakers.map((keyMaker) => (

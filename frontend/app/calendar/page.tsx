@@ -331,53 +331,63 @@ function MonthGrid({
   const todayKey = dateKeyOf(new Date());
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
-      <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
-        {WEEKDAY_LABELS.map((label) => (
-          <div
-            key={label}
-            className="py-2 text-center text-xs font-semibold tracking-wide text-gray-500"
-          >
-            {label}
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7">
-        {cells.map((cell, idx) => {
-          const isToday = cell.dateKey === todayKey;
-          const dayGroup = cell.dateKey ? byDateKey.get(cell.dateKey) : undefined;
-
-          return (
+    // 7 real columns can't fit comfortably at phone width (375-430px) no
+    // matter how the CSS is tuned — rather than break the grid down into
+    // some other shape, each column gets a sensible minimum width
+    // (min-w-[104px], enough for a day number + a couple of entry
+    // labels) and the whole grid scrolls horizontally below sm. Staff
+    // can still switch to List view for a no-scroll mobile layout;
+    // Month just stays honest about being a real 7-day-wide grid rather
+    // than silently degrading.
+    <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+      <div className="min-w-[728px]">
+        <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
+          {WEEKDAY_LABELS.map((label) => (
             <div
-              key={idx}
-              className={`min-h-[110px] border-b border-r border-gray-100 p-2 [&:nth-child(7n)]:border-r-0 ${
-                isToday ? "bg-sky-blue/10" : cell.date ? "bg-white" : "bg-gray-50/50"
-              }`}
+              key={label}
+              className="py-2 text-center text-xs font-semibold tracking-wide text-gray-500"
             >
-              {cell.date && (
-                <>
-                  <span
-                    className={`text-xs font-semibold ${
-                      isToday ? "text-navy" : "text-gray-500"
-                    }`}
-                  >
-                    {cell.date.getDate()}
-                  </span>
-                  <div className="mt-1 space-y-1">
-                    {dayGroup?.items.map(({ event, item }) => (
-                      <MonthCellEntry
-                        key={item.id}
-                        event={event}
-                        item={item}
-                        onClick={() => onSelect({ event, item })}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
+              {label}
             </div>
-          );
-        })}
+          ))}
+        </div>
+        <div className="grid grid-cols-7">
+          {cells.map((cell, idx) => {
+            const isToday = cell.dateKey === todayKey;
+            const dayGroup = cell.dateKey ? byDateKey.get(cell.dateKey) : undefined;
+
+            return (
+              <div
+                key={idx}
+                className={`min-h-[110px] min-w-[104px] border-b border-r border-gray-100 p-2 [&:nth-child(7n)]:border-r-0 ${
+                  isToday ? "bg-sky-blue/10" : cell.date ? "bg-white" : "bg-gray-50/50"
+                }`}
+              >
+                {cell.date && (
+                  <>
+                    <span
+                      className={`text-xs font-semibold ${
+                        isToday ? "text-navy" : "text-gray-500"
+                      }`}
+                    >
+                      {cell.date.getDate()}
+                    </span>
+                    <div className="mt-1 space-y-1">
+                      {dayGroup?.items.map(({ event, item }) => (
+                        <MonthCellEntry
+                          key={item.id}
+                          event={event}
+                          item={item}
+                          onClick={() => onSelect({ event, item })}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -108,7 +108,7 @@ export function PostToXButton({
           <button
             type="button"
             onClick={handleDisconnect}
-            className="text-xs font-semibold text-gray-500 hover:underline"
+            className="-my-2 inline-block py-2 text-xs font-semibold text-gray-500 hover:underline"
           >
             Disconnect X
           </button>

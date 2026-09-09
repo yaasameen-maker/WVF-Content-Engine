@@ -132,7 +132,7 @@ export function ApproveButton({
       <button
         type="button"
         onClick={() => setFormOpen(false)}
-        className="text-xs font-semibold text-gray-500 hover:underline"
+        className="-my-2 inline-block py-2 text-xs font-semibold text-gray-500 hover:underline"
       >
         Cancel
       </button>
@@ -141,7 +141,7 @@ export function ApproveButton({
           type="button"
           onClick={handleForgotPasscode}
           disabled={isRequestingReset}
-          className="text-xs font-semibold text-sky-blue hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+          className="-my-2 inline-block py-2 text-xs font-semibold text-sky-blue hover:underline disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isRequestingReset ? "Sending…" : "Forgot passcode?"}
         </button>
