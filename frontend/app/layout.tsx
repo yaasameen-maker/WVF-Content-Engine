@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { SiteNav } from "@/components/SiteNav";
+import { SiteHeader, SideRailSlotWrapper } from "@/components/SiteChrome";
 
 export const metadata: Metadata = {
   title: "WVF Content Engine",
@@ -28,20 +28,13 @@ export default function RootLayout({
           stays white and the nav/toolbar sit on white too. See
           docs/PROJECT_CONTEXT.md Brand Assets.
         */}
-        <header className="border-b border-gray-200 bg-white">
-          {/* Full-width, not mx-auto max-w-4xl: logo sits at the true left
-              edge of the window and nav at the true right edge, rather than
-              both centered together as one group within the narrower
-              content column. */}
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-            <div className="flex items-center gap-2 sm:gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/wvf-logo.svg" alt="Women's Venture Fund" className="h-8 w-auto sm:h-10" />
-              <span className="text-base font-bold text-navy sm:text-lg">Content Engine</span>
-            </div>
-            <SiteNav />
-          </div>
-        </header>
+        {/* Full-width, not mx-auto max-w-4xl: logo sits at the true left
+            edge of the window and nav at the true right edge, rather than
+            both centered together as one group within the narrower
+            content column. Hidden entirely on chromeless routes (see
+            SiteChrome.tsx) — e.g. the emailed passcode-reset link, which
+            should look like a standalone flow, not the main app shell. */}
+        <SiteHeader />
         {/*
           side-rail-slot docks a page's collapsed tile rail (New Campaign,
           Profiles) to the TRUE left edge of the window on desktop —
@@ -63,10 +56,7 @@ export default function RootLayout({
           how the tile row itself adapts to that horizontal strip).
         */}
         <div className="relative w-full">
-          <div
-            id="side-rail-slot"
-            className="static mb-2 flex justify-start overflow-x-auto px-4 sm:absolute sm:left-6 sm:top-4 sm:mb-0 sm:block sm:overflow-visible sm:px-0"
-          />
+          <SideRailSlotWrapper />
           <main className="mx-auto max-w-4xl px-6 py-8">{children}</main>
         </div>
       </body>
