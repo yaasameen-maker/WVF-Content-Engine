@@ -595,3 +595,96 @@ export function listPhotos(params?: { keyMakerId?: number; eventId?: number }): 
 export function deletePhoto(photoId: number): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>(`/api/media/photos/${photoId}`, { method: "DELETE" });
 }
+
+/** A flattened photo+text-overlay PNG built client-side (Canvas) from a
+ * PhotoAsset plus a content item's caption/headline — see backend
+ * app/models/media.py's ComposedImage docstring. Proposed scope
+ * addition, not yet approved by WVF, and a step beyond
+ * PROJECT_CONTEXT.md's "no image files generated or stored" line. */
+export interface ComposedImageResponse {
+  id: number;
+  content_item_id: number;
+  source_photo_id: number | null;
+  object_key: string;
+  public_url: string;
+  content_type: string;
+  size_bytes: number;
+  created_at: string;
+}
+
+interface PresignComposedUploadResponse {
+  upload_url: string;
+  object_key: string;
+}
+
+/** Step 1 of 3: ask the backend for a URL to upload the flattened PNG
+ * straight to R2. Mirrors presignPhotoUpload() — the backend never
+ * receives or renders the composite itself. */
+function presignComposedUpload(filename: string, contentType: string): Promise<PresignComposedUploadResponse> {
+  return request<PresignComposedUploadResponse>("/api/media/presign-composed-upload", {
+    method: "POST",
+    body: JSON.stringify({ filename, content_type: contentType }),
+  });
+}
+
+/** Step 3 of 3: tell the backend the direct-to-R2 upload succeeded, so
+ * it can persist the composed image's metadata row against the given
+ * content item. contentItemId must already exist — this only runs once
+ * a real ContentItem row has been saved (e.g. after selectSocialVariant
+ * or scheduleTemplate), never against an in-progress draft. */
+function confirmComposedUpload(params: {
+  objectKey: string;
+  contentType: string;
+  sizeBytes: number;
+  contentItemId: number;
+  sourcePhotoId?: number;
+}): Promise<ComposedImageResponse> {
+  return request<ComposedImageResponse>("/api/media/composed-images", {
+    method: "POST",
+    body: JSON.stringify({
+      content_item_id: params.contentItemId,
+      source_photo_id: params.sourcePhotoId ?? null,
+      object_key: params.objectKey,
+      content_type: params.contentType,
+      size_bytes: params.sizeBytes,
+    }),
+  });
+}
+
+/** Full upload flow for a client-composited image: presign -> direct
+ * browser PUT to R2 -> confirm. Callers pass the flattened PNG as a
+ * Blob (from <canvas>.toBlob()) plus which content item and (optionally)
+ * which source PhotoAsset it was built from. */
+export async function uploadComposedImage(
+  blob: Blob,
+  params: { contentItemId: number; sourcePhotoId?: number }
+): Promise<ComposedImageResponse> {
+  const filename = `content-${params.contentItemId}-composite-${Date.now()}.png`;
+  const contentType = blob.type || "image/png";
+  const { upload_url, object_key } = await presignComposedUpload(filename, contentType);
+
+  const uploadRes = await fetch(upload_url, {
+    method: "PUT",
+    headers: { "Content-Type": contentType },
+    body: blob,
+  });
+  if (!uploadRes.ok) {
+    throw new Error(`Upload to storage failed (${uploadRes.status})`);
+  }
+
+  return confirmComposedUpload({
+    objectKey: object_key,
+    contentType,
+    sizeBytes: blob.size,
+    contentItemId: params.contentItemId,
+    sourcePhotoId: params.sourcePhotoId,
+  });
+}
+
+export function listComposedImages(contentItemId: number): Promise<ComposedImageResponse[]> {
+  return request<ComposedImageResponse[]>(`/api/media/composed-images?content_item_id=${contentItemId}`);
+}
+
+export function deleteComposedImage(composedImageId: number): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/api/media/composed-images/${composedImageId}`, { method: "DELETE" });
+}

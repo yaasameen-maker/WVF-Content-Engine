@@ -47,3 +47,37 @@ class PhotoAssetResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     _stamp_utc = field_validator("created_at")(_as_utc)
+
+
+class ComposedImagePresignRequest(BaseModel):
+    """Same shape/flow as PresignUploadRequest, kept as a separate model
+    (rather than reusing that one) so the two upload kinds can diverge
+    later — e.g. if composites ever need a different max size or
+    content-type allowlist than raw photo uploads."""
+    filename: str = Field(..., description="Filename for the flattened PNG, e.g. 'post-42-composite.png'")
+    content_type: str = Field(..., description="MIME type — expected to be image/png")
+
+
+class ComposedImageCreate(BaseModel):
+    """Called after the browser's direct PUT to R2 succeeds, to persist
+    the composed image's metadata row against the content item it's for."""
+    content_item_id: int
+    source_photo_id: Optional[int] = None
+    object_key: str
+    content_type: str
+    size_bytes: int
+
+
+class ComposedImageResponse(BaseModel):
+    id: int
+    content_item_id: int
+    source_photo_id: Optional[int] = None
+    object_key: str
+    public_url: str
+    content_type: str
+    size_bytes: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    _stamp_utc = field_validator("created_at")(_as_utc)

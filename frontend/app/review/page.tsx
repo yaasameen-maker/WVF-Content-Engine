@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { ApproveButton } from "@/components/ApproveButton";
 import { PostToXButton } from "@/components/PostToXButton";
+import { PhotoTextComposer } from "@/components/PhotoTextComposer";
 
 export default function ReviewPage() {
   const [content, setContent] = useState<GeneratedContentResponse | null>(null);
@@ -330,6 +331,7 @@ function SocialPostEditor({
 
       {contentItemId !== null && (
         <>
+          <PhotoTextComposer contentItemId={contentItemId} initialText={caption} />
           <SaveToCalendarRow
             contentItemId={contentItemId}
             scheduledDate={scheduledDate}

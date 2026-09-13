@@ -1,24 +1,29 @@
 """
-Staff photo library — direct-to-R2 presigned uploads plus a metadata
-CRUD layer. See app/services/object_storage.py for the storage
-mechanics and app/models/media.py's module docstring for the
-proposed-scope framing.
+Staff photo library, plus composed (photo + text overlay) images — both
+direct-to-R2 presigned uploads with a metadata CRUD layer. See
+app/services/object_storage.py for the storage mechanics and
+app/models/media.py's module docstring for the proposed-scope framing.
 
-Upload is a two-step confirm flow, not a single call: the browser asks
-this backend for a presigned URL (POST /presign-upload), uploads the
-file bytes straight to R2 itself, then tells this backend the upload
-succeeded (POST /photos) so the metadata row gets created. This backend
-never receives or trusts client-claimed file bytes — only the
-client-claimed size/content-type, which are informational display
-fields here, not security-relevant.
+Upload is a two-step confirm flow, not a single call, for both kinds:
+the browser asks this backend for a presigned URL (POST /presign-upload
+or /presign-composed-upload), uploads the file bytes straight to R2
+itself, then tells this backend the upload succeeded (POST /photos or
+/composed-images) so the metadata row gets created. This backend never
+receives or trusts client-claimed file bytes — only the client-claimed
+size/content-type, which are informational display fields here, not
+security-relevant.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import PhotoAsset
+from app.models import ComposedImage, ContentItem, PhotoAsset
+from app.models.media import COMPOSED_IMAGE_OBJECT_PREFIX
 from app.schemas.media import (
+    ComposedImageCreate,
+    ComposedImagePresignRequest,
+    ComposedImageResponse,
     PhotoAssetCreate,
     PhotoAssetResponse,
     PresignUploadRequest,
@@ -107,5 +112,81 @@ def delete_photo(photo_id: int, db: Session = Depends(get_db)) -> dict:
         pass
 
     db.delete(photo)
+    db.commit()
+    return {"ok": True}
+
+
+def _serialize_composed_image(image: ComposedImage) -> ComposedImageResponse:
+    return ComposedImageResponse(
+        id=image.id,
+        content_item_id=image.content_item_id,
+        source_photo_id=image.source_photo_id,
+        object_key=image.object_key,
+        public_url=image.public_url,
+        content_type=image.content_type,
+        size_bytes=image.size_bytes,
+        created_at=image.created_at,
+    )
+
+
+@router.post("/presign-composed-upload", response_model=PresignUploadResponse)
+def presign_composed_upload(request: ComposedImagePresignRequest) -> PresignUploadResponse:
+    """Same presign-then-PUT flow as /presign-upload (see object_storage.py),
+    under the 'composed/' prefix instead of 'photos/' — the browser flattens
+    a PhotoAsset + overlay text to a PNG via Canvas, then uploads it here
+    directly. This backend never renders or receives the composite itself."""
+    object_key = object_storage.build_object_key(COMPOSED_IMAGE_OBJECT_PREFIX, request.filename)
+    upload_url = object_storage.generate_presigned_upload_url(object_key, request.content_type)
+    return PresignUploadResponse(upload_url=upload_url, object_key=object_key)
+
+
+@router.post("/composed-images", response_model=ComposedImageResponse)
+def create_composed_image(request: ComposedImageCreate, db: Session = Depends(get_db)) -> ComposedImageResponse:
+    """Persists the metadata row after the browser's direct PUT to R2
+    succeeded. content_item_id must already exist — a composite is always
+    attached to a saved content item, not a still-in-progress draft."""
+    content_item = db.query(ContentItem).filter(ContentItem.id == request.content_item_id).first()
+    if not content_item:
+        raise HTTPException(status_code=404, detail="Content item not found")
+
+    image = ComposedImage(
+        content_item_id=request.content_item_id,
+        source_photo_id=request.source_photo_id,
+        object_key=request.object_key,
+        public_url=object_storage.build_public_url(request.object_key),
+        content_type=request.content_type,
+        size_bytes=request.size_bytes,
+    )
+    db.add(image)
+    db.commit()
+    db.refresh(image)
+    return _serialize_composed_image(image)
+
+
+@router.get("/composed-images", response_model=list[ComposedImageResponse])
+def list_composed_images(content_item_id: int, db: Session = Depends(get_db)) -> list[ComposedImageResponse]:
+    images = (
+        db.query(ComposedImage)
+        .filter(ComposedImage.content_item_id == content_item_id)
+        .order_by(ComposedImage.created_at.desc())
+        .all()
+    )
+    return [_serialize_composed_image(i) for i in images]
+
+
+@router.delete("/composed-images/{composed_image_id}")
+def delete_composed_image(composed_image_id: int, db: Session = Depends(get_db)) -> dict:
+    image = db.query(ComposedImage).filter(ComposedImage.id == composed_image_id).first()
+    if not image:
+        raise HTTPException(status_code=404, detail="Composed image not found")
+
+    try:
+        object_storage.delete_object(image.object_key)
+    except Exception:
+        # Best-effort, same rationale as delete_photo above — the DB row
+        # is the source of truth for what exists.
+        pass
+
+    db.delete(image)
     db.commit()
     return {"ok": True}

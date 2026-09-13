@@ -19,7 +19,7 @@ from app.models.social import (
     SocialPost,
 )
 from app.models.approver import Approver, PasscodeResetToken
-from app.models.media import PhotoAsset
+from app.models.media import ComposedImage, PhotoAsset
 
 __all__ = [
     "Base",
@@ -37,4 +37,5 @@ __all__ = [
     "Approver",
     "PasscodeResetToken",
     "PhotoAsset",
+    "ComposedImage",
 ]

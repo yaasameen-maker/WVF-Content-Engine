@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { siFacebook, siInstagram, siTiktok, siX } from "simple-icons";
 import { SideRailPortal } from "@/components/SideRailSlot";
+import { PhotoTextComposer } from "@/components/PhotoTextComposer";
 import {
   generateContent,
   getInstagramTemplateDetail,
@@ -1149,14 +1150,17 @@ function ScheduleTemplateButton({
 
   if (savedId !== null) {
     return (
-      <p className="mt-3 text-sm font-semibold text-green-700">
-        Scheduled for {date}
-        {time ? ` at ${time}` : ""} — it now shows on the{" "}
-        <a href="/calendar" className="underline">
-          Content Calendar
-        </a>
-        .
-      </p>
+      <div className="mt-3 space-y-3">
+        <p className="text-sm font-semibold text-green-700">
+          Scheduled for {date}
+          {time ? ` at ${time}` : ""} — it now shows on the{" "}
+          <a href="/calendar" className="underline">
+            Content Calendar
+          </a>
+          .
+        </p>
+        <PhotoTextComposer contentItemId={savedId} initialText={caption} />
+      </div>
     );
   }
 
