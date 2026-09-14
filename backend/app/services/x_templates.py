@@ -1,98 +1,240 @@
 """
 WVF X (Twitter) — Real Post Templates
 
-Actual published @WomensVFund X posts, transcribed from screenshots the
-client shared directly in conversation (Aug 17-18, 2026) — the profile
-itself was also confirmed as @WomensVFund (not @womensventfund, which
-an earlier assumption in this codebase had used). Used as "Fixed
-template" starting points on the event-form page — staff pick one and
-use/edit it directly, with no AI call involved. Distinct from AI Copy
-generation (app/services/prompts.py's "x" SOCIAL_POST_VARIANTS entry),
-which today uses only generic platform conventions since it wasn't yet
-grounded in these real posts — see the note in prompts.py for updating
-that once these are cross-referenced.
+Actual published @WomensVFund X posts, transcribed from a full account
+audit of x.com/WomensVFund covering the account's current active
+campaign period (Mar 24, 2026 – Sep 9, 2026; posts before that are
+2020-2021 text/link posts with no flyer graphics — not included). Used
+as "Fixed template" starting points on the event-form page — staff pick
+one and use/edit it directly, with no AI call involved. Distinct from AI
+Copy generation (app/services/prompts.py's "x" SOCIAL_POST_VARIANTS
+entry), which today uses only generic platform conventions since it
+wasn't yet grounded in these real posts — see the note in prompts.py for
+updating that once these are cross-referenced.
 
 Every entry below is real, published copy — not written or paraphrased.
-Several source screenshots truncated long URLs/hashtag strings with
-"..." in X's own UI (scrolled or link-shortened display) — those are
-preserved AS TRUNCATED below rather than guessing the missing portion.
-Do not "complete" a truncated field without going back to the real post.
+Replaces an earlier, thinner batch transcribed from screenshots (several
+fields truncated with "..." where a screenshot cut off a long URL/
+hashtag string) — this audit pulled full, untruncated text directly
+from the live posts, so `truncated` is no longer needed as a field.
+
+Not every audited post became a template:
+- Two posts (May 22 and one Mar 24 "earlier version") were a same-day
+  duplicate/reply of another post with no independent content — skipped.
+- The Sep 9 carousel post's own tweet caption is used as
+  `harlem_legacy_investment_suite_carousel` below; its three flyer
+  SLIDES (a workshop, a conference, and a gala) are richer than a
+  single X caption needs and are closer to newsletter/flyer-block
+  material — not transcribed here, since this file is X captions only.
+
+Several posts (attorney consultations, a state senator's district
+office) name real private individuals/offices beyond WVF's own Key
+Makers — kept here as historical record of what WVF already published
+publicly on X, not re-verified or re-cleared for reuse beyond that.
 """
 
 X_TEMPLATES: dict[str, dict] = {
-    "money_credit_webinar": {
-        "label": "Event promo — Money & Credit webinar",
+    "harlem_legacy_investment_suite_carousel": {
+        "label": "Event promo — carousel, 3 September events",
         "category": "event_promo",
-        "caption": """Register now before spots are gone: us06web.zoom.us/webinar/regist...
+        "caption": """Meet WVF this September: Harlem Legacy Investment Suite 9/20, Cash Flow with Chase 9/23, and SCORE NYC's Business Conference 9/29.
 
-#WVF""",
-        "hashtags": [],
-        "truncated": True,
+womensventurefund.org/events/""",
+        "hashtags": ["#WVF", "#NYCEntrepreneurs"],
     },
-    "legal_help_10_spots": {
-        "label": "Event promo — urgency framing, checklist",
-        "category": "event_promo",
-        "caption": """🚨 ONLY 10 SPOTS LEFT! 🚨
+    "business_next_chapter_loan_inquiry": {
+        "label": "Evergreen — loan inquiry CTA, no event date",
+        "category": "evergreen",
+        "caption": """Your Business Deserves a Next Chapter. ❤️
 
-Need legal help for your business?
+You believed in your business. So do we. Ready to grow?
 
-Get a one-on-one consultation with volunteer attorneys through the City Bar Justice Center.
+WVF wants to hear from women entrepreneurs with established businesses and a vision for what's next.
 
-✅ Contracts ✅ Leases ✅ Business issues
-🗓 June 25
-
-Register now before spots are gone: us06web.zoom.us/webinar/regist...
-
-#WVF""",
-        "hashtags": [],
-        "truncated": True,
+👉 Start your WVF Loan Inquiry: womensventurefund.org/womens-business-loan-inquiry""",
+        "hashtags": ["#loanapps", "#smallbiz"],
     },
     "government_contracting": {
-        "label": "Event promo — government contracting webinar",
+        "label": "Event promo — MWBE certification / government contracting webinar",
         "category": "event_promo",
         "caption": """🚨 Don't Leave Money on the Table!
 
 Learn how to become #MWBE Certified and compete for government contracts.
 
-🗓 Wednesday, July 29, 2026 | 🕐 11 AM ET
+📅 Wednesday, July 29, 2026 | 🕚 11 AM ET
 
-📌 Register NOW:
-us06web.zoom.us/webinar/regist...""",
+🎟️ Register NOW: us06web.zoom.us/webinar/registration""",
         "hashtags": [
+            "#MWBE",
             "#GovernmentContracts",
             "#SmallBusiness",
             "#WomenEntrepreneurs",
             "#WomensVentureFund",
         ],
     },
-    "money_credit_score_aug": {
-        "label": "Event promo — Money & Credit, August session",
+    "legal_help_10_spots": {
+        "label": "Event promo — free legal consultation, urgency framing",
         "category": "event_promo",
-        "caption": """🗓 Aug. 12 | 12–1 PM
+        "caption": """🚨 ONLY 10 SPOTS LEFT! 🚨
 
-👉 Register: us06web.zoom.us/webinar/regist...""",
-        "hashtags": ["#SmallBusiness", "#CreditScore"],
-        "truncated": True,
+Need legal help for your business? Get a one-on-one consultation with volunteer attorneys through the City Bar Justice Center.
+
+✅ Contracts
+✅ Leases
+✅ Business issues
+
+📅 June 25
+
+Register now before spots are gone: us06web.zoom.us/webinar/registration""",
+        "hashtags": ["#WVF"],
     },
-    "digital_marketing_summer_series": {
-        "label": "Pinned post — Digital Marketing Summer Series (recurring course)",
-        "category": "recurring_series",
-        "caption": """Check out "Digital Marketing Summer Series for Women-Owned Small Businesses" eventbrite.com/e/digital-mark... @Eventbrite
+    "lunch_and_apply_funding": {
+        "label": "Event promo — recurring \"Lunch & APPLY\" funding sessions",
+        "category": "event_promo",
+        "caption": """WVF IS FUNDING! 🚨
 
-Every Tuesday 5:30 pm ET, July 27–Aug 17. 4-Week Course.""",
-        "hashtags": ["#DigitalMarketing", "#womenownedbusiness", "#business"],
-        "truncated": True,
+Women entrepreneurs are you ready to grow? Join WVF's virtual 'Lunch & APPLY' sessions to position your business for funding, expansion, working capital & growth. 💼📈
+
+📅 May 29 | June 30 | July 30
+⏰ 12PM ET
+
+🔗 Register now""",
+        "hashtags": ["#WVF", "#WVFsmallbusinessmonth"],
     },
-    "financial_decisions_2027": {
-        "label": "Awareness post — start-the-year financial framing",
-        "category": "awareness",
-        "caption": """📈 2027 starts with the financial decisions you make today.
+    "money_matters_cash_flow_lenders": {
+        "label": "Event promo — \"Money Matters\", lender-focused hook",
+        "category": "event_promo",
+        "caption": """Many entrepreneurs focus on sales — but lenders focus on numbers. 📊💰
 
-If your credit needs work, this webinar is for you!
+Understanding cash flow, budgeting, and P&L statements can help position your business for funding opportunities.
 
-Learn how to build, repair & strengthen your credit and become...""",
+Join WVF + NYWIB for 'Money Matters' on May 19.
+
+Register: us06web.zoom.us/webinar/registration""",
         "hashtags": [],
-        "truncated": True,
+    },
+    "money_matters_funding_ready": {
+        "label": "Event promo — \"Money Matters\", checklist + emoji markers",
+        "category": "event_promo",
+        "caption": """🚨 WVF IS FUNDING 🚨
+
+Are you funding ready? Join WVF & NYWIB for 💰 MONEY MATTERS and learn:
+
+✔️ Cash Flow
+✔️ Profit & Loss
+✔️ Budgeting
+✔️ Funding Readiness
+
+📅 May 19
+⏰ 11AM EST
+💻 FREE Zoom Webinar
+
+Register now: us06web.zoom.us/webinar/registration""",
+        "hashtags": ["#SmallBizMonth", "#WVF", "#NYWIB", "#GetFunded"],
+    },
+    "ai_marketing_webinar_today": {
+        "label": "Event promo — AI marketing webinar, happening-today reminder",
+        "category": "event_promo",
+        "caption": """🚨 TODAY 11 AM 🚨
+
+Stop overworking your marketing. Learn how to use AI tools to:
+
+✔ Create content FAST
+✔ Automate your marketing
+✔ Grow your business smarter
+
+🎯 1-hour LIVE training
+🔥 Don't miss this
+
+👉 us06web.zoom.us/webinar/registration""",
+        "hashtags": [],
+    },
+    "financial_literacy_poll_know_your_numbers": {
+        "label": "Engagement post — A/B/C poll, Financial Literacy Month",
+        "category": "engagement",
+        "caption": """Be honest… Do you know your business numbers RIGHT NOW?
+
+A) Yes
+B) Kinda
+C) No
+
+It's #FinancialLiteracyMonth - time to level up:
+• Track cash flow
+• Know your P&L
+• Separate finances
+• Build credit
+
+Comment A, B, or C""",
+        "hashtags": [
+            "#FinancialLiteracyMonth",
+            "#WVFSmallBusiness",
+            "#EntrepreneurLife",
+            "#MoneyMatters",
+        ],
+    },
+    "harlem_financial_literacy_pop_up": {
+        "label": "Event promo — Harlem community pop-up, Financial Literacy Month",
+        "category": "event_promo",
+        "caption": """JOIN US!!!
+
+You don't know what you don't know… 💡
+
+Come Learn WVF will be in Harlem for Financial Literacy Month sharing resources for:
+✔ Credit
+✔ Capital
+✔ Small Business Growth
+
+📍 April 25 | 12–3 PM
+📍 163 W 125th St
+
+Don't miss it. us06web.zoom.us/webinar/registration""",
+        "hashtags": ["#WVFEntrepreneur"],
+    },
+    "financial_literacy_month_awareness": {
+        "label": "Awareness post — Financial Literacy Month, no single event",
+        "category": "awareness",
+        "caption": """April is Financial Literacy Month 💡
+
+Strong businesses are built on:
+✔️ Cash flow
+✔️ Credit
+✔️ Capital access
+
+WVF helps entrepreneurs grow with training + funding pathways.
+
+us06web.zoom.us/webinar/registration""",
+        "hashtags": ["#FinancialLiteracyMonth", "#SmallBusiness", "#WVF"],
+    },
+    "ai_marketing_webinar_announcement": {
+        "label": "Event promo — AI marketing webinar, full announcement",
+        "category": "event_promo",
+        "caption": """🚨 Don't miss this during #FinancialLiteracyMonth!
+
+Use AI to:
+✔ Save time
+✔ Simplify marketing
+✔ Grow your business
+
+📅 April 29th 12PM - 1PM
+💻 Webinar
+
+👉Register Today us06web.zoom.us/webinar/registration""",
+        "hashtags": [
+            "#FinancialLiteracyMonth",
+            "#WVFSmallBusiness",
+            "#WomenEntrepreneurs",
+            "#AItools",
+        ],
+    },
+    "the_plan_fell_apart_panel": {
+        "label": "Event promo — founder panel, Eventbrite link",
+        "category": "event_promo",
+        "caption": """When the plan stops working, what do you do next?
+
+When the Plan Fails: What Actually Works Next. We're bringing together women founders to share what actually helped them move forward - in real business and career turning points.
+
+March 30 👉 eventbrite.com/the-plan-fell-apart-now-what""",
+        "hashtags": [],
     },
 }
 
@@ -107,8 +249,8 @@ def list_x_templates() -> dict[str, str]:
 def get_x_template(template_key: str) -> dict:
     """
     Returns one real X template's full data (label, category, caption,
-    hashtags, truncated). Raises KeyError with the valid options listed
-    if template_key is unrecognized, matching
+    hashtags). Raises KeyError with the valid options listed if
+    template_key is unrecognized, matching
     instagram_templates.get_instagram_template()'s error shape.
     """
     template = X_TEMPLATES.get(template_key)

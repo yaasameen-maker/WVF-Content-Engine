@@ -291,7 +291,7 @@ def test_x_templates_endpoint_lists_all_templates(client):
     resp = client.get("/api/x-templates")
     assert resp.status_code == 200
     templates = resp.json()
-    assert len(templates) == 6
+    assert len(templates) == 13
     assert all(isinstance(label, str) and label for label in templates.values())
 
 
@@ -304,14 +304,6 @@ def test_x_template_detail_returns_real_post_content(client):
     assert "MWBE" in detail["caption"]
     assert "#GovernmentContracts" in detail["hashtags"]
     assert detail["truncated"] is False
-
-
-def test_x_template_detail_flags_truncated_source(client):
-    # money_credit_webinar's source screenshot cut off the zoom.us URL
-    # (see x_templates.py) — the API must say so, not present it as complete.
-    resp = client.get("/api/x-templates/money_credit_webinar")
-    assert resp.status_code == 200
-    assert resp.json()["truncated"] is True
 
 
 def test_x_template_detail_404s_for_unknown_template(client):
