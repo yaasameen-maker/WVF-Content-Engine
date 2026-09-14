@@ -7,6 +7,7 @@ import {
   disconnectInstagram,
   getFacebookConnectionStatus,
   getInstagramConnectionStatus,
+  listComposedImages,
   selectSocialVariant,
   updateContentItemScheduledDate,
   type GeneratedContentResponse,
@@ -292,6 +293,21 @@ function SocialPostEditor({
   const [caption, setCaption] = useState(variant.post.caption);
   const [cta, setCta] = useState(variant.post.cta);
   const [scheduledDate, setScheduledDate] = useState("");
+  // Tracks whether a composed (photo + text overlay) image exists for
+  // this content item — null while still checking, so the warning
+  // below doesn't flash on/off during the initial load. The composite
+  // stays optional by design (staff may attach a graphic manually in
+  // Canva instead — see PROJECT_CONTEXT.md's open newsletter-assembly
+  // question), so this is a warning staff can proceed past, not a hard
+  // block on Schedule/Approve.
+  const [hasComposedImage, setHasComposedImage] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (contentItemId === null) return;
+    listComposedImages(contentItemId)
+      .then((images) => setHasComposedImage(images.length > 0))
+      .catch(() => setHasComposedImage(false));
+  }, [contentItemId]);
 
   return (
     <div className="space-y-3">
@@ -331,7 +347,17 @@ function SocialPostEditor({
 
       {contentItemId !== null && (
         <>
-          <PhotoTextComposer contentItemId={contentItemId} initialText={caption} />
+          <PhotoTextComposer
+            contentItemId={contentItemId}
+            initialText={caption}
+            onSaved={() => setHasComposedImage(true)}
+          />
+          {hasComposedImage === false && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              No composed image saved yet for this post — build one above, or continue without one if
+              you&apos;re attaching a graphic separately (e.g. in Canva).
+            </div>
+          )}
           <SaveToCalendarRow
             contentItemId={contentItemId}
             scheduledDate={scheduledDate}

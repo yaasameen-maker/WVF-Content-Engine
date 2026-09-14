@@ -160,9 +160,18 @@ type SelectedImage =
 export function PhotoTextComposer({
   contentItemId,
   initialText,
+  onSaved,
 }: {
   contentItemId: number;
   initialText: string;
+  /** Called with the saved ComposedImageResponse right after a
+   * successful save — lets the parent (e.g. SocialPostEditor) know a
+   * composite now exists for this content item, so it can stop showing
+   * a "no image confirmed yet" warning next to Schedule/Approve. Not
+   * called on failure, and not required — the composite stays optional
+   * (see this component's own docstring), so parents that don't care
+   * can simply omit it. */
+  onSaved?: (result: ComposedImageResponse) => void;
 }) {
   const [photos, setPhotos] = useState<PhotoAssetResponse[] | null>(null);
   const [photosError, setPhotosError] = useState<string | null>(null);
@@ -178,6 +187,7 @@ export function PhotoTextComposer({
   const [layer, setLayer] = useState<TextLayer>({ ...LAYOUTS[0].defaultLayer, text: initialText });
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [imageLoadError, setImageLoadError] = useState<string | null>(null);
   const [saved, setSaved] = useState<ComposedImageResponse | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -217,7 +227,19 @@ export function PhotoTextComposer({
 
   // Load the selected image into an <img> once, reused across redraws —
   // redrawing on every layer change shouldn't re-fetch the image.
+  //
+  // Previously this had no onerror handler: if the new image failed to
+  // load (a transient network hiccup, or a host that doesn't actually
+  // serve the CORS headers crossOrigin="anonymous" requires — R2 and
+  // Pexels both need to send Access-Control-Allow-Origin for this to
+  // succeed), onload just never fired. imageRef.current silently kept
+  // pointing at whatever was drawn before, so picking a new photo
+  // appeared to do nothing — no error, no console message a staff
+  // member would ever see, the canvas just didn't change. Now a load
+  // failure clears the stale image and surfaces imageLoadError instead
+  // of leaving the previous photo on screen unexplained.
   useEffect(() => {
+    setImageLoadError(null);
     if (!selectedImage) {
       imageRef.current = null;
       draw();
@@ -227,6 +249,13 @@ export function PhotoTextComposer({
     img.crossOrigin = "anonymous"; // needed so canvas.toBlob() isn't tainted by a cross-origin source
     img.onload = () => {
       imageRef.current = img;
+      draw();
+    };
+    img.onerror = () => {
+      imageRef.current = null;
+      setImageLoadError(
+        "Couldn't load that image (it may not allow cross-origin loading) — try a different photo."
+      );
       draw();
     };
     img.src = selectedImage.url;
@@ -318,6 +347,7 @@ export function PhotoTextComposer({
         sourcePhotoId: selectedImage?.source === "library" ? selectedImage.photoAssetId : undefined,
       });
       setSaved(result);
+      onSaved?.(result);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save the composed image.");
     } finally {
@@ -558,6 +588,12 @@ export function PhotoTextComposer({
           />
         </label>
       </div>
+
+      {imageLoadError && (
+        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {imageLoadError}
+        </div>
+      )}
 
       <div
         className="mx-auto overflow-hidden rounded-md border border-gray-300"
