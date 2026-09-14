@@ -6,6 +6,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { siFacebook, siInstagram, siTiktok, siX } from "simple-icons";
 import { SideRailPortal } from "@/components/SideRailSlot";
 import { PhotoTextComposer } from "@/components/PhotoTextComposer";
+import { useDraftState } from "@/lib/formDraft";
+import { recordFieldHistory, useFieldHistory } from "@/lib/fieldHistory";
 import {
   generateContent,
   getInstagramTemplateDetail,
@@ -69,21 +71,41 @@ type SocialAiPickerState = "closed" | "open";
 
 export default function EventFormPage() {
   const router = useRouter();
-  const [event, setEvent] = useState<EventInput>(EMPTY_EVENT);
+  // Drafted to localStorage (see lib/formDraft.ts) so a refresh or
+  // closed tab doesn't lose in-progress work — previously nothing here
+  // persisted until a generation call actually succeeded, so a refresh
+  // mid-form (or mid-panel, for mode/platformSubMode/socialAiPicker
+  // below) dropped straight back to the empty tile grid, indistinguishable
+  // from having never started. clearDraft() (the 3rd tuple element) is
+  // called once a generation succeeds and the browser navigates to
+  // /review, so a finished campaign doesn't leave a stale draft behind.
+  const [event, setEvent, clearEventDraft] = useDraftState<EventInput>("wvf_draft_event", EMPTY_EVENT);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [mode, setMode] = useState<Mode>(null);
-  const [platformSubMode, setPlatformSubMode] = useState<PlatformSubMode>(null);
+  const [mode, setMode] = useDraftState<Mode>("wvf_draft_mode", null);
+  const [platformSubMode, setPlatformSubMode] = useDraftState<PlatformSubMode>(
+    "wvf_draft_platform_sub_mode",
+    null
+  );
 
   // Social Media Copy section's own standalone "AI Generate" flow — a
   // second, fully independent entry point into generation, separate from
   // the platform tiles above (mode/platformSubMode/event). Its
   // own event fields, own platform choice, own generating/error state, so
   // using one flow can never reset or collide with the other.
-  const [socialAiPicker, setSocialAiPicker] = useState<SocialAiPickerState>("closed");
-  const [socialAiPlatform, setSocialAiPlatform] = useState<SocialPostPlatform>("instagram");
-  const [socialAiEvent, setSocialAiEvent] = useState<EventInput>(EMPTY_EVENT);
+  const [socialAiPicker, setSocialAiPicker] = useDraftState<SocialAiPickerState>(
+    "wvf_draft_social_ai_picker",
+    "closed"
+  );
+  const [socialAiPlatform, setSocialAiPlatform] = useDraftState<SocialPostPlatform>(
+    "wvf_draft_social_ai_platform",
+    "instagram"
+  );
+  const [socialAiEvent, setSocialAiEvent, clearSocialAiEventDraft] = useDraftState<EventInput>(
+    "wvf_draft_social_ai_event",
+    EMPTY_EVENT
+  );
   const [socialAiGenerating, setSocialAiGenerating] = useState(false);
   const [socialAiError, setSocialAiError] = useState<string | null>(null);
   // Optional steering, both default to "" (unset) — server silently
@@ -94,8 +116,8 @@ export default function EventFormPage() {
   const [socialPostTonesOptions, setSocialPostTonesOptions] = useState<Record<string, string> | null>(
     null
   );
-  const [socialAiSeries, setSocialAiSeries] = useState("");
-  const [socialAiTone, setSocialAiTone] = useState("");
+  const [socialAiSeries, setSocialAiSeries] = useDraftState("wvf_draft_social_ai_series", "");
+  const [socialAiTone, setSocialAiTone] = useDraftState("wvf_draft_social_ai_tone", "");
 
   const [keymakersStages, setKeymakersStages] = useState<Record<string, string> | null>(null);
   const [keymakersStageKey, setKeymakersStageKey] = useState("");
@@ -266,6 +288,9 @@ export default function EventFormPage() {
       } else {
         sessionStorage.removeItem("wvf_social_post_platform_label");
       }
+      clearEventDraft();
+      setMode(null);
+      setPlatformSubMode(null);
       router.push("/review");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong generating content.");
@@ -296,6 +321,8 @@ export default function EventFormPage() {
       sessionStorage.setItem("wvf_source_event", JSON.stringify(socialAiEvent));
       sessionStorage.removeItem("wvf_keymakers_stage_label");
       sessionStorage.setItem("wvf_social_post_platform_label", PLATFORM_LABELS[socialAiPlatform]);
+      clearSocialAiEventDraft();
+      setSocialAiPicker("closed");
       router.push("/review");
     } catch (err) {
       setSocialAiError(err instanceof Error ? err.message : "Something went wrong generating content.");
@@ -525,33 +552,31 @@ export default function EventFormPage() {
                       </Field>
 
                       <Field label="Speaker">
-                        <input
+                        <HistoryInput
+                          historyField="event_speaker"
                           required
-                          type="text"
                           value={socialAiEvent.speaker}
-                          onChange={(e) => updateSocialAiField("speaker", e.target.value)}
-                          className="input"
+                          onChange={(v) => updateSocialAiField("speaker", v)}
                           placeholder="WVF Financial Education Team"
                         />
                       </Field>
 
                       <Field label="Registration Link (optional — add later if not ready)">
-                        <input
+                        <HistoryInput
+                          historyField="event_registration_link"
                           type="url"
                           value={socialAiEvent.registration_link}
-                          onChange={(e) => updateSocialAiField("registration_link", e.target.value)}
-                          className="input"
+                          onChange={(v) => updateSocialAiField("registration_link", v)}
                           placeholder="https://www.womenventurefund.org/events/..."
                         />
                       </Field>
 
                       <Field label="Target Audience">
-                        <input
+                        <HistoryInput
+                          historyField="event_audience"
                           required
-                          type="text"
                           value={socialAiEvent.audience}
-                          onChange={(e) => updateSocialAiField("audience", e.target.value)}
-                          className="input"
+                          onChange={(v) => updateSocialAiField("audience", v)}
                           placeholder="NYC-based women entrepreneurs, Spanish-speaking community welcome"
                         />
                       </Field>
@@ -647,33 +672,31 @@ export default function EventFormPage() {
                           </Field>
 
                           <Field label="Speaker">
-                            <input
+                            <HistoryInput
+                              historyField="event_speaker"
                               required
-                              type="text"
                               value={event.speaker}
-                              onChange={(e) => updateField("speaker", e.target.value)}
-                              className="input"
+                              onChange={(v) => updateField("speaker", v)}
                               placeholder="WVF Financial Education Team"
                             />
                           </Field>
 
                           <Field label="Registration Link (optional — add later if not ready)">
-                            <input
+                            <HistoryInput
+                              historyField="event_registration_link"
                               type="url"
                               value={event.registration_link}
-                              onChange={(e) => updateField("registration_link", e.target.value)}
-                              className="input"
+                              onChange={(v) => updateField("registration_link", v)}
                               placeholder="https://www.womenventurefund.org/events/..."
                             />
                           </Field>
 
                           <Field label="Target Audience">
-                            <input
+                            <HistoryInput
+                              historyField="event_audience"
                               required
-                              type="text"
                               value={event.audience}
-                              onChange={(e) => updateField("audience", e.target.value)}
-                              className="input"
+                              onChange={(v) => updateField("audience", v)}
                               placeholder="NYC-based women entrepreneurs, Spanish-speaking community welcome"
                             />
                           </Field>
@@ -855,33 +878,31 @@ export default function EventFormPage() {
                       </Field>
 
                       <Field label="Speaker">
-                        <input
+                        <HistoryInput
+                          historyField="event_speaker"
                           required
-                          type="text"
                           value={event.speaker}
-                          onChange={(e) => updateField("speaker", e.target.value)}
-                          className="input"
+                          onChange={(v) => updateField("speaker", v)}
                           placeholder="WVF Financial Education Team"
                         />
                       </Field>
 
                       <Field label="Registration Link (optional — add later if not ready)">
-                        <input
+                        <HistoryInput
+                          historyField="event_registration_link"
                           type="url"
                           value={event.registration_link}
-                          onChange={(e) => updateField("registration_link", e.target.value)}
-                          className="input"
+                          onChange={(v) => updateField("registration_link", v)}
                           placeholder="https://www.womenventurefund.org/events/..."
                         />
                       </Field>
 
                       <Field label="Target Audience">
-                        <input
+                        <HistoryInput
+                          historyField="event_audience"
                           required
-                          type="text"
                           value={event.audience}
-                          onChange={(e) => updateField("audience", e.target.value)}
-                          className="input"
+                          onChange={(v) => updateField("audience", v)}
                           placeholder="NYC-based women entrepreneurs, Spanish-speaking community welcome"
                         />
                       </Field>
@@ -942,6 +963,57 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="mb-1 block text-sm font-medium text-navy">{label}</span>
       {children}
     </label>
+  );
+}
+
+/**
+ * A text input backed by recently-typed history (see lib/fieldHistory.ts)
+ * — browsers render the <datalist> as native autocomplete suggestions,
+ * so staff filling out the same kind of field across events (a
+ * recurring speaker, a repeated audience description) don't have to
+ * retype it. `historyField` is the shared key across every instance of
+ * this field across the page's three separate event forms — a speaker
+ * typed in one form shows up as a suggestion in the others too, since
+ * it's the same real-world value either way. History records on blur,
+ * not every keystroke, so it only captures values staff actually
+ * finished typing.
+ */
+function HistoryInput({
+  historyField,
+  value,
+  onChange,
+  required,
+  type = "text",
+  placeholder,
+}: {
+  historyField: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  type?: string;
+  placeholder?: string;
+}) {
+  const history = useFieldHistory(historyField);
+  const listId = `history-${historyField}`;
+
+  return (
+    <>
+      <input
+        required={required}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={(e) => recordFieldHistory(historyField, e.target.value)}
+        className="input"
+        placeholder={placeholder}
+        list={listId}
+      />
+      <datalist id={listId}>
+        {history.map((v) => (
+          <option key={v} value={v} />
+        ))}
+      </datalist>
+    </>
   );
 }
 
