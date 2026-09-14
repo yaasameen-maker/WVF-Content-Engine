@@ -559,7 +559,7 @@ export function PhotoTextComposer({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
-          className="aspect-square w-full max-w-sm cursor-move touch-none"
+          className="block aspect-square w-full max-w-sm cursor-move touch-none"
         />
       </div>
       <p className="text-xs text-gray-500">Drag the text on the preview above to reposition it.</p>
