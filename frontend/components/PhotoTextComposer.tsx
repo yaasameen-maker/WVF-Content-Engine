@@ -11,14 +11,20 @@ import {
 /**
  * Photo + text overlay composer — proposed scope addition, not yet
  * approved by WVF (see backend app/models/media.py's ComposedImage
- * docstring). Lets staff pick a photo from the library, drag a text
- * layer over it (pre-filled with the generated headline/caption), and
- * flatten the result to a PNG entirely in the browser via <canvas> —
- * this component never sends image bytes to the backend until the
- * final flattened PNG is ready to upload. Meant to approximate the
- * "navy/sky-blue block, bold white sans-serif headline" visual pattern
- * from docs/PROJECT_CONTEXT.md's Content Structure Guide, applied over
- * a real staff photo instead of a flat color block.
+ * docstring). Staff pick a blank Layout (a vector-drawn frame of color
+ * blocks + a reserved photo region — see LAYOUTS below), pick a photo
+ * from the library to drop into that region, then drag a text layer
+ * over the result (pre-filled with the generated headline/caption).
+ * Flattens to a PNG entirely in the browser via <canvas> — this
+ * component never sends image bytes to the backend until the final
+ * flattened PNG is ready to upload.
+ *
+ * The Layouts are original vector frames modeled on the STRUCTURE of
+ * real WVF flyer styles (see docs/x-post-audit-2026-09.md's "Recurring
+ * flyer template patterns observed" — photo-top/color-block-bottom,
+ * diagonal-split-with-circular-photo, full-bleed-with-dark-band), not
+ * a text-removed copy of any specific designed graphic — this tool has
+ * no image-editing capability to alter an existing photo/flyer file.
  *
  * Only mounts once a real ContentItem exists (contentItemId is required,
  * not optional) — a composite always attaches to an already-saved
@@ -28,6 +34,9 @@ import {
 
 const CANVAS_WIDTH = 1080;
 const CANVAS_HEIGHT = 1080;
+
+const NAVY = "#4A7EBB";
+const SKY_BLUE = "#87ACD1";
 
 interface TextLayer {
   text: string;
@@ -44,6 +53,86 @@ const DEFAULT_LAYER: Omit<TextLayer, "text"> = {
   color: "#FFFFFF",
 };
 
+/** Where the photo gets drawn within the canvas, as a fraction box
+ * (x, y, w, h all 0-1) — lets a layout reserve part of the frame for
+ * solid color blocks instead of a full-bleed photo. */
+interface PhotoRegion {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** A blank starting frame — color blocks, a photo region, and a default
+ * text position — drawn entirely as vector shapes (no source image),
+ * approximating the structure of a real WVF flyer style without
+ * reproducing any specific designed graphic. Staff pick one, then drop
+ * in their own photo and text. See docs/x-post-audit-2026-09.md's
+ * "Recurring flyer template patterns observed" for what these are
+ * modeled after. */
+interface Layout {
+  key: string;
+  label: string;
+  photoRegion: PhotoRegion | null; // null = no photo area, solid color frame only
+  defaultLayer: Omit<TextLayer, "text">;
+  /** Draws this layout's color blocks/frame — called before the photo
+   * and text so blocks sit behind both. */
+  drawFrame: (ctx: CanvasRenderingContext2D) => void;
+}
+
+const LAYOUTS: Layout[] = [
+  {
+    key: "workshop",
+    label: "Workshop — photo top, color block bottom",
+    photoRegion: { x: 0, y: 0, w: 1, h: 0.55 },
+    defaultLayer: { xPct: 0.5, yPct: 0.72, fontSizePx: 70, color: "#FFFFFF" },
+    drawFrame(ctx) {
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.fillStyle = NAVY;
+      ctx.fillRect(0, CANVAS_HEIGHT * 0.55, CANVAS_WIDTH, CANVAS_HEIGHT * 0.45);
+    },
+  },
+  {
+    key: "conference",
+    label: "Conference — diagonal split, circular photo",
+    photoRegion: { x: 0.32, y: 0.16, w: 0.5, h: 0.5 },
+    defaultLayer: { xPct: 0.32, yPct: 0.78, fontSizePx: 56, color: "#0F1F33" },
+    drawFrame(ctx) {
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.fillStyle = SKY_BLUE;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(CANVAS_WIDTH, 0);
+      ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT * 0.35);
+      ctx.lineTo(0, CANVAS_HEIGHT * 0.6);
+      ctx.closePath();
+      ctx.fill();
+    },
+  },
+  {
+    key: "gala",
+    label: "Gala — full-bleed photo, dark bottom band",
+    photoRegion: { x: 0, y: 0, w: 1, h: 1 },
+    defaultLayer: { xPct: 0.5, yPct: 0.88, fontSizePx: 60, color: "#F4D98A" },
+    drawFrame(ctx) {
+      ctx.fillStyle = "#14243F";
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    },
+  },
+  {
+    key: "plain",
+    label: "Plain — full-bleed photo, no frame",
+    photoRegion: { x: 0, y: 0, w: 1, h: 1 },
+    defaultLayer: { ...DEFAULT_LAYER },
+    drawFrame(ctx) {
+      ctx.fillStyle = NAVY;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    },
+  },
+];
+
 export function PhotoTextComposer({
   contentItemId,
   initialText,
@@ -54,7 +143,8 @@ export function PhotoTextComposer({
   const [photos, setPhotos] = useState<PhotoAssetResponse[] | null>(null);
   const [photosError, setPhotosError] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoAssetResponse | null>(null);
-  const [layer, setLayer] = useState<TextLayer>({ ...DEFAULT_LAYER, text: initialText });
+  const [layoutKey, setLayoutKey] = useState<string>(LAYOUTS[0].key);
+  const [layer, setLayer] = useState<TextLayer>({ ...LAYOUTS[0].defaultLayer, text: initialText });
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState<ComposedImageResponse | null>(null);
@@ -66,6 +156,8 @@ export function PhotoTextComposer({
     offsetXPct: 0,
     offsetYPct: 0,
   });
+
+  const layout = LAYOUTS.find((l) => l.key === layoutKey) ?? LAYOUTS[0];
 
   useEffect(() => {
     listPhotos()
@@ -94,7 +186,16 @@ export function PhotoTextComposer({
   useEffect(() => {
     draw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layer]);
+  }, [layer, layoutKey]);
+
+  function selectLayout(key: string) {
+    const next = LAYOUTS.find((l) => l.key === key) ?? LAYOUTS[0];
+    setLayoutKey(key);
+    // Re-center the text at the new layout's default spot — a position
+    // dragged to fit the old layout's blocks often lands somewhere odd
+    // in the new one (e.g. behind the photo region).
+    setLayer((prev) => ({ ...next.defaultLayer, text: prev.text, color: prev.color, fontSizePx: prev.fontSizePx }));
+  }
 
   function draw() {
     const canvas = canvasRef.current;
@@ -103,16 +204,18 @@ export function PhotoTextComposer({
     if (!ctx) return;
 
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    layout.drawFrame(ctx);
 
-    if (imageRef.current) {
-      drawImageCover(ctx, imageRef.current, CANVAS_WIDTH, CANVAS_HEIGHT);
-      // Subtle navy scrim so white text stays legible over any photo,
-      // matching the "bold white sans-serif on a dark block" pattern.
-      ctx.fillStyle = "rgba(20, 40, 70, 0.25)";
-      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    } else {
-      ctx.fillStyle = "#4A7EBB";
-      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    if (imageRef.current && layout.photoRegion) {
+      const { x, y, w, h } = layout.photoRegion;
+      drawImageCoverInRegion(
+        ctx,
+        imageRef.current,
+        x * CANVAS_WIDTH,
+        y * CANVAS_HEIGHT,
+        w * CANVAS_WIDTH,
+        h * CANVAS_HEIGHT
+      );
     }
 
     if (layer.text.trim()) {
@@ -181,6 +284,28 @@ export function PhotoTextComposer({
         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
           Prototype — not yet approved
         </span>
+      </div>
+
+      <div>
+        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Layout
+        </span>
+        <div className="flex flex-wrap gap-2">
+          {LAYOUTS.map((l) => (
+            <button
+              key={l.key}
+              type="button"
+              onClick={() => selectLayout(l.key)}
+              className={`rounded-md border-2 px-3 py-1.5 text-xs font-semibold transition ${
+                layoutKey === l.key
+                  ? "border-navy bg-navy text-white"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-sky-blue hover:text-navy"
+              }`}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {photosError && (
@@ -292,10 +417,18 @@ function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n));
 }
 
-/** Draws `img` into the ctx covering the full w×h box (like CSS
- * object-fit: cover) — crops rather than stretches/letterboxes, so the
- * photo fills the same square frame the review page's other previews use. */
-function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number) {
+/** Draws `img` into the ctx covering the given (x, y, w, h) destination
+ * box (like CSS object-fit: cover) — crops rather than
+ * stretches/letterboxes, so the photo fills whichever region the
+ * active Layout reserves for it (see LAYOUTS' photoRegion). */
+function drawImageCoverInRegion(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+) {
   const imgRatio = img.width / img.height;
   const boxRatio = w / h;
   let sx = 0,
@@ -309,7 +442,7 @@ function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w:
     sh = img.width / boxRatio;
     sy = (img.height - sh) / 2;
   }
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 }
 
 /** Draws `layer.text` centered on (xPct, yPct), wrapped to fit within
