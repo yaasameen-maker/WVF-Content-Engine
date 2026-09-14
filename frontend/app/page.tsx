@@ -1196,6 +1196,14 @@ function ScheduleTemplateButton({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<number | null>(null);
+  // This flow schedules on click, with no composite-image check
+  // beforehand (unlike the AI-generated post editor on /review, which
+  // checks before showing Schedule/Approve) — a fixed template's
+  // caption/hashtags are already real, published copy, so there's no
+  // earlier "confirm before scheduling" step to hook into. The warning
+  // below is shown after scheduling instead, so staff isn't misled into
+  // thinking a graphic already shipped with it.
+  const [hasComposedImage, setHasComposedImage] = useState(false);
 
   async function handleSchedule() {
     if (!date) {
@@ -1231,7 +1239,17 @@ function ScheduleTemplateButton({
           </a>
           .
         </p>
-        <PhotoTextComposer contentItemId={savedId} initialText={caption} />
+        {!hasComposedImage && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            This post is scheduled without a composed image — build one below, or attach a graphic
+            separately (e.g. in Canva) before it goes out.
+          </div>
+        )}
+        <PhotoTextComposer
+          contentItemId={savedId}
+          initialText={caption}
+          onSaved={() => setHasComposedImage(true)}
+        />
       </div>
     );
   }
