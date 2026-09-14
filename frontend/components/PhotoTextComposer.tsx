@@ -39,6 +39,15 @@ import {
 const CANVAS_WIDTH = 1080;
 const CANVAS_HEIGHT = 1080;
 
+/** On-screen preview size in CSS pixels — set as an explicit inline
+ * style (not a Tailwind responsive class) so the canvas element's
+ * rendered box is unambiguous rather than depending on how w-full/
+ * aspect-square resolve inside this component's particular parent
+ * layout. Bigger than the canvas's own former max-w-sm (384px) cap so
+ * staff can actually see the full post while editing, not just a
+ * thumbnail. */
+const PREVIEW_DISPLAY_SIZE = 560;
+
 const NAVY = "#4A7EBB";
 const SKY_BLUE = "#87ACD1";
 
@@ -550,7 +559,10 @@ export function PhotoTextComposer({
         </label>
       </div>
 
-      <div className="overflow-hidden rounded-md border border-gray-300">
+      <div
+        className="mx-auto overflow-hidden rounded-md border border-gray-300"
+        style={{ width: PREVIEW_DISPLAY_SIZE, height: PREVIEW_DISPLAY_SIZE }}
+      >
         <canvas
           ref={canvasRef}
           width={CANVAS_WIDTH}
@@ -559,10 +571,11 @@ export function PhotoTextComposer({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
-          className="block aspect-square w-full max-w-sm cursor-move touch-none"
+          className="cursor-move touch-none"
+          style={{ width: "100%", height: "100%", display: "block" }}
         />
       </div>
-      <p className="text-xs text-gray-500">Drag the text on the preview above to reposition it.</p>
+      <p className="text-center text-xs text-gray-500">Drag the text on the preview above to reposition it.</p>
 
       {saveError && (
         <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -618,23 +631,59 @@ function drawImageCoverInRegion(
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 }
 
+/** Smallest font size drawWrappedText will shrink to while trying to
+ * fit long text within the canvas — below this it just lets the text
+ * run past the edges rather than becoming unreadably tiny. */
+const MIN_AUTOFIT_FONT_PX = 22;
+
 /** Draws `layer.text` centered on (xPct, yPct), wrapped to fit within
  * ~90% of the canvas width, with a soft shadow so white text stays
- * legible over busy photo backgrounds without needing a solid block. */
+ * legible over busy photo backgrounds without needing a solid block.
+ *
+ * A long caption at the user's chosen font size can wrap into more
+ * lines than fit vertically on the canvas — previously this just drew
+ * every line regardless, so the bottom lines could render past the
+ * canvas edge and get cut off in the saved PNG. Now it shrinks the
+ * font (down to MIN_AUTOFIT_FONT_PX) until the full wrapped block fits
+ * within the canvas height, then clamps the block's vertical position
+ * so it can't start above the top or run past the bottom even if the
+ * user dragged the anchor point close to an edge. */
 function drawWrappedText(ctx: CanvasRenderingContext2D, layer: TextLayer, canvasWidth: number) {
+  const canvasHeight = ctx.canvas.height;
   const maxWidth = canvasWidth * 0.9;
+  const verticalMargin = canvasHeight * 0.04;
+  const maxBlockHeight = canvasHeight - verticalMargin * 2;
   const cx = layer.xPct * canvasWidth;
-  const cy = layer.yPct * ctx.canvas.height;
 
-  ctx.font = `bold ${layer.fontSizePx}px system-ui, sans-serif`;
-  ctx.fillStyle = layer.color;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
   ctx.shadowBlur = 12;
 
-  const lines = wrapText(ctx, layer.text, maxWidth);
-  const lineHeight = layer.fontSizePx * 1.2;
+  let fontSizePx = layer.fontSizePx;
+  let lines: string[];
+  let lineHeight: number;
+  // Shrink in steps rather than binary-searching — a handful of
+  // iterations is plenty at this size range and keeps the logic simple.
+  for (;;) {
+    ctx.font = `bold ${fontSizePx}px system-ui, sans-serif`;
+    lines = wrapText(ctx, layer.text, maxWidth);
+    lineHeight = fontSizePx * 1.2;
+    const blockHeight = lines.length * lineHeight;
+    if (blockHeight <= maxBlockHeight || fontSizePx <= MIN_AUTOFIT_FONT_PX) break;
+    fontSizePx -= 4;
+  }
+
+  ctx.fillStyle = layer.color;
+
+  const blockHeight = lines.length * lineHeight;
+  const desiredCy = layer.yPct * canvasHeight;
+  // Clamp so the text block's own top/bottom edges stay within the
+  // margins, regardless of where the user dragged the anchor point.
+  const minCy = verticalMargin + blockHeight / 2;
+  const maxCy = canvasHeight - verticalMargin - blockHeight / 2;
+  const cy = Math.min(Math.max(desiredCy, minCy), Math.max(minCy, maxCy));
+
   const startY = cy - ((lines.length - 1) * lineHeight) / 2;
 
   lines.forEach((line, i) => {
