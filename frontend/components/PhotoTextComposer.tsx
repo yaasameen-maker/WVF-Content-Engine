@@ -2,10 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  listKeyMakers,
   listPhotos,
+  searchStockPhotos,
   uploadComposedImage,
   type ComposedImageResponse,
+  type KeyMakerResponse,
   type PhotoAssetResponse,
+  type StockPhotoResult,
 } from "@/lib/api";
 
 /**
@@ -133,6 +137,17 @@ const LAYOUTS: Layout[] = [
   },
 ];
 
+/** A pickable backdrop image, normalized across the composer's three
+ * sources — the staff photo library, free Pexels stock search, and
+ * real Key Maker headshots (see PhotoSourceTabs below). Only
+ * source: "library" carries a photoAssetId, since that's the only kind
+ * ComposedImage.source_photo_id (a FK to photo_assets) can reference —
+ * stock photos and Key Maker headshots aren't PhotoAsset rows. */
+type SelectedImage =
+  | { source: "library"; url: string; photoAssetId: number }
+  | { source: "stock"; url: string }
+  | { source: "keymaker"; url: string };
+
 export function PhotoTextComposer({
   contentItemId,
   initialText,
@@ -142,7 +157,14 @@ export function PhotoTextComposer({
 }) {
   const [photos, setPhotos] = useState<PhotoAssetResponse[] | null>(null);
   const [photosError, setPhotosError] = useState<string | null>(null);
-  const [selectedPhoto, setSelectedPhoto] = useState<PhotoAssetResponse | null>(null);
+  const [keyMakers, setKeyMakers] = useState<KeyMakerResponse[] | null>(null);
+  const [keyMakersError, setKeyMakersError] = useState<string | null>(null);
+  const [stockQuery, setStockQuery] = useState("");
+  const [stockResults, setStockResults] = useState<StockPhotoResult[] | null>(null);
+  const [stockError, setStockError] = useState<string | null>(null);
+  const [isSearchingStock, setIsSearchingStock] = useState(false);
+  const [imageSourceTab, setImageSourceTab] = useState<"library" | "stock" | "keymaker">("library");
+  const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
   const [layoutKey, setLayoutKey] = useState<string>(LAYOUTS[0].key);
   const [layer, setLayer] = useState<TextLayer>({ ...LAYOUTS[0].defaultLayer, text: initialText });
   const [isSaving, setIsSaving] = useState(false);
@@ -163,25 +185,44 @@ export function PhotoTextComposer({
     listPhotos()
       .then(setPhotos)
       .catch((err) => setPhotosError(err instanceof Error ? err.message : "Failed to load photos."));
+    listKeyMakers()
+      .then(setKeyMakers)
+      .catch((err) => setKeyMakersError(err instanceof Error ? err.message : "Failed to load Key Makers."));
   }, []);
 
-  // Load the selected photo into an <img> once, reused across redraws —
+  async function runStockSearch() {
+    if (!stockQuery.trim()) return;
+    setStockError(null);
+    setIsSearchingStock(true);
+    try {
+      const results = await searchStockPhotos(stockQuery.trim());
+      setStockResults(results);
+    } catch (err) {
+      setStockError(
+        err instanceof Error ? err.message : "Stock photo search failed — it may not be configured yet."
+      );
+    } finally {
+      setIsSearchingStock(false);
+    }
+  }
+
+  // Load the selected image into an <img> once, reused across redraws —
   // redrawing on every layer change shouldn't re-fetch the image.
   useEffect(() => {
-    if (!selectedPhoto) {
+    if (!selectedImage) {
       imageRef.current = null;
       draw();
       return;
     }
     const img = new Image();
-    img.crossOrigin = "anonymous"; // R2 bucket is public-read; needed so canvas.toBlob() isn't tainted
+    img.crossOrigin = "anonymous"; // needed so canvas.toBlob() isn't tainted by a cross-origin source
     img.onload = () => {
       imageRef.current = img;
       draw();
     };
-    img.src = selectedPhoto.public_url;
+    img.src = selectedImage.url;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPhoto]);
+  }, [selectedImage]);
 
   useEffect(() => {
     draw();
@@ -265,7 +306,7 @@ export function PhotoTextComposer({
       if (!blob) throw new Error("Failed to flatten the image — try again.");
       const result = await uploadComposedImage(blob, {
         contentItemId,
-        sourcePhotoId: selectedPhoto?.id,
+        sourcePhotoId: selectedImage?.source === "library" ? selectedImage.photoAssetId : undefined,
       });
       setSaved(result);
     } catch (err) {
@@ -308,40 +349,172 @@ export function PhotoTextComposer({
         </div>
       </div>
 
-      {photosError && (
-        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
-          {photosError}
-        </div>
-      )}
-
-      {photos && photos.length === 0 && (
-        <p className="text-xs text-gray-600">
-          No photos in the library yet —{" "}
-          <a href="/photos" className="underline">
-            upload one
-          </a>{" "}
-          first.
-        </p>
-      )}
-
-      {photos && photos.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {photos.map((photo) => (
+      <div>
+        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Backdrop photo
+        </span>
+        <div className="mb-2 flex gap-1 border-b border-gray-200">
+          {(
+            [
+              ["library", "Photo Library"],
+              ["stock", "Stock Photos"],
+              ["keymaker", "Key Makers"],
+            ] as const
+          ).map(([tab, label]) => (
             <button
-              key={photo.id}
+              key={tab}
               type="button"
-              onClick={() => setSelectedPhoto(photo)}
-              className={`h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 ${
-                selectedPhoto?.id === photo.id ? "border-navy" : "border-gray-200 hover:border-sky-blue"
+              onClick={() => setImageSourceTab(tab)}
+              className={`-mb-px border-b-2 px-3 py-1.5 text-xs font-semibold transition ${
+                imageSourceTab === tab
+                  ? "border-navy text-navy"
+                  : "border-transparent text-gray-500 hover:text-navy"
               }`}
-              title={photo.filename}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photo.public_url} alt="" className="h-full w-full object-cover" />
+              {label}
             </button>
           ))}
         </div>
-      )}
+
+        {imageSourceTab === "library" && (
+          <>
+            {photosError && (
+              <div className="mb-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {photosError}
+              </div>
+            )}
+            {photos && photos.length === 0 && (
+              <p className="text-xs text-gray-600">
+                No photos in the library yet —{" "}
+                <a href="/photos" className="underline">
+                  upload one
+                </a>{" "}
+                first. Real headshots (staff, Key Makers) belong here too.
+              </p>
+            )}
+            {photos && photos.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {photos.map((photo) => (
+                  <button
+                    key={photo.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedImage({ source: "library", url: photo.public_url, photoAssetId: photo.id })
+                    }
+                    className={`h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 ${
+                      selectedImage?.source === "library" && selectedImage.photoAssetId === photo.id
+                        ? "border-navy"
+                        : "border-gray-200 hover:border-sky-blue"
+                    }`}
+                    title={photo.filename}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photo.public_url} alt="" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {imageSourceTab === "stock" && (
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={stockQuery}
+                onChange={(e) => setStockQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), runStockSearch())}
+                placeholder="e.g. women entrepreneurs meeting"
+                className="input flex-1"
+              />
+              <button
+                type="button"
+                onClick={runStockSearch}
+                disabled={isSearchingStock || !stockQuery.trim()}
+                className="rounded-md bg-navy px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSearchingStock ? "Searching…" : "Search"}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Free stock photos via Pexels — licensed for commercial use, no attribution required.
+            </p>
+            {stockError && (
+              <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {stockError}
+              </div>
+            )}
+            {stockResults && stockResults.length === 0 && (
+              <p className="text-xs text-gray-600">No results — try a different search.</p>
+            )}
+            {stockResults && stockResults.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {stockResults.map((photo) => (
+                  <button
+                    key={photo.id}
+                    type="button"
+                    onClick={() => setSelectedImage({ source: "stock", url: photo.src_url })}
+                    className={`h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 ${
+                      selectedImage?.source === "stock" && selectedImage.url === photo.src_url
+                        ? "border-navy"
+                        : "border-gray-200 hover:border-sky-blue"
+                    }`}
+                    title={`Photo by ${photo.photographer} on Pexels`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photo.thumbnail_url} alt={photo.alt} className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {imageSourceTab === "keymaker" && (
+          <>
+            {keyMakersError && (
+              <div className="mb-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {keyMakersError}
+              </div>
+            )}
+            {keyMakers && keyMakers.filter((k) => k.photo_url).length === 0 && (
+              <p className="text-xs text-gray-600">
+                No Key Maker photos on file yet. Staff/approver headshots (e.g. Nancy, Maria) aren&apos;t
+                Key Makers — upload those under the Photo Library tab instead.
+              </p>
+            )}
+            {keyMakers && keyMakers.filter((k) => k.photo_url).length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {keyMakers
+                  .filter((k) => k.photo_url)
+                  .map((keyMaker) => (
+                    <button
+                      key={keyMaker.id}
+                      type="button"
+                      onClick={() =>
+                        setSelectedImage({ source: "keymaker", url: keyMaker.photo_url as string })
+                      }
+                      className={`h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 ${
+                        selectedImage?.source === "keymaker" && selectedImage.url === keyMaker.photo_url
+                          ? "border-navy"
+                          : "border-gray-200 hover:border-sky-blue"
+                      }`}
+                      title={keyMaker.owner_name}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={keyMaker.photo_url as string}
+                        alt={keyMaker.owner_name}
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       <label className="block">
         <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">

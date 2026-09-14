@@ -312,6 +312,16 @@ def test_x_template_detail_404s_for_unknown_template(client):
     assert "not_a_real_template" in resp.json()["detail"]
 
 
+def test_stock_photos_503s_when_pexels_not_configured(monkeypatch, client):
+    # Test env has no PEXELS_API_KEY set — search should fail clearly
+    # (503), not silently or with a generic 500, matching
+    # SCHEDULER_SECRET's unconfigured-dependency pattern elsewhere.
+    monkeypatch.delenv("PEXELS_API_KEY", raising=False)
+    resp = client.get("/api/media/stock-photos", params={"query": "women entrepreneurs"})
+    assert resp.status_code == 503
+    assert "PEXELS_API_KEY" in resp.json()["detail"]
+
+
 def test_social_post_series_endpoint_lists_all_series(client):
     resp = client.get("/api/social-post-series")
     assert resp.status_code == 200

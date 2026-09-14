@@ -81,3 +81,15 @@ class ComposedImageResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     _stamp_utc = field_validator("created_at")(_as_utc)
+
+
+class StockPhotoResult(BaseModel):
+    """One Pexels search result — see app/services/pexels.py. Not
+    persisted anywhere; the frontend loads src_url directly from
+    Pexels' CDN into the composer's canvas, same as it already does for
+    R2-hosted photo-library images."""
+    id: int
+    photographer: str
+    alt: str
+    src_url: str
+    thumbnail_url: str

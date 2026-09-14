@@ -28,8 +28,9 @@ from app.schemas.media import (
     PhotoAssetResponse,
     PresignUploadRequest,
     PresignUploadResponse,
+    StockPhotoResult,
 )
-from app.services import object_storage
+from app.services import object_storage, pexels
 
 router = APIRouter(prefix="/api/media", tags=["media"])
 
@@ -190,3 +191,15 @@ def delete_composed_image(composed_image_id: int, db: Session = Depends(get_db))
     db.delete(image)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/stock-photos", response_model=list[StockPhotoResult])
+def search_stock_photos(query: str) -> list[StockPhotoResult]:
+    """Proxies a Pexels search — see app/services/pexels.py. Keeps
+    PEXELS_API_KEY server-side; the frontend only ever sees the search
+    results, not the key itself."""
+    try:
+        results = pexels.search_photos(query)
+    except pexels.PexelsNotConfigured as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    return [StockPhotoResult(**r) for r in results]

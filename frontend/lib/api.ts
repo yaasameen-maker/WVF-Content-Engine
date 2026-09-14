@@ -688,3 +688,21 @@ export function listComposedImages(contentItemId: number): Promise<ComposedImage
 export function deleteComposedImage(composedImageId: number): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>(`/api/media/composed-images/${composedImageId}`, { method: "DELETE" });
 }
+
+/** One free stock-photo search result (Pexels) — see backend
+ * app/services/pexels.py. Not stored anywhere; src_url loads directly
+ * from Pexels' own CDN. */
+export interface StockPhotoResult {
+  id: number;
+  photographer: string;
+  alt: string;
+  src_url: string;
+  thumbnail_url: string;
+}
+
+/** Searches Pexels for free stock photos via the backend proxy (keeps
+ * the API key server-side). Throws a "search unavailable" style error
+ * if PEXELS_API_KEY isn't configured (backend returns 503). */
+export function searchStockPhotos(query: string): Promise<StockPhotoResult[]> {
+  return request<StockPhotoResult[]>(`/api/media/stock-photos?query=${encodeURIComponent(query)}`);
+}
