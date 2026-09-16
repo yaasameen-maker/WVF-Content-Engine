@@ -27,8 +27,15 @@ X_MEDIA_UPLOAD_URL = "https://api.x.com/2/media/upload"
 
 # tweet.write lets the connected account publish; offline.access provides
 # a refresh token so the connection survives past the initial token's
-# expiry without asking staff to reconnect every time.
-X_SCOPES = "tweet.read users.read tweet.write offline.access"
+# expiry without asking staff to reconnect every time. media.write
+# (added when image posting was wired up) is required by X's v2 media
+# upload endpoint (see x_client.upload_media) — without it, uploading or
+# attaching media to a tweet 403s even though tweet.write alone is
+# enough for text-only posting. An X connection made BEFORE this scope
+# was added needs to be disconnected and reconnected for its token to
+# actually carry media.write — there's no way to add a scope to an
+# already-issued token.
+X_SCOPES = "tweet.read users.read tweet.write media.write offline.access"
 
 
 def get_backend_url() -> str:
