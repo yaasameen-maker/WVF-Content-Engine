@@ -40,28 +40,35 @@ function readHistory(fieldName: string): string[] {
  * every partial value typed along the way. Empty/whitespace-only
  * values are ignored. Most-recent-first, capped at
  * MAX_HISTORY_PER_FIELD, de-duplicated (re-using a past value moves it
- * back to the front rather than creating a duplicate entry). */
-export function recordFieldHistory(fieldName: string, value: string): void {
+ * back to the front rather than creating a duplicate entry). Returns
+ * the updated list so a caller holding its own copy (see
+ * useFieldHistory below) can update immediately without waiting for a
+ * remount — a value recorded via onBlur wouldn't otherwise appear as a
+ * suggestion until the field's component happened to unmount and
+ * remount (e.g. closing and reopening the panel), since nothing told
+ * an already-mounted <datalist> to re-read storage after the write. */
+export function recordFieldHistory(fieldName: string, value: string): string[] {
   const trimmed = value.trim();
-  if (!trimmed) return;
+  if (!trimmed) return readHistory(fieldName);
   try {
     const existing = readHistory(fieldName).filter((v) => v !== trimmed);
     const next = [trimmed, ...existing].slice(0, MAX_HISTORY_PER_FIELD);
     window.localStorage.setItem(storageKeyFor(fieldName), JSON.stringify(next));
+    return next;
   } catch {
     // Storage full/disabled — history just won't record this time.
+    return readHistory(fieldName);
   }
 }
 
-/** Live-reads a field's history, for feeding a <datalist>. Re-reads on
- * every mount rather than staying subscribed — history changes only
- * when this same tab records a new value (via recordFieldHistory,
- * itself only called from this page), so a mount-time read is enough;
- * no cross-tab sync is attempted. */
-export function useFieldHistory(fieldName: string): string[] {
+/** Live-reads a field's history, for feeding a <datalist>, plus a
+ * setter so a caller can push an updated list in immediately after
+ * calling recordFieldHistory (see that function's docstring for why
+ * this needs to happen explicitly rather than automatically). */
+export function useFieldHistory(fieldName: string): [string[], (next: string[]) => void] {
   const [history, setHistory] = useState<string[]>([]);
   useEffect(() => {
     setHistory(readHistory(fieldName));
   }, [fieldName]);
-  return history;
+  return [history, setHistory];
 }

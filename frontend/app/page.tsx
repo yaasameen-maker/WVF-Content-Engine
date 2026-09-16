@@ -993,7 +993,7 @@ function HistoryInput({
   type?: string;
   placeholder?: string;
 }) {
-  const history = useFieldHistory(historyField);
+  const [history, setHistory] = useFieldHistory(historyField);
   const listId = `history-${historyField}`;
 
   return (
@@ -1003,7 +1003,7 @@ function HistoryInput({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onBlur={(e) => recordFieldHistory(historyField, e.target.value)}
+        onBlur={(e) => setHistory(recordFieldHistory(historyField, e.target.value))}
         className="input"
         placeholder={placeholder}
         list={listId}
