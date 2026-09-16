@@ -88,9 +88,17 @@ interface Layout {
   label: string;
   photoRegion: PhotoRegion | null; // null = no photo area, solid color frame only
   defaultLayer: Omit<TextLayer, "text">;
+  /** The block color staff start with when picking this layout —
+   * editable afterward via the Block color picker (see blockColor
+   * state below). Not necessarily what ends up on screen; this is only
+   * the default. */
+  defaultBlockColor: string;
   /** Draws this layout's color blocks/frame — called before the photo
-   * and text so blocks sit behind both. */
-  drawFrame: (ctx: CanvasRenderingContext2D) => void;
+   * and text so blocks sit behind both. Takes the current blockColor
+   * (which may differ from defaultBlockColor once staff changes it) so
+   * every layout's colored shape stays editable, not just the two that
+   * used to be hardcoded to NAVY/SKY_BLUE. */
+  drawFrame: (ctx: CanvasRenderingContext2D, blockColor: string) => void;
 }
 
 const LAYOUTS: Layout[] = [
@@ -99,10 +107,11 @@ const LAYOUTS: Layout[] = [
     label: "Workshop — photo top, color block bottom",
     photoRegion: { x: 0, y: 0, w: 1, h: 0.55 },
     defaultLayer: { xPct: 0.5, yPct: 0.72, fontSizePx: 70, color: "#FFFFFF" },
-    drawFrame(ctx) {
+    defaultBlockColor: NAVY,
+    drawFrame(ctx, blockColor) {
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-      ctx.fillStyle = NAVY;
+      ctx.fillStyle = blockColor;
       ctx.fillRect(0, CANVAS_HEIGHT * 0.55, CANVAS_WIDTH, CANVAS_HEIGHT * 0.45);
     },
   },
@@ -111,10 +120,11 @@ const LAYOUTS: Layout[] = [
     label: "Conference — diagonal split, circular photo",
     photoRegion: { x: 0.32, y: 0.16, w: 0.5, h: 0.5 },
     defaultLayer: { xPct: 0.32, yPct: 0.78, fontSizePx: 56, color: "#0F1F33" },
-    drawFrame(ctx) {
+    defaultBlockColor: SKY_BLUE,
+    drawFrame(ctx, blockColor) {
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-      ctx.fillStyle = SKY_BLUE;
+      ctx.fillStyle = blockColor;
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(CANVAS_WIDTH, 0);
@@ -129,8 +139,9 @@ const LAYOUTS: Layout[] = [
     label: "Gala — full-bleed photo, dark bottom band",
     photoRegion: { x: 0, y: 0, w: 1, h: 1 },
     defaultLayer: { xPct: 0.5, yPct: 0.88, fontSizePx: 60, color: "#F4D98A" },
-    drawFrame(ctx) {
-      ctx.fillStyle = "#14243F";
+    defaultBlockColor: "#14243F",
+    drawFrame(ctx, blockColor) {
+      ctx.fillStyle = blockColor;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     },
   },
@@ -139,8 +150,9 @@ const LAYOUTS: Layout[] = [
     label: "Plain — full-bleed photo, no frame",
     photoRegion: { x: 0, y: 0, w: 1, h: 1 },
     defaultLayer: { ...DEFAULT_LAYER },
-    drawFrame(ctx) {
-      ctx.fillStyle = NAVY;
+    defaultBlockColor: NAVY,
+    drawFrame(ctx, blockColor) {
+      ctx.fillStyle = blockColor;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     },
   },
@@ -185,6 +197,7 @@ export function PhotoTextComposer({
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
   const [layoutKey, setLayoutKey] = useState<string>(LAYOUTS[0].key);
   const [layer, setLayer] = useState<TextLayer>({ ...LAYOUTS[0].defaultLayer, text: initialText });
+  const [blockColor, setBlockColor] = useState<string>(LAYOUTS[0].defaultBlockColor);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [imageLoadError, setImageLoadError] = useState<string | null>(null);
@@ -265,15 +278,18 @@ export function PhotoTextComposer({
   useEffect(() => {
     draw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layer, layoutKey]);
+  }, [layer, layoutKey, blockColor]);
 
   function selectLayout(key: string) {
     const next = LAYOUTS.find((l) => l.key === key) ?? LAYOUTS[0];
     setLayoutKey(key);
     // Re-center the text at the new layout's default spot — a position
     // dragged to fit the old layout's blocks often lands somewhere odd
-    // in the new one (e.g. behind the photo region).
+    // in the new one (e.g. behind the photo region). Block color also
+    // resets to the new layout's own default rather than carrying over
+    // the old layout's color, which likely doesn't suit the new shape.
     setLayer((prev) => ({ ...next.defaultLayer, text: prev.text, color: prev.color, fontSizePx: prev.fontSizePx }));
+    setBlockColor(next.defaultBlockColor);
   }
 
   function draw() {
@@ -283,7 +299,7 @@ export function PhotoTextComposer({
     if (!ctx) return;
 
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    layout.drawFrame(ctx);
+    layout.drawFrame(ctx, blockColor);
 
     if (imageRef.current && layout.photoRegion) {
       const { x, y, w, h } = layout.photoRegion;
@@ -367,7 +383,7 @@ export function PhotoTextComposer({
       </div>
 
       <div>
-        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-navy">
           Layout
         </span>
         <div className="flex flex-wrap gap-2">
@@ -386,10 +402,19 @@ export function PhotoTextComposer({
             </button>
           ))}
         </div>
+        <label className="mt-2 flex items-center gap-2 text-xs text-gray-600">
+          Block color
+          <input
+            type="color"
+            value={blockColor}
+            onChange={(e) => setBlockColor(e.target.value)}
+            className="h-6 w-8 cursor-pointer"
+          />
+        </label>
       </div>
 
       <div>
-        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-navy">
           Backdrop photo
         </span>
         <div className="mb-2 flex gap-1 border-b border-gray-200">
@@ -556,7 +581,7 @@ export function PhotoTextComposer({
       </div>
 
       <label className="block">
-        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-navy">
           Overlay text
         </span>
         <textarea
