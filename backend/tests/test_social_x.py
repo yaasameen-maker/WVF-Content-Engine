@@ -11,6 +11,7 @@ and the full HTTP/routing layer via FastAPI's TestClient.
 
 import json
 
+import httpx
 import pytest
 from cryptography.fernet import Fernet
 
@@ -681,3 +682,49 @@ def test_is_stale_helper_directly_covers_boundary_and_published_short_circuit():
     # No scheduled_date at all — never stale (never a candidate).
     never_scheduled = FakeItem(scheduled_date=None)
     assert is_stale(never_scheduled, now) is False
+
+
+@pytest.mark.anyio
+async def test_upload_media_does_real_init_append_finalize_sequence(monkeypatch):
+    """Exercises x_client.upload_media's actual HTTP call sequence
+    against a mock transport (not the higher-level fake used elsewhere
+    in this file) — this is what caught the original implementation
+    being the wrong shape entirely (a single v1.1-style multipart POST,
+    which the real v2 API 400s on): the real v2 media API is always
+    3 calls (INIT, APPEND, FINALIZE), never one."""
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if request.url.path == "/2/media/upload/initialize":
+            assert request.headers["Authorization"] == "Bearer test-token"
+            body = json.loads(request.content)
+            assert body == {
+                "media_type": "image/png",
+                "total_bytes": len(b"fake-png-bytes"),
+                "media_category": "tweet_image",
+            }
+            return httpx.Response(200, json={"data": {"id": "media-id-1", "media_key": "3_media-id-1"}})
+        if request.url.path == "/2/media/upload/media-id-1/append":
+            return httpx.Response(200)
+        if request.url.path == "/2/media/upload/media-id-1/finalize":
+            # No processing_info — an image finalizing immediately,
+            # the common case this loop must not block on.
+            return httpx.Response(200, json={"data": {"id": "media-id-1"}})
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    real_async_client_cls = httpx.AsyncClient
+    monkeypatch.setattr(
+        x_client.httpx,
+        "AsyncClient",
+        lambda *a, **kw: real_async_client_cls(transport=httpx.MockTransport(handler)),
+    )
+
+    media_id = await x_client.upload_media("test-token", b"fake-png-bytes", "image/png")
+
+    assert media_id == "media-id-1"
+    assert [request.url.path for request in calls] == [
+        "/2/media/upload/initialize",
+        "/2/media/upload/media-id-1/append",
+        "/2/media/upload/media-id-1/finalize",
+    ]

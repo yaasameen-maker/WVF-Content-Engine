@@ -12,6 +12,7 @@ exposed to the frontend). Callback URL must exactly match what's
 registered in the X Developer Portal app settings.
 """
 
+import asyncio
 import base64
 import hashlib
 import os
@@ -24,6 +25,15 @@ X_TOKEN_URL = "https://api.x.com/2/oauth2/token"
 X_TWEETS_URL = "https://api.x.com/2/tweets"
 X_ME_URL = "https://api.x.com/2/users/me"
 X_MEDIA_UPLOAD_URL = "https://api.x.com/2/media/upload"
+X_MEDIA_UPLOAD_INITIALIZE_URL = "https://api.x.com/2/media/upload/initialize"
+
+# X's v2 media API is always chunked (INIT -> APPEND -> FINALIZE), even
+# for a small image — there's no single-call shortcut, unlike the older
+# v1.1 endpoint. A single APPEND segment must stay at or below 5MB per
+# X's docs; the composer's 1080x1080 PNGs are well under that, so this
+# module only ever sends one segment (index 0) rather than implementing
+# multi-segment splitting.
+X_MEDIA_APPEND_MAX_SEGMENT_BYTES = 5 * 1024 * 1024
 
 # tweet.write lets the connected account publish; offline.access provides
 # a refresh token so the connection survives past the initial token's
@@ -172,21 +182,76 @@ async def get_authenticated_user(access_token: str) -> dict:
 
 async def upload_media(access_token: str, image_bytes: bytes, content_type: str) -> str:
     """
-    Uploads image bytes to X's v2 media endpoint and returns the
-    resulting media_id, to be passed as media.media_ids in post_tweet().
-    Separate call from post_tweet() because X's API itself splits these
-    into two endpoints — media must be uploaded first, then referenced
-    by id in the tweet creation call, same two-step shape as most
-    social platforms' media APIs.
+    Uploads image bytes to X and returns the resulting media_id, to be
+    passed as media.media_ids in post_tweet(). Separate call from
+    post_tweet() because X's API itself splits these into two calls —
+    media must be uploaded first, then referenced by id in the tweet
+    creation call.
+
+    X's v2 media API is always a 3-step chunked flow — INIT, APPEND,
+    FINALIZE — even for a small image; there is no single-call
+    shortcut (unlike the older v1.1 endpoint, which this was originally
+    written against and which 400'd against the real v2 API). This
+    only ever sends one APPEND segment (index 0), since the composer's
+    1080x1080 PNGs are well under the 5MB per-segment limit — true
+    multi-segment splitting isn't implemented, since nothing in this
+    app currently uploads anything larger.
     """
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            X_MEDIA_UPLOAD_URL,
-            files={"media": ("image.png", image_bytes, content_type)},
-            headers={"Authorization": f"Bearer {access_token}"},
+    if len(image_bytes) > X_MEDIA_APPEND_MAX_SEGMENT_BYTES:
+        raise ValueError(
+            f"Image is {len(image_bytes)} bytes, over the {X_MEDIA_APPEND_MAX_SEGMENT_BYTES}-byte "
+            "single-segment limit this upload_media() implementation supports."
         )
-    response.raise_for_status()
-    return response.json()["data"]["id"]
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    async with httpx.AsyncClient() as client:
+        init_response = await client.post(
+            X_MEDIA_UPLOAD_INITIALIZE_URL,
+            json={
+                "media_type": content_type,
+                "total_bytes": len(image_bytes),
+                "media_category": "tweet_image",
+            },
+            headers={**headers, "Content-Type": "application/json"},
+        )
+        init_response.raise_for_status()
+        media_id = init_response.json()["data"]["id"]
+
+        append_response = await client.post(
+            f"{X_MEDIA_UPLOAD_URL}/{media_id}/append",
+            data={"segment_index": "0"},
+            files={"media": ("image.png", image_bytes, content_type)},
+            headers=headers,
+        )
+        append_response.raise_for_status()
+
+        finalize_response = await client.post(
+            f"{X_MEDIA_UPLOAD_URL}/{media_id}/finalize",
+            headers=headers,
+        )
+        finalize_response.raise_for_status()
+        finalize_data = finalize_response.json()["data"]
+
+        # Images typically finalize immediately with no processing_info;
+        # only poll STATUS if X actually says there's async processing
+        # left to do (e.g. for video, which this app doesn't post today
+        # but this loop costs nothing extra when it's skipped).
+        processing_info = finalize_data.get("processing_info")
+        while processing_info and processing_info.get("state") in ("pending", "in_progress"):
+            await asyncio.sleep(processing_info.get("check_after_secs", 1))
+            status_response = await client.get(
+                X_MEDIA_UPLOAD_URL,
+                params={"command": "STATUS", "media_id": media_id},
+                headers=headers,
+            )
+            status_response.raise_for_status()
+            status_data = status_response.json()["data"]
+            processing_info = status_data.get("processing_info")
+            if processing_info and processing_info.get("state") == "failed":
+                raise RuntimeError(f"X media processing failed for media_id={media_id}: {processing_info}")
+
+    return media_id
 
 
 async def post_tweet(access_token: str, text: str, media_id: str | None = None) -> dict:
