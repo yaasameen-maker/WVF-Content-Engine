@@ -218,7 +218,7 @@ def _seed_connected_social_post(db_session_factory):
 def test_post_to_x_publishes_and_records_success(client, db_session_factory, monkeypatch):
     _, content_item_id = _seed_connected_social_post(db_session_factory)
 
-    async def fake_post_tweet(access_token, text):
+    async def fake_post_tweet(access_token, text, media_id=None):
         assert access_token == "valid-access-token"
         assert text == "Join us for Money & Credit!"
         return {"data": {"id": "999888777", "text": text}}
@@ -233,6 +233,64 @@ def test_post_to_x_publishes_and_records_success(client, db_session_factory, mon
     item = db.query(ContentItem).filter(ContentItem.id == content_item_id).first()
     assert item.status == ContentStatus.PUBLISHED
     db.close()
+
+
+def test_post_to_x_attaches_latest_composed_image(client, db_session_factory, monkeypatch):
+    """A content item with a saved composite should upload it to X and
+    attach the resulting media_id to the tweet — the gap this feature
+    fixes (previously post_tweet never sent media.media_ids at all, so
+    every post went out text-only regardless of any saved composite)."""
+    from app.models import ComposedImage
+
+    _, content_item_id = _seed_connected_social_post(db_session_factory)
+
+    db = db_session_factory()
+    db.add(
+        ComposedImage(
+            content_item_id=content_item_id,
+            object_key="composed/test/image.png",
+            public_url="https://pub-test.r2.dev/composed/test/image.png",
+            content_type="image/png",
+            size_bytes=1234,
+        )
+    )
+    db.commit()
+    db.close()
+
+    class FakeImageResponse:
+        content = b"fake-png-bytes"
+
+        def raise_for_status(self):
+            pass
+
+    class FakeHttpxClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def get(self, url):
+            assert url == "https://pub-test.r2.dev/composed/test/image.png"
+            return FakeImageResponse()
+
+    async def fake_upload_media(access_token, image_bytes, content_type):
+        assert access_token == "valid-access-token"
+        assert image_bytes == b"fake-png-bytes"
+        assert content_type == "image/png"
+        return "uploaded-media-id-123"
+
+    async def fake_post_tweet(access_token, text, media_id=None):
+        assert media_id == "uploaded-media-id-123"
+        return {"data": {"id": "999888777", "text": text}}
+
+    monkeypatch.setattr("app.routers.social.httpx.AsyncClient", FakeHttpxClient)
+    monkeypatch.setattr(x_client, "upload_media", fake_upload_media)
+    monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
+
+    resp = client.post("/api/social/x/post", json={"content_item_id": content_item_id})
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"external_post_id": "999888777", "status": "success"}
 
 
 def test_post_to_x_without_connection_returns_409(client, db_session_factory):
@@ -377,7 +435,7 @@ def test_run_scheduled_posts_publishes_approved_due_item(client, db_session_fact
         db_session_factory, status=ContentStatus.APPROVED, scheduled_date=yesterday
     )
 
-    async def fake_post_tweet(access_token, text):
+    async def fake_post_tweet(access_token, text, media_id=None):
         return {"data": {"id": "555", "text": text}}
 
     monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
@@ -408,7 +466,7 @@ def test_run_scheduled_posts_never_publishes_a_draft(client, db_session_factory,
         db_session_factory, status=ContentStatus.DRAFT, scheduled_date=yesterday
     )
 
-    async def fake_post_tweet(access_token, text):
+    async def fake_post_tweet(access_token, text, media_id=None):
         pytest.fail("Should never be called — item is not approved")
 
     monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
@@ -431,7 +489,7 @@ def test_run_scheduled_posts_skips_future_date(client, db_session_factory, monke
         db_session_factory, status=ContentStatus.APPROVED, scheduled_date=tomorrow
     )
 
-    async def fake_post_tweet(access_token, text):
+    async def fake_post_tweet(access_token, text, media_id=None):
         pytest.fail("Should never be called — scheduled_date is in the future")
 
     monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
@@ -466,7 +524,7 @@ def test_run_scheduled_posts_respects_time_today(client, db_session_factory, mon
         db_session_factory, status=ContentStatus.APPROVED, scheduled_date=today, scheduled_time=future_time
     )
 
-    async def fake_post_tweet(access_token, text):
+    async def fake_post_tweet(access_token, text, media_id=None):
         pytest.fail("Should never be called — scheduled_time hasn't arrived yet")
 
     monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
@@ -493,7 +551,7 @@ def test_run_scheduled_posts_publishes_when_time_today_has_passed(client, db_ses
         db_session_factory, status=ContentStatus.APPROVED, scheduled_date=today, scheduled_time=past_time
     )
 
-    async def fake_post_tweet(access_token, text):
+    async def fake_post_tweet(access_token, text, media_id=None):
         return {"data": {"id": "777", "text": text}}
 
     monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
@@ -539,7 +597,7 @@ def test_run_scheduled_posts_skips_stale_approved_item(client, db_session_factor
         db_session_factory, status=ContentStatus.APPROVED, scheduled_date=four_days_ago
     )
 
-    async def fake_post_tweet(access_token, text):
+    async def fake_post_tweet(access_token, text, media_id=None):
         pytest.fail("Should never be called — item is stale (>72h past scheduled moment)")
 
     monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)
@@ -575,7 +633,7 @@ def test_run_scheduled_posts_publishes_late_approval_within_staleness_window(
         db_session_factory, status=ContentStatus.APPROVED, scheduled_date=two_days_ago
     )
 
-    async def fake_post_tweet(access_token, text):
+    async def fake_post_tweet(access_token, text, media_id=None):
         return {"data": {"id": "888", "text": text}}
 
     monkeypatch.setattr(x_client, "post_tweet", fake_post_tweet)

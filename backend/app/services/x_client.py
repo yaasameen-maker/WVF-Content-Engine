@@ -23,6 +23,7 @@ X_AUTHORIZE_URL = "https://twitter.com/i/oauth2/authorize"
 X_TOKEN_URL = "https://api.x.com/2/oauth2/token"
 X_TWEETS_URL = "https://api.x.com/2/tweets"
 X_ME_URL = "https://api.x.com/2/users/me"
+X_MEDIA_UPLOAD_URL = "https://api.x.com/2/media/upload"
 
 # tweet.write lets the connected account publish; offline.access provides
 # a refresh token so the connection survives past the initial token's
@@ -162,16 +163,42 @@ async def get_authenticated_user(access_token: str) -> dict:
     return response.json()["data"]
 
 
-async def post_tweet(access_token: str, text: str) -> dict:
+async def upload_media(access_token: str, image_bytes: bytes, content_type: str) -> str:
     """
-    Publishes a single text tweet. Called ONLY when a staff member clicks
-    "Post to X" on the review page — never from a queue or timer. Returns
-    the raw X API response dict (data.id, data.text on success).
+    Uploads image bytes to X's v2 media endpoint and returns the
+    resulting media_id, to be passed as media.media_ids in post_tweet().
+    Separate call from post_tweet() because X's API itself splits these
+    into two endpoints — media must be uploaded first, then referenced
+    by id in the tweet creation call, same two-step shape as most
+    social platforms' media APIs.
     """
     async with httpx.AsyncClient() as client:
         response = await client.post(
+            X_MEDIA_UPLOAD_URL,
+            files={"media": ("image.png", image_bytes, content_type)},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+    response.raise_for_status()
+    return response.json()["data"]["id"]
+
+
+async def post_tweet(access_token: str, text: str, media_id: str | None = None) -> dict:
+    """
+    Publishes a single tweet, optionally with one attached image. Called
+    ONLY when a staff member clicks "Post to X" on the review page —
+    never from a queue or timer. Returns the raw X API response dict
+    (data.id, data.text on success). media_id (from upload_media()) is
+    optional — a content item with no saved composite still posts as
+    text-only, same as before this existed.
+    """
+    payload: dict = {"text": text}
+    if media_id:
+        payload["media"] = {"media_ids": [media_id]}
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
             X_TWEETS_URL,
-            json={"text": text},
+            json=payload,
             headers={
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json",

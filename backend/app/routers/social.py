@@ -25,8 +25,19 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+import httpx
+
 from app.database import get_db
-from app.models import ContentItem, ContentStatus, ContentType, OAuthPkceState, SocialConnection, SocialPlatform, SocialPost
+from app.models import (
+    ComposedImage,
+    ContentItem,
+    ContentStatus,
+    ContentType,
+    OAuthPkceState,
+    SocialConnection,
+    SocialPlatform,
+    SocialPost,
+)
 from app.services import meta_client, x_client
 from app.services.scheduling import is_due, is_stale
 from app.services.token_encryption import decrypt_token, encrypt_token
@@ -372,6 +383,36 @@ class PostToXResponse(BaseModel):
     status: str
 
 
+async def _upload_latest_composite_to_x(db: Session, content_item_id: int, access_token: str) -> str | None:
+    """
+    If this content item has a saved composed (photo + text overlay)
+    image, downloads it from R2 and uploads it to X, returning the
+    resulting media_id to attach to the tweet. Returns None if no
+    composite exists — the composite stays optional (staff may attach a
+    graphic manually elsewhere instead), so a missing one just means a
+    text-only post, exactly like before image posting existed.
+
+    Picks the most recently saved composite when more than one exists
+    for this item (ComposedImage has no uniqueness constraint on
+    content_item_id — see its docstring) rather than asking staff to
+    choose one at post time.
+    """
+    latest = (
+        db.query(ComposedImage)
+        .filter(ComposedImage.content_item_id == content_item_id)
+        .order_by(ComposedImage.created_at.desc())
+        .first()
+    )
+    if not latest:
+        return None
+
+    async with httpx.AsyncClient() as client:
+        image_response = await client.get(latest.public_url)
+    image_response.raise_for_status()
+
+    return await x_client.upload_media(access_token, image_response.content, latest.content_type)
+
+
 async def _publish_item_to_x(db: Session, connection: SocialConnection, item: ContentItem) -> str:
     """
     Shared publish logic — one code path for "what happens when we post a
@@ -391,7 +432,8 @@ async def _publish_item_to_x(db: Session, connection: SocialConnection, item: Co
 
     try:
         access_token = await _get_valid_x_access_token(db, connection)
-        result = await x_client.post_tweet(access_token, caption)
+        media_id = await _upload_latest_composite_to_x(db, item.id, access_token)
+        result = await x_client.post_tweet(access_token, caption, media_id=media_id)
     except HTTPException:
         raise
     except Exception as e:
