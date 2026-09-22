@@ -346,7 +346,7 @@ export default function EventFormPage() {
       {(() => {
         const anyExpanded = mode !== null || socialAiPicker === "open";
         const socialTiles = (
-          <TileRail expanded={anyExpanded}>
+          <TileRail expanded={anyExpanded} gridCols={2}>
             <PlatformToggleButton
               tileId="instagram"
               label="Instagram"
@@ -1362,11 +1362,27 @@ const TILE_SPRING = { type: "spring", stiffness: 300, damping: 30 } as const;
  * than Tailwind's lg: breakpoint (1024px), so lg:-gated rail classes
  * silently never applied on any normal window size and the rail/panel
  * rendered stacked instead of side by side. */
-function TileRail({ expanded, children }: { expanded: boolean; children: React.ReactNode }) {
+function TileRail({
+  expanded,
+  gridCols,
+  children,
+}: {
+  expanded: boolean;
+  // Non-collapsed layout: a fixed N-column grid (e.g. 2x3 for 6 tiles,
+  // to cut down on wrapping whitespace) instead of the default wrapping
+  // flex row. Ignored once collapsed into the rail.
+  gridCols?: 2 | 3 | 4;
+  children: React.ReactNode;
+}) {
   // Collapsed rail lays out as a horizontal strip below sm (matching
   // side-rail-slot's own mobile layout — see RootLayout's comment on
   // why the slot can't dock to the true window edge on a narrow
   // screen) and as the usual vertical column at sm and above.
+  const GRID_COLS_CLASS: Record<2 | 3 | 4, string> = {
+    2: "grid-cols-2",
+    3: "grid-cols-3",
+    4: "grid-cols-4",
+  };
   return (
     <motion.div
       layout
@@ -1374,7 +1390,9 @@ function TileRail({ expanded, children }: { expanded: boolean; children: React.R
       className={
         expanded
           ? "flex shrink-0 flex-row gap-2 sm:w-20 sm:flex-col"
-          : "flex flex-wrap gap-4"
+          : gridCols
+            ? `grid ${GRID_COLS_CLASS[gridCols]} gap-4`
+            : "flex flex-wrap gap-4"
       }
     >
       {children}

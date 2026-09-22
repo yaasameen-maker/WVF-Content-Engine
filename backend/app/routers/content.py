@@ -205,3 +205,23 @@ def approve_content_item(
     db.commit()
     db.refresh(item)
     return _serialize_content_item(item)
+
+
+@router.delete("/content/{content_id}", status_code=204)
+def delete_content_item(content_id: int, db: Session = Depends(get_db)) -> None:
+    """Delete a content item — e.g. removing a scheduled post from the
+    calendar. Does not touch the parent event or any other content items
+    generated alongside it. Refuses once status is PUBLISHED — that means
+    it already went out (e.g. posted to X), so deleting the record here
+    would hide real activity without unpublishing anything."""
+    item = db.query(ContentItem).filter(ContentItem.id == content_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Content item not found")
+
+    if item.status == ContentStatus.PUBLISHED:
+        raise HTTPException(
+            status_code=409, detail="Cannot delete a content item that has already been published"
+        )
+
+    db.delete(item)
+    db.commit()

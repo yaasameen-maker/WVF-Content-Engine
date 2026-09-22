@@ -100,6 +100,17 @@ export default function CalendarPage() {
   });
   const [selected, setSelected] = useState<CalendarEntry | null>(null);
 
+  function handleDeleted(contentItemId: number) {
+    setEvents(
+      (prev) =>
+        prev?.map((event) => ({
+          ...event,
+          content_items: event.content_items.filter((item) => item.id !== contentItemId),
+        })) ?? prev
+    );
+    setUnscopedItems((prev) => prev?.filter((item) => item.id !== contentItemId) ?? prev);
+  }
+
   useEffect(() => {
     listEvents()
       .then(setEvents)
@@ -291,6 +302,7 @@ export default function CalendarPage() {
           event={selected.event}
           item={selected.item}
           onClose={() => setSelected(null)}
+          onDeleted={handleDeleted}
         />
       )}
     </div>

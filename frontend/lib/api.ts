@@ -451,6 +451,19 @@ export function listScheduledUnscopedContent(): Promise<ContentItemResponse[]> {
   return request<ContentItemResponse[]>("/api/content/scheduled");
 }
 
+/** Deletes a content item outright — e.g. removing a scheduled post from
+ * /calendar. Unlike other mutations here this hits the backend directly
+ * rather than through request(), since DELETE returns 204 with no body
+ * and request() always calls res.json(). Does not touch the parent event
+ * or sibling content items generated alongside it. */
+export async function deleteContentItem(contentItemId: number): Promise<void> {
+  const res = await fetch(`${API_URL}/api/content/${contentItemId}`, { method: "DELETE" });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`API request failed (${res.status}): ${detail}`);
+  }
+}
+
 export interface PostToXResponse {
   external_post_id: string;
   status: string;

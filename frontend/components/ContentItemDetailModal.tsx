@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import type { ContentItemResponse, EventWithContentResponse } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { deleteContentItem, type ContentItemResponse, type EventWithContentResponse } from "@/lib/api";
 import { ApproveButton } from "@/components/ApproveButton";
 import { PostToXButton } from "@/components/PostToXButton";
 
@@ -60,6 +60,7 @@ export function ContentItemDetailModal({
   event,
   item,
   onClose,
+  onDeleted,
 }: {
   // Null for items with no source event — e.g. a fixed-template post
   // scheduled via POST /api/content/schedule-template, which has no
@@ -67,7 +68,14 @@ export function ContentItemDetailModal({
   event: EventWithContentResponse | null;
   item: ContentItemResponse;
   onClose: () => void;
+  // Called after a successful delete so the calendar can drop this item
+  // from its in-memory lists without a full refetch.
+  onDeleted?: (contentItemId: number) => void;
 }) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -75,6 +83,19 @@ export function ContentItemDetailModal({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  async function handleDelete() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteContentItem(item.id);
+      onDeleted?.(item.id);
+      onClose();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete.");
+      setDeleting(false);
+    }
+  }
 
   return (
     <div
@@ -156,6 +177,53 @@ export function ContentItemDetailModal({
           )}
 
           <ContentBody item={item} />
+
+          <div className="border-t border-gray-100 pt-4">
+            {item.status === "published" ? (
+              <p className="text-xs text-gray-500">
+                This item has already been published and can&apos;t be deleted from the calendar.
+              </p>
+            ) : deleteError ? (
+              <div className="space-y-2">
+                <p className="text-sm text-red-600">{deleteError}</p>
+                <button
+                  type="button"
+                  onClick={() => setDeleteError(null)}
+                  className="text-xs font-semibold text-gray-500 underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            ) : confirmingDelete ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm text-gray-700">Delete this scheduled post?</span>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deleting ? "Deleting…" : "Yes, delete"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={deleting}
+                  className="text-xs font-semibold text-gray-500 underline disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                className="text-xs font-semibold text-red-600 underline"
+              >
+                Delete from calendar
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
