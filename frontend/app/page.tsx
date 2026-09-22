@@ -346,7 +346,7 @@ export default function EventFormPage() {
       {(() => {
         const anyExpanded = mode !== null || socialAiPicker === "open";
         const socialTiles = (
-          <TileRail expanded={anyExpanded} gridCols={2}>
+          <TileRail expanded={anyExpanded} gridCols={3}>
             <PlatformToggleButton
               tileId="instagram"
               label="Instagram"
@@ -1368,9 +1368,11 @@ function TileRail({
   children,
 }: {
   expanded: boolean;
-  // Non-collapsed layout: a fixed N-column grid (e.g. 2x3 for 6 tiles,
-  // to cut down on wrapping whitespace) instead of the default wrapping
-  // flex row. Ignored once collapsed into the rail.
+  // Non-collapsed layout: a fixed N-column grid (e.g. 3 columns x 2 rows
+  // for 6 tiles, to cut down on wrapping whitespace) instead of the
+  // default wrapping flex row. Each column is an equal-width track and
+  // tiles are centered within their cell (not stretched), so every tile
+  // stays its original fixed size. Ignored once collapsed into the rail.
   gridCols?: 2 | 3 | 4;
   children: React.ReactNode;
 }) {
@@ -1391,7 +1393,7 @@ function TileRail({
         expanded
           ? "flex shrink-0 flex-row gap-2 sm:w-20 sm:flex-col"
           : gridCols
-            ? `grid ${GRID_COLS_CLASS[gridCols]} gap-4`
+            ? `grid ${GRID_COLS_CLASS[gridCols]} justify-items-center gap-4`
             : "flex flex-wrap gap-4"
       }
     >
