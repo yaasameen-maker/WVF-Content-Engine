@@ -1393,7 +1393,7 @@ function TileRail({
         expanded
           ? "flex shrink-0 flex-row gap-2 sm:w-20 sm:flex-col"
           : gridCols
-            ? `grid ${GRID_COLS_CLASS[gridCols]} justify-items-center gap-4`
+            ? `grid ${GRID_COLS_CLASS[gridCols]} justify-items-center gap-3`
             : "flex flex-wrap gap-4"
       }
     >
