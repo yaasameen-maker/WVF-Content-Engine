@@ -8,6 +8,7 @@ import {
   type EventWithContentResponse,
 } from "@/lib/api";
 import { ApproveButton } from "@/components/ApproveButton";
+import { PhotoTextComposer } from "@/components/PhotoTextComposer";
 import { PostToXButton } from "@/components/PostToXButton";
 
 /**
@@ -217,23 +218,34 @@ export function ContentItemDetailModal({
               onClick={() => setIsEditing(true)}
               className="text-xs font-semibold text-sky-blue underline"
             >
-              Edit caption/hashtags
+              Edit caption/hashtags/image
             </button>
           )}
 
           {canEdit && isEditing ? (
-            <EditableSocialPostBody
-              body={body}
-              onChange={setBody}
-              onSave={handleSaveEdit}
-              onCancel={() => {
-                setBody(item.body);
-                setEditError(null);
-                setIsEditing(false);
-              }}
-              saving={savingEdit}
-              error={editError}
-            />
+            <>
+              <EditableSocialPostBody
+                body={body}
+                onChange={setBody}
+                onSave={handleSaveEdit}
+                onCancel={() => {
+                  setBody(item.body);
+                  setEditError(null);
+                  setIsEditing(false);
+                }}
+                saving={savingEdit}
+                error={editError}
+              />
+              {/* Same composer the review page uses right after
+                  generating — building here overwrites/creates this
+                  item's composed image, same as there. Nothing viewed
+                  via /calendar previously had any way to touch the
+                  image at all once past that first /review step. */}
+              <PhotoTextComposer
+                contentItemId={item.id}
+                initialText={(body.caption as string | undefined) ?? ""}
+              />
+            </>
           ) : (
             <ContentBody item={{ ...item, body }} />
           )}
