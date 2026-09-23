@@ -291,7 +291,7 @@ def test_x_templates_endpoint_lists_all_templates(client):
     resp = client.get("/api/x-templates")
     assert resp.status_code == 200
     templates = resp.json()
-    assert len(templates) == 13
+    assert len(templates) == 14
     assert all(isinstance(label, str) and label for label in templates.values())
 
 

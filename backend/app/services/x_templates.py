@@ -236,6 +236,25 @@ When the Plan Fails: What Actually Works Next. We're bringing together women fou
 March 30 👉 eventbrite.com/the-plan-fell-apart-now-what""",
         "hashtags": [],
     },
+    # NOT a real published X post like the entries above — new copy for
+    # an upcoming event (Sept 23, 2026), written from the event flyer,
+    # not transcribed from x.com/WomensVFund. Kept here (rather than a
+    # separate "unpublished" file) since staff need it in the same
+    # Fixed-template picker; flag it here if this file's scope is ever
+    # audited again.
+    "navigating_cash_flow_chase_workshop": {
+        "label": "Event promo — Navigating Cash Flow workshop w/ Chase (Sept 23)",
+        "category": "event_promo",
+        "caption": """Cash flow is about more than tracking what comes in and goes out. Join Women's Venture Fund and Chase for an in-person workshop on practical ways to manage expenses, anticipate financial challenges, and make informed decisions for your business.
+
+Whether you're launching a business or running an established one, Navigating Cash Flow will help you build strategies for greater financial stability and growth.
+
+📍 JPMorgan Chase Harlem Community Branch, 55 West 125th Street, New York, NY 10027
+📅 September 23, 2026 | 5–7 PM
+
+Space is limited. Register in advance: Workshop registration""",
+        "hashtags": [],
+    },
 }
 
 
