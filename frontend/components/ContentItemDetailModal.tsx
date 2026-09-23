@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { deleteContentItem, type ContentItemResponse, type EventWithContentResponse } from "@/lib/api";
+import {
+  deleteContentItem,
+  updateContentItemBody,
+  type ContentItemResponse,
+  type EventWithContentResponse,
+} from "@/lib/api";
 import { ApproveButton } from "@/components/ApproveButton";
 import { PostToXButton } from "@/components/PostToXButton";
 
@@ -76,6 +81,22 @@ export function ContentItemDetailModal({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Editing a not-yet-published social_post's caption/hashtags/CTA
+  // directly from the calendar — previously the only editor for saved
+  // content was the review page right after generating, so anything
+  // reached via /calendar (e.g. days later, or a "Schedule this post"
+  // template with no /review step at all) had no way to fix a typo or
+  // tweak copy before it went out. `body` tracks the current edited
+  // values; it's what gets PATCHed on Save and what's passed to
+  // PostToXButton, so "Post to X" always sends what's on screen rather
+  // than the original saved body if edits haven't been saved yet.
+  const [isEditing, setIsEditing] = useState(false);
+  const [body, setBody] = useState(item.body);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const canEdit = item.content_type === "social_post" && item.status !== "published";
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -94,6 +115,20 @@ export function ContentItemDetailModal({
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete.");
       setDeleting(false);
+    }
+  }
+
+  async function handleSaveEdit() {
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const updated = await updateContentItemBody(item.id, body);
+      setBody(updated.body);
+      setIsEditing(false);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to save changes.");
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -172,11 +207,36 @@ export function ContentItemDetailModal({
                   initialApprovedByName={item.approved_by_name}
                 />
               </div>
-              <PostToXButton contentItemId={item.id} currentBody={item.body} />
+              <PostToXButton contentItemId={item.id} currentBody={body} />
             </div>
           )}
 
-          <ContentBody item={item} />
+          {canEdit && !isEditing && (
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="text-xs font-semibold text-sky-blue underline"
+            >
+              Edit caption/hashtags
+            </button>
+          )}
+
+          {canEdit && isEditing ? (
+            <EditableSocialPostBody
+              body={body}
+              onChange={setBody}
+              onSave={handleSaveEdit}
+              onCancel={() => {
+                setBody(item.body);
+                setEditError(null);
+                setIsEditing(false);
+              }}
+              saving={savingEdit}
+              error={editError}
+            />
+          ) : (
+            <ContentBody item={{ ...item, body }} />
+          )}
 
           <div className="border-t border-gray-100 pt-4">
             {item.status === "published" ? (
@@ -225,6 +285,107 @@ export function ContentItemDetailModal({
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Editable caption/hashtags/CTA form for a not-yet-published social_post
+ * — shown instead of ContentBody's read-only view while isEditing is
+ * true (see ContentItemDetailModal.canEdit). Hashtags are edited as a
+ * single space-separated string, same convention as the review page's
+ * template editors (see EditableTemplatePreview on the homepage), then
+ * split back into an array on save. */
+function EditableSocialPostBody({
+  body,
+  onChange,
+  onSave,
+  onCancel,
+  saving,
+  error,
+}: {
+  body: Record<string, unknown>;
+  onChange: (body: Record<string, unknown>) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  saving: boolean;
+  error: string | null;
+}) {
+  const caption = (body.caption as string | undefined) ?? "";
+  const hashtagsText = Array.isArray(body.hashtags) ? (body.hashtags as string[]).join(" ") : "";
+  const cta = (body.cta as string | undefined) ?? "";
+
+  function setField(field: string, value: unknown) {
+    onChange({ ...body, [field]: value });
+  }
+
+  return (
+    <div className="space-y-3 border-t border-gray-100 pt-4">
+      <label className="block">
+        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Caption
+        </span>
+        <textarea
+          rows={5}
+          value={caption}
+          onChange={(e) => setField("caption", e.target.value)}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Hashtags (space-separated)
+        </span>
+        <input
+          type="text"
+          value={hashtagsText}
+          onChange={(e) =>
+            setField(
+              "hashtags",
+              e.target.value
+                .split(/\s+/)
+                .map((h) => h.trim())
+                .filter(Boolean)
+            )
+          }
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Call to Action
+        </span>
+        <input
+          type="text"
+          value={cta}
+          onChange={(e) => setField("cta", e.target.value)}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+      </label>
+
+      {error && (
+        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saving}
+          className="rounded-md bg-navy px-4 py-2 text-sm font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? "Saving…" : "Save changes"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className="text-xs font-semibold text-gray-500 underline disabled:opacity-50"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   );
