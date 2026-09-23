@@ -234,6 +234,14 @@ export default function EventFormPage() {
     setEvent((prev) => ({ ...prev, [field]: value }));
   }
 
+  /** Platforms with an AI Copy vs. Fixed template sub-choice (see
+   * platformSubMode) — used to default straight into the AI Copy form on
+   * open instead of showing the "how do you want to start?" sub-choice
+   * screen first (Sept 2026: staff wanted one less click to reach the
+   * form every time, so AI Copy is the landing state; Fixed template is
+   * still reachable via its own button in the panel). */
+  const PLATFORMS_WITH_SUB_MODE: readonly string[] = SOCIAL_POST_PLATFORMS;
+
   function selectMode(next: Mode) {
     // Closes the standalone Social AI Generate picker whenever a platform
     // tile is picked — both share the same collapsed rail/panel space, so
@@ -242,7 +250,7 @@ export default function EventFormPage() {
     // tile look unresponsive (they were still "active" underneath it).
     setSocialAiPicker("closed");
     setMode((prev) => (prev === next ? null : next));
-    setPlatformSubMode(null);
+    setPlatformSubMode(next && PLATFORMS_WITH_SUB_MODE.includes(next) ? "ai" : null);
   }
 
   /** Social Media Copy section's own standalone "AI Generate" button. Its
