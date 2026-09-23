@@ -398,7 +398,7 @@ export default function EventFormPage() {
           </TileRail>
         );
         const emailTiles = (
-          <TileRail expanded={anyExpanded} maxPerRow={3} justify="end">
+          <TileRail expanded={anyExpanded} maxPerRow={3} justify="start">
             <PlatformToggleButton
               tileId="keymakers"
               label="Keymakers Copy"
@@ -1377,11 +1377,12 @@ function TileRail({
   // collapsed into the rail.
   maxPerRow?: 2 | 3 | 4;
   // Where tiles sit within that max-width box — "center" (default;
-  // Social Media Copy's 6 tiles centering under the page) or "end" (e.g.
-  // Email Copy's 2 tiles pinned to the right edge of the same box, so
-  // they land under Social Media Copy's X/TikTok columns instead of its
-  // Instagram/LinkedIn ones).
-  justify?: "center" | "end";
+  // Social Media Copy's 6 tiles centering under the page), "start" (e.g.
+  // Email Copy's 2 tiles pinned to the left edge of the same box, so
+  // they land under Social Media Copy's X/TikTok columns — row 2's
+  // columns 1-2, same position as row 1's Instagram/LinkedIn), or "end"
+  // (pinned to the right edge instead).
+  justify?: "center" | "start" | "end";
   children: React.ReactNode;
 }) {
   // Collapsed rail lays out as a horizontal strip below sm (matching
@@ -1405,7 +1406,9 @@ function TileRail({
         expanded
           ? "flex shrink-0 flex-row gap-2 sm:w-20 sm:flex-col"
           : maxPerRow
-            ? `mx-auto flex flex-wrap gap-3 ${justify === "end" ? "justify-end" : "justify-center"}`
+            ? `mx-auto flex flex-wrap gap-3 ${
+                justify === "end" ? "justify-end" : justify === "start" ? "justify-start" : "justify-center"
+              }`
             : "flex flex-wrap gap-4"
       }
     >
