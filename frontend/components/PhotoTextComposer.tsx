@@ -196,6 +196,12 @@ export function PhotoTextComposer({
   const [isSearchingStock, setIsSearchingStock] = useState(false);
   const [imageSourceTab, setImageSourceTab] = useState<"library" | "stock" | "keymaker">("library");
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
+  // "cover" (default) crops the image to fill its region, right for a
+  // normal photo dropped into a template. "contain" shows the whole
+  // image un-cropped with letterboxing — for a source that's already a
+  // finished graphic (a full flyer, a designed screenshot) rather than
+  // a raw photo meant to be cropped.
+  const [photoFit, setPhotoFit] = useState<"cover" | "contain">("cover");
   const [layoutKey, setLayoutKey] = useState<string>(LAYOUTS[0].key);
   const [layer, setLayer] = useState<TextLayer>({ ...LAYOUTS[0].defaultLayer, text: initialText });
   const [blockColor, setBlockColor] = useState<string>(LAYOUTS[0].defaultBlockColor);
@@ -279,7 +285,7 @@ export function PhotoTextComposer({
   useEffect(() => {
     draw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layer, layoutKey, blockColor]);
+  }, [layer, layoutKey, blockColor, photoFit]);
 
   function selectLayout(key: string) {
     const next = LAYOUTS.find((l) => l.key === key) ?? LAYOUTS[0];
@@ -304,14 +310,15 @@ export function PhotoTextComposer({
 
     if (imageRef.current && layout.photoRegion) {
       const { x, y, w, h } = layout.photoRegion;
-      drawImageCoverInRegion(
-        ctx,
-        imageRef.current,
-        x * CANVAS_WIDTH,
-        y * CANVAS_HEIGHT,
-        w * CANVAS_WIDTH,
-        h * CANVAS_HEIGHT
-      );
+      const destX = x * CANVAS_WIDTH;
+      const destY = y * CANVAS_HEIGHT;
+      const destW = w * CANVAS_WIDTH;
+      const destH = h * CANVAS_HEIGHT;
+      if (photoFit === "contain") {
+        drawImageContainInRegion(ctx, imageRef.current, destX, destY, destW, destH, blockColor);
+      } else {
+        drawImageCoverInRegion(ctx, imageRef.current, destX, destY, destW, destH);
+      }
     }
 
     if (layer.text.trim()) {
@@ -418,6 +425,33 @@ export function PhotoTextComposer({
         <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-navy">
           Backdrop photo
         </span>
+        {selectedImage && (
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-500">Fit:</span>
+            <div className="flex overflow-hidden rounded-md border border-gray-300">
+              <button
+                type="button"
+                onClick={() => setPhotoFit("cover")}
+                title="Crop the photo to fill the frame — best for a regular photo"
+                className={`px-2.5 py-1 text-xs font-semibold transition ${
+                  photoFit === "cover" ? "bg-navy text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                Fill (crop)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPhotoFit("contain")}
+                title="Show the whole image un-cropped — best for an already-finished graphic like a flyer"
+                className={`border-l border-gray-300 px-2.5 py-1 text-xs font-semibold transition ${
+                  photoFit === "contain" ? "bg-navy text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                Fit (no crop)
+              </button>
+            </div>
+          </div>
+        )}
         <div className="mb-2 flex gap-1 border-b border-gray-200">
           {(
             [
@@ -672,7 +706,10 @@ function clamp01(n: number): number {
 /** Draws `img` into the ctx covering the given (x, y, w, h) destination
  * box (like CSS object-fit: cover) — crops rather than
  * stretches/letterboxes, so the photo fills whichever region the
- * active Layout reserves for it (see LAYOUTS' photoRegion). */
+ * active Layout reserves for it (see LAYOUTS' photoRegion). Right for a
+ * normal photo; wrong for an already-finished graphic (e.g. a full
+ * flyer someone wants reused as-is) — see drawImageContainInRegion for
+ * that case. */
 function drawImageCoverInRegion(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -695,6 +732,38 @@ function drawImageCoverInRegion(
     sy = (img.height - sh) / 2;
   }
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+}
+
+/** Draws `img` into the ctx box like CSS object-fit: contain — the
+ * whole image shown un-cropped, letterboxed (in `letterboxFill`) on
+ * whichever axis doesn't match the box's aspect ratio. For a source
+ * image that's already a finished graphic (a full flyer, a screenshot
+ * of designed copy) rather than a raw photo meant to be cropped into a
+ * template region. */
+function drawImageContainInRegion(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  letterboxFill: string
+) {
+  ctx.fillStyle = letterboxFill;
+  ctx.fillRect(x, y, w, h);
+
+  const imgRatio = img.width / img.height;
+  const boxRatio = w / h;
+  let dw = w,
+    dh = h;
+  if (imgRatio > boxRatio) {
+    dh = w / imgRatio;
+  } else {
+    dw = h * imgRatio;
+  }
+  const dx = x + (w - dw) / 2;
+  const dy = y + (h - dh) / 2;
+  ctx.drawImage(img, 0, 0, img.width, img.height, dx, dy, dw, dh);
 }
 
 /** Smallest font size drawWrappedText will shrink to while trying to
