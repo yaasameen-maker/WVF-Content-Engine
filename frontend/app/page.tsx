@@ -346,7 +346,7 @@ export default function EventFormPage() {
       {(() => {
         const anyExpanded = mode !== null || socialAiPicker === "open";
         const socialTiles = (
-          <TileRail expanded={anyExpanded} gridCols={3}>
+          <TileRail expanded={anyExpanded} maxPerRow={3}>
             <PlatformToggleButton
               tileId="instagram"
               label="Instagram"
@@ -398,7 +398,7 @@ export default function EventFormPage() {
           </TileRail>
         );
         const emailTiles = (
-          <TileRail expanded={anyExpanded}>
+          <TileRail expanded={anyExpanded} maxPerRow={3}>
             <PlatformToggleButton
               tileId="keymakers"
               label="Keymakers Copy"
@@ -1338,7 +1338,7 @@ function PlatformToggleButton({
       disabled={disabled}
       aria-pressed={active}
       transition={TILE_SPRING}
-      className={`flex flex-col items-center gap-3 rounded-xl border-2 px-10 py-7 text-lg font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`flex h-44 w-44 flex-col items-center justify-center gap-3 rounded-xl border-2 text-lg font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
         active
           ? "border-navy bg-navy text-white"
           : "border-gray-200 bg-white text-gray-600 hover:border-sky-blue hover:text-navy"
@@ -1364,36 +1364,44 @@ const TILE_SPRING = { type: "spring", stiffness: 300, damping: 30 } as const;
  * rendered stacked instead of side by side. */
 function TileRail({
   expanded,
-  gridCols,
+  maxPerRow,
   children,
 }: {
   expanded: boolean;
-  // Non-collapsed layout: a fixed N-column grid (e.g. 3 columns x 2 rows
-  // for 6 tiles, to cut down on wrapping whitespace) instead of the
-  // default wrapping flex row. Each column is an equal-width track and
-  // tiles are centered within their cell (not stretched), so every tile
-  // stays its original fixed size. Ignored once collapsed into the rail.
-  gridCols?: 2 | 3 | 4;
+  // Non-collapsed layout: wraps into rows of a fixed max tile count (e.g.
+  // 3 per row for 6 tiles, giving 2 rows of 3) instead of the default
+  // wrapping flex row that fills the full container width. Every tile is
+  // a fixed size (see PlatformToggleButton's h-44 w-44), and the row
+  // itself is centered (not stretched edge-to-edge) via justify-center +
+  // a max-width capping it to that many tiles per row — so a
+  // shorter section (e.g. Email Copy's 2 tiles) centers under a longer
+  // one (Social Media Copy's 6) instead of sitting left-aligned.
+  // Ignored once collapsed into the rail.
+  maxPerRow?: 2 | 3 | 4;
   children: React.ReactNode;
 }) {
   // Collapsed rail lays out as a horizontal strip below sm (matching
   // side-rail-slot's own mobile layout — see RootLayout's comment on
   // why the slot can't dock to the true window edge on a narrow
   // screen) and as the usual vertical column at sm and above.
-  const GRID_COLS_CLASS: Record<2 | 3 | 4, string> = {
-    2: "grid-cols-2",
-    3: "grid-cols-3",
-    4: "grid-cols-4",
-  };
+  // Each tile is h-44 w-44 (11rem); width caps the row at maxPerRow
+  // tiles-per-line plus the gap-3 (0.75rem) gaps between them.
+  const TILE_REM = 11;
+  const GAP_REM = 0.75;
   return (
     <motion.div
       layout
       transition={TILE_SPRING}
+      style={
+        !expanded && maxPerRow
+          ? { maxWidth: `${maxPerRow * TILE_REM + (maxPerRow - 1) * GAP_REM}rem` }
+          : undefined
+      }
       className={
         expanded
           ? "flex shrink-0 flex-row gap-2 sm:w-20 sm:flex-col"
-          : gridCols
-            ? `grid ${GRID_COLS_CLASS[gridCols]} justify-items-center gap-3`
+          : maxPerRow
+            ? "mx-auto flex flex-wrap justify-center gap-3"
             : "flex flex-wrap gap-4"
       }
     >
