@@ -83,10 +83,48 @@ function typeLabel(contentType: string): string {
   return contentType === "social_post" ? "Social" : "Email";
 }
 
-function typeStyles(contentType: string): string {
-  return contentType === "social_post"
-    ? "border-l-4 border-sky-blue bg-sky-blue/10"
-    : "border-l-4 border-navy bg-navy/5";
+/** Color codes each calendar entry by where it stands in the
+ * draft -> approved -> published pipeline, not by content type (Social
+ * vs. Email is still shown separately via the type badge/label). Stale
+ * takes priority over approved — an approved item whose scheduled time
+ * has passed without ever actually posting (see ContentItemResponse.
+ * is_stale) needs to visibly stand out as needing attention, not blend
+ * in with items still safely queued. */
+function statusStyles(item: ContentItemResponse): string {
+  if (item.status === "published") {
+    return "border-l-4 border-sky-blue bg-sky-blue/10";
+  }
+  if (item.is_stale) {
+    return "border-l-4 border-amber-500 bg-amber-50";
+  }
+  if (item.status === "approved") {
+    return "border-l-4 border-green-600 bg-green-50";
+  }
+  // draft — not yet approved at all.
+  return "border-l-4 border-red-500 bg-red-50";
+}
+
+/** Explains the statusStyles() color coding — shown once near the top of
+ * the calendar so the colors aren't a mystery to staff glancing at the
+ * grid. Order matches urgency, not the pipeline order (stale before
+ * approved), since that's the priority statusStyles() itself applies. */
+function StatusLegend() {
+  const items: { color: string; label: string }[] = [
+    { color: "bg-sky-blue", label: "Published" },
+    { color: "bg-green-600", label: "Approved — queued" },
+    { color: "bg-amber-500", label: "Overdue — approved but never posted" },
+    { color: "bg-red-500", label: "Draft — not approved" },
+  ];
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
+      {items.map(({ color, label }) => (
+        <span key={label} className="flex items-center gap-1.5">
+          <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
+          {label}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export default function CalendarPage() {
@@ -178,6 +216,8 @@ export default function CalendarPage() {
           + New campaign
         </Link>
       </div>
+
+      <StatusLegend />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex rounded-lg bg-gray-100 p-1">
@@ -418,7 +458,7 @@ function MonthCellEntry({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded px-1.5 py-1 text-left text-[10px] leading-tight transition hover:brightness-95 ${typeStyles(item.content_type)}`}
+      className={`w-full rounded px-1.5 py-1 text-left text-[10px] leading-tight transition hover:brightness-95 ${statusStyles(item)}`}
     >
       <span className="font-bold uppercase tracking-wide text-navy">{typeLabel(item.content_type)}</span>
       <p className="truncate text-gray-700">
@@ -448,7 +488,7 @@ function CalendarItemCard({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-md p-3 text-left transition hover:brightness-95 ${typeStyles(item.content_type)}`}
+      className={`w-full rounded-md p-3 text-left transition hover:brightness-95 ${statusStyles(item)}`}
     >
       <div className="mb-1 flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy">
