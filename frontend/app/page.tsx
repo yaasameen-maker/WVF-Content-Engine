@@ -470,19 +470,11 @@ export default function EventFormPage() {
               <>
                 <div className="mb-3">
                   <h2 className="text-lg font-bold text-navy">Social Media Copy</h2>
-                  <p className="text-sm text-gray-600">
-                    Pick a platform, then choose a real WVF template — or use the AI Generate tile
-                    for a new AI-written post.
-                  </p>
                 </div>
                 {socialTiles}
 
                 <div className="mb-3 mt-8">
                   <h2 className="text-lg font-bold text-navy">Email Copy</h2>
-                  <p className="text-sm text-gray-600">
-                    Real WVF Keymakers recruitment copy, or use the AI Generate tile for a new
-                    AI-written newsletter.
-                  </p>
                 </div>
                 {emailTiles}
               </>
