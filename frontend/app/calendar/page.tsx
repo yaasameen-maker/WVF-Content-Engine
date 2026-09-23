@@ -208,9 +208,6 @@ export default function CalendarPage() {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <h2 className="text-2xl font-bold text-navy">Content Calendar</h2>
-          <p className="text-sm text-gray-600">
-            Every generated social post and email, grouped by event date.
-          </p>
         </div>
         <Link href="/" className="text-sm font-semibold text-sky-blue underline">
           + New campaign
