@@ -197,6 +197,15 @@ export default function EventFormPage() {
   // reference content, not an AI generation call.
   useEffect(() => {
     if (mode !== "instagram" || platformSubMode !== "fixed" || !instagramTemplateKey) return;
+    // Clear the previous template's detail before fetching the new one —
+    // otherwise EditableTemplatePreview can briefly mount under its new
+    // `key` (see that component's key prop) while still receiving the
+    // OLD detail object as a prop, since this fetch resolves async. Its
+    // caption/hashtags useState() only reads that prop on mount, so once
+    // that stale mount happens, the real detail arriving moments later
+    // updates the `detail` prop but never resyncs the already-initialized
+    // local state — the fields stay frozen on the previous template.
+    setInstagramTemplateDetail(null);
     setInstagramTemplateError(null);
     getInstagramTemplateDetail(instagramTemplateKey)
       .then(setInstagramTemplateDetail)
@@ -222,6 +231,9 @@ export default function EventFormPage() {
   // not an AI generation call.
   useEffect(() => {
     if (mode !== "x" || platformSubMode !== "fixed" || !xTemplateKey) return;
+    // See the matching comment on the Instagram template effect above —
+    // same stale-detail-under-a-fresh-key race, same fix.
+    setXTemplateDetail(null);
     setXTemplateError(null);
     getXTemplateDetail(xTemplateKey)
       .then(setXTemplateDetail)
