@@ -398,7 +398,7 @@ export default function EventFormPage() {
           </TileRail>
         );
         const emailTiles = (
-          <TileRail expanded={anyExpanded} maxPerRow={3}>
+          <TileRail expanded={anyExpanded} maxPerRow={3} justify="end">
             <PlatformToggleButton
               tileId="keymakers"
               label="Keymakers Copy"
@@ -1365,19 +1365,23 @@ const TILE_SPRING = { type: "spring", stiffness: 300, damping: 30 } as const;
 function TileRail({
   expanded,
   maxPerRow,
+  justify = "center",
   children,
 }: {
   expanded: boolean;
   // Non-collapsed layout: wraps into rows of a fixed max tile count (e.g.
   // 3 per row for 6 tiles, giving 2 rows of 3) instead of the default
   // wrapping flex row that fills the full container width. Every tile is
-  // a fixed size (see PlatformToggleButton's h-44 w-44), and the row
-  // itself is centered (not stretched edge-to-edge) via justify-center +
-  // a max-width capping it to that many tiles per row — so a
-  // shorter section (e.g. Email Copy's 2 tiles) centers under a longer
-  // one (Social Media Copy's 6) instead of sitting left-aligned.
-  // Ignored once collapsed into the rail.
+  // a fixed size (see PlatformToggleButton's h-44 w-44), within a
+  // max-width capping the row at that many tiles per row. Ignored once
+  // collapsed into the rail.
   maxPerRow?: 2 | 3 | 4;
+  // Where tiles sit within that max-width box — "center" (default;
+  // Social Media Copy's 6 tiles centering under the page) or "end" (e.g.
+  // Email Copy's 2 tiles pinned to the right edge of the same box, so
+  // they land under Social Media Copy's X/TikTok columns instead of its
+  // Instagram/LinkedIn ones).
+  justify?: "center" | "end";
   children: React.ReactNode;
 }) {
   // Collapsed rail lays out as a horizontal strip below sm (matching
@@ -1401,7 +1405,7 @@ function TileRail({
         expanded
           ? "flex shrink-0 flex-row gap-2 sm:w-20 sm:flex-col"
           : maxPerRow
-            ? "mx-auto flex flex-wrap justify-center gap-3"
+            ? `mx-auto flex flex-wrap gap-3 ${justify === "end" ? "justify-end" : "justify-center"}`
             : "flex flex-wrap gap-4"
       }
     >
