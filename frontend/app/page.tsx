@@ -1371,12 +1371,12 @@ function TileRail({
   // Non-collapsed layout: wraps into rows of a fixed max tile count (e.g.
   // 3 per row for 6 tiles, giving 2 rows of 3) instead of the default
   // wrapping flex row that fills the full container width. Every tile is
-  // a fixed size (see PlatformToggleButton's h-44 w-44), and the row
-  // itself is centered (not stretched edge-to-edge) via justify-center +
-  // a max-width capping it to that many tiles per row — so a
-  // shorter section (e.g. Email Copy's 2 tiles) centers under a longer
-  // one (Social Media Copy's 6) instead of sitting left-aligned.
-  // Ignored once collapsed into the rail.
+  // a fixed size (see PlatformToggleButton's h-44 w-44). Both this row
+  // and any other TileRail using the same maxPerRow share one left-aligned
+  // max-width, so a shorter section (e.g. Email Copy's 2 tiles) lines up
+  // under the first columns of a longer one (Social Media Copy's 6)
+  // instead of centering independently. Ignored once collapsed into the
+  // rail.
   maxPerRow?: 2 | 3 | 4;
   children: React.ReactNode;
 }) {
@@ -1401,7 +1401,7 @@ function TileRail({
         expanded
           ? "flex shrink-0 flex-row gap-2 sm:w-20 sm:flex-col"
           : maxPerRow
-            ? "mx-auto flex flex-wrap justify-center gap-3"
+            ? "flex flex-wrap gap-3"
             : "flex flex-wrap gap-4"
       }
     >
