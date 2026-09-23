@@ -243,7 +243,7 @@ March 30 👉 eventbrite.com/the-plan-fell-apart-now-what""",
     # Fixed-template picker; flag it here if this file's scope is ever
     # audited again.
     "navigating_cash_flow_chase_workshop": {
-        "label": "Event promo — Navigating Cash Flow workshop w/ Chase (Sept 23)",
+        "label": "Event promo — Navigating Cash Flow workshop w/ Chase",
         "category": "event_promo",
         "caption": """Cash flow is about more than tracking what comes in and goes out. Join Women's Venture Fund and Chase for an in-person workshop on practical ways to manage expenses, anticipate financial challenges, and make informed decisions for your business.
 
