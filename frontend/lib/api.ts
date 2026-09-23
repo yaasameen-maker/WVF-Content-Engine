@@ -597,6 +597,20 @@ export async function uploadPhoto(
   });
 }
 
+/** A CORS-safe URL for loading an uploaded photo into a <canvas> (via
+ * crossOrigin="anonymous", so canvas.toBlob() isn't tainted) — routes
+ * through this backend instead of PhotoAssetResponse.public_url
+ * directly, since R2's free .r2.dev public subdomain doesn't reliably
+ * send Access-Control-Allow-Origin on real GET responses (only its
+ * preflight OPTIONS gets it — a known R2 limitation; the real fix is
+ * connecting a custom domain to the bucket, tracked as a follow-up).
+ * Only needed for the canvas load — plain <img> thumbnails elsewhere
+ * can keep using public_url directly. See backend GET
+ * /api/media/proxy/photos/{photo_id}. */
+export function photoProxyUrl(photoId: number): string {
+  return `${API_URL}/api/media/proxy/photos/${photoId}`;
+}
+
 export function listPhotos(params?: { keyMakerId?: number; eventId?: number }): Promise<PhotoAssetResponse[]> {
   const query = new URLSearchParams();
   if (params?.keyMakerId != null) query.set("key_maker_id", String(params.keyMakerId));

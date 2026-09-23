@@ -15,6 +15,7 @@ security-relevant.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -191,6 +192,45 @@ def delete_composed_image(composed_image_id: int, db: Session = Depends(get_db))
     db.delete(image)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/proxy/photos/{photo_id}")
+def proxy_photo(photo_id: int, db: Session = Depends(get_db)) -> Response:
+    """Re-serves a PhotoAsset's bytes through this backend — a workaround
+    for the photo/text composer's Canvas needing to load images
+    cross-origin (via crossOrigin="anonymous", so canvas.toBlob() isn't
+    tainted) while R2's free .r2.dev public subdomain doesn't reliably
+    send Access-Control-Allow-Origin on real GET responses (see
+    object_storage.fetch_object_bytes) — this app's own CORSMiddleware
+    (main.py) already handles the header correctly for every route,
+    including this one, so nothing extra is set here. Fetches fresh from
+    R2 on every call rather than caching — this is a small handful of
+    photos per event, not high-traffic content."""
+    photo = db.query(PhotoAsset).filter(PhotoAsset.id == photo_id).first()
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    content, content_type = object_storage.fetch_object_bytes(photo.object_key)
+    return Response(
+        content=content,
+        media_type=content_type or photo.content_type,
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+@router.get("/proxy/composed-images/{composed_image_id}")
+def proxy_composed_image(composed_image_id: int, db: Session = Depends(get_db)) -> Response:
+    """Same workaround as proxy_photo above, for a ComposedImage."""
+    image = db.query(ComposedImage).filter(ComposedImage.id == composed_image_id).first()
+    if not image:
+        raise HTTPException(status_code=404, detail="Composed image not found")
+
+    content, content_type = object_storage.fetch_object_bytes(image.object_key)
+    return Response(
+        content=content,
+        media_type=content_type or image.content_type,
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 @router.get("/stock-photos", response_model=list[StockPhotoResult])

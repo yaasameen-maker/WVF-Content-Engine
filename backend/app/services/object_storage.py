@@ -94,3 +94,18 @@ def delete_object(object_key: str) -> None:
     considers to exist."""
     client = _get_r2_client()
     client.delete_object(Bucket=_get_bucket_name(), Key=object_key)
+
+
+def fetch_object_bytes(object_key: str) -> tuple[bytes, str]:
+    """Fetches an object's bytes and content-type server-side — used by
+    GET /api/media/proxy/{photo_id} (see media.py) to work around R2's
+    free .r2.dev public subdomain not reliably sending
+    Access-Control-Allow-Origin on real GET responses (only its preflight
+    OPTIONS gets it — a documented R2 limitation, not a bucket
+    misconfiguration; the real fix is a custom domain, tracked as a
+    follow-up). Only meant for small photo/composed-image files the
+    Canvas-based photo/text composer needs to load cross-origin — not a
+    general-purpose file proxy."""
+    client = _get_r2_client()
+    obj = client.get_object(Bucket=_get_bucket_name(), Key=object_key)
+    return obj["Body"].read(), obj.get("ContentType", "application/octet-stream")

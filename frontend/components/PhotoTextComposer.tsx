@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   listKeyMakers,
   listPhotos,
+  photoProxyUrl,
   searchStockPhotos,
   uploadComposedImage,
   type ComposedImageResponse,
@@ -463,7 +464,11 @@ export function PhotoTextComposer({
                     key={photo.id}
                     type="button"
                     onClick={() =>
-                      setSelectedImage({ source: "library", url: photo.public_url, photoAssetId: photo.id })
+                      setSelectedImage({
+                        source: "library",
+                        url: photoProxyUrl(photo.id),
+                        photoAssetId: photo.id,
+                      })
                     }
                     className={`h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 ${
                       selectedImage?.source === "library" && selectedImage.photoAssetId === photo.id
