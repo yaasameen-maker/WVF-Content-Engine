@@ -78,7 +78,8 @@ cd frontend && npm install && npm run dev
 
 ## Ownership note
 
-Per the Pursuit contractor agreement, Work Product ownership transfers to
-WVF only upon completion payment and formal handoff after Demo Day
-(Sept 23, 2026). Do not treat this repo as WVF/Felix's to modify or embed
-elsewhere before that point, even if asked.
+Per the Pursuit contractor agreement, Work Product ownership transferred to
+WVF upon completion payment and Demo Day (Sept 23, 2026) — both conditions
+are now satisfied, so this repo is cleared for handoff to WVF/Felix. See
+docs/HANDOFF.md for the transfer checklist (accounts, credentials, access,
+and documentation to hand over).
