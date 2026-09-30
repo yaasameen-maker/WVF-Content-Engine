@@ -265,13 +265,24 @@ export function PhotoTextComposer({
       draw();
       return;
     }
+    // Guards against an out-of-order load race: if staff click a second
+    // photo before the first one's request finishes, the first request's
+    // onload can still fire AFTER the second one's — with no guard, that
+    // stale callback would overwrite imageRef.current with the WRONG
+    // (previously-selected) photo, and the composite/post would end up
+    // showing whichever photo happened to load slower, not whichever
+    // was clicked last. `current` closes over this specific effect run;
+    // a callback only applies its result if this run is still the latest.
+    let current = true;
     const img = new Image();
     img.crossOrigin = "anonymous"; // needed so canvas.toBlob() isn't tainted by a cross-origin source
     img.onload = () => {
+      if (!current) return;
       imageRef.current = img;
       draw();
     };
     img.onerror = () => {
+      if (!current) return;
       imageRef.current = null;
       setImageLoadError(
         "Couldn't load that image (it may not allow cross-origin loading) — try a different photo."
@@ -279,6 +290,9 @@ export function PhotoTextComposer({
       draw();
     };
     img.src = selectedImage.url;
+    return () => {
+      current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedImage]);
 
