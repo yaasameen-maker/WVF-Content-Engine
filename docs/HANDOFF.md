@@ -156,8 +156,9 @@ access paths once handoff is complete:
 - `docs/STATUS_AND_SCOPE.md` (last written Aug 17, 2026) is a point-in-time
   snapshot, not a living doc — treat it as historical context, not current
   status, once this handoff is further along.
-- `docs/sprint-plans/` are dated, historical — no action needed, just
-  useful context for how the build progressed.
+- `docs/sprint-plans/` was removed as part of this handoff pass — dated
+  weekly progress logs with no code references, superseded by this
+  document and `STATUS_AND_SCOPE.md`.
 
 ## 7. Closing the loop
 

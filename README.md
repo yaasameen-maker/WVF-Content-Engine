@@ -6,7 +6,6 @@ Staff enter event/campaign details and get a branded content package
 (newsletter/eblast/flyer, social posts, hashtags, content calendar, image
 prompts) ready for review and approval.
 
-- **Sprint plans** (dated, one file per week, never overwritten): [docs/sprint-plans/](./docs/sprint-plans/)
 - **Full project context** (scope, content structure guides, open
   questions, program requirements): [docs/PROJECT_CONTEXT.md](./docs/PROJECT_CONTEXT.md)
 - **What's actually generated today vs. known gaps:** [docs/CONTENT_SCOPE.md](./docs/CONTENT_SCOPE.md)
@@ -54,9 +53,7 @@ Frontend available at `http://localhost:3000`. See
   frontend dropdowns
 - `GET /api/newsletter-blocks/types` / `POST /api/newsletter-blocks` —
   generate/persist individual modular newsletter blocks (feature article,
-  events list, grant/flyer, tips/CTA, member spotlight, boilerplate);
-  built but not yet wired into the frontend — see
-  [docs/sprint-plans/](./docs/sprint-plans/)
+  events list, grant/flyer, tips/CTA, member spotlight, boilerplate)
 
 ## Testing
 
