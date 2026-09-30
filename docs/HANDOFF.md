@@ -16,6 +16,44 @@ box as open until someone confirms it.
 
 ---
 
+## What we need from WVF — quick reference
+
+The one blocking item to start: **Felix's GitHub username** — everything else
+downstream (Vercel/Railway reconnecting their GitHub integrations) depends on
+where the repo ends up living. Send this list to Felix/Maria as-is.
+
+1. **GitHub repo** — Felix's GitHub username (or a WVF-owned GitHub org name,
+   if they have one).
+2. **Vercel** (frontend hosting) — either the email address for a Vercel
+   account Felix will create, or if Felix already has a Vercel team, the
+   team name/slug to transfer the project into.
+3. **Railway** (backend + Postgres hosting) — same as Vercel: an email for a
+   new Railway account, or an existing Railway team/project to transfer
+   into.
+4. **Anthropic (Claude API key)** — needs Maria's budget sign-off first, then
+   whoever WVF designates creates their own Anthropic account and generates
+   a key.
+5. **Cloudflare (R2 storage — staff photos)** — an email for a new
+   Cloudflare account (or an existing one) so they can create their own R2
+   bucket. Existing photos need to be migrated over once that bucket
+   exists.
+6. **X (Twitter) Developer Portal** — [console.x.com account](https://console.x.com/accounts/2089542216343511040).
+   Confirmation of who should own the Developer Portal app — likely Felix,
+   using the same `@WomensVFund` login WVF already controls the actual X
+   account with. If Felix already has X Developer Portal access under that
+   account, nothing may need to be recreated — just check ownership.
+7. **Meta Developer Portal** (Instagram/Facebook — not built yet) — nothing
+   yet. This gets created fresh, later, whenever WVF is ready to pursue it.
+   Make sure Felix knows it needs to go under WVF's Meta Business account,
+   not a personal one.
+8. **Pexels API key** — nothing really required; low-stakes/free. Felix just
+   generates his own key at pexels.com/api whenever convenient.
+9. **SMTP (passcode-reset emails)** — *(the contractor can take care of this
+   independently)*. A real WVF Microsoft 365 mailbox (at `wvf-ny.org`) that
+   Felix or a WVF M365 admin can set up an app password for.
+
+---
+
 ## 1. GitHub repo
 
 - [ ] Transfer `WVF-Content-Engine` from the personal `yaasameen-maker`
