@@ -47,32 +47,45 @@ cd frontend && npm install && npm run dev
   truth for tone and evergreen hashtags until WVF provides a formal brand kit.
 - `content_items.platform` stays nullable/unused for now — it exists so a
   future posting-automation or GHL-campaign pipeline doesn't require a schema
-  migration. Do not build OAuth/posting integrations against it yet.
-- Do not build: direct social publishing, post scheduling, analytics,
-  comment/DM management, video generation, background job queues. All
-  explicitly out of scope.
+  migration.
+- Manual-click publishing (a human clicks "Post") is in scope and built for
+  X; Instagram/Facebook follow the same pattern once Meta App Review clears.
+  Still out of scope: fire-and-forget scheduling infrastructure (background
+  job queues), analytics, comment/DM management, video generation. Note the
+  `POST /api/social/x/run-scheduled-posts` endpoint added in Sept 2026
+  (called by a Railway Cron Job) goes beyond the original "no scheduling"
+  decision — confirm with WVF that it's wanted before extending it.
 
-## Status (see @docs/PROJECT_CONTEXT.md for details)
+## Status (see @docs/PROJECT_CONTEXT.md and @docs/STATUS_AND_SCOPE.md for details)
 
-- ✅ Backend generation pipeline (social post, hashtags, newsletter) — code
-  complete; `ANTHROPIC_API_KEY` not yet set in any hosted environment
-  (blocked on Maria's budget sign-off), so only testable locally with a
-  personal/dev key
-- ✅ Frontend event form + review UI (WVF-branded, no persistence yet —
-  content lives in sessionStorage)
-- ✅ ERD / schema designed (@docs/SCHEMA.sql)
-- ✅ Postgres provisioned on Railway; `DATABASE_URL` wired to the backend
-  service (private network reference to the Postgres service) and Alembic
-  migrations run automatically before app start
-- ✅ Newsletter modular blocks (feature article, events list, grant/flyer,
-  tips/CTA, member spotlight, boilerplate) — schemas, generators, and
-  `newsletter_blocks` router built; see structure guide in PROJECT_CONTEXT.md
-- ✅ Key Makers real data seeded — `key_makers` (public fields) and
-  `key_makers_private` (PII, gitignored seed script) tables built and
-  populated with WVF's real 10 Key Makers
-- ⬜ Auth/user system not built — `users.role` exists in schema, no login yet
-- ⬜ Real WVF logo files not yet in the repo — `frontend/tailwind.config.ts`
-  navy/sky-blue hex values are still approximations
+- ✅ Backend generation pipeline (social post, hashtags, newsletter, image
+  prompts) — code complete, 3 options per social post/hashtag generation.
+  `ANTHROPIC_API_KEY` must be WVF's own key (needs Maria's budget sign-off);
+  see docs/HANDOFF.md §3
+- ✅ Frontend event form, review UI, and content calendar (WVF-branded).
+  Content persists in Postgres; the calendar reads it by date. Platform
+  tiles (Instagram/LinkedIn/Facebook/X/TikTok) offer AI copy or fixed
+  templates; Keymakers recruitment copy is static reference text
+- ✅ Postgres on Railway, Alembic migrations run before app start; frontend
+  on Vercel, backend on Railway
+- ✅ Newsletter modular blocks — schemas, generators, and
+  `newsletter_blocks` router built; **not yet exposed as its own frontend
+  flow**
+- ✅ Key Makers real data seeded (`key_makers` public, `key_makers_private`
+  PII via gitignored seed script)
+- ✅ Approver passcode auth (`approvers` router, `manage_approvers.py`,
+  email reset flow). Not a full multi-user login system; `users.role`
+  in SCHEMA.sql is still unbuilt
+- ✅ Staff photo library + photo/text composer (Cloudflare R2 storage,
+  Pexels stock photos) — added as a proposed scope extension
+- ✅ X (Twitter) manual "Connect X" / "Post to X" via OAuth 2.0 + PKCE,
+  encrypted token storage, and secret-protected scheduled-post endpoint
+- ⬜ Instagram/Facebook publishing — OAuth connect scaffolded
+  (`meta_client.py`); publishing needs Meta App Review, and the Meta
+  developer app is not yet created under WVF's Meta Business account
+- ⬜ Exact brand colors — logo is in `frontend/public/wvf-logo.svg`, but
+  `frontend/tailwind.config.ts` navy/sky-blue hex values are still
+  screenshot-estimated (need a design-tool color picker)
 - ⬜ Full-newsletter-vs-individual-blocks generation model: **blocked on
   client decision**, see Open Questions in PROJECT_CONTEXT.md
 
