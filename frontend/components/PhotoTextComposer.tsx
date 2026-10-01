@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import QRCode from "qrcode";
 import {
   listKeyMakers,
   listPhotos,
@@ -18,11 +19,14 @@ import {
  * approved by WVF (see backend app/models/media.py's ComposedImage
  * docstring). Staff pick a blank Layout (a vector-drawn frame of color
  * blocks + a reserved photo region — see LAYOUTS below), pick a photo
- * from the library to drop into that region, then drag a text layer
- * over the result (pre-filled with the generated headline/caption).
- * Flattens to a PNG entirely in the browser via <canvas> — this
- * component never sends image bytes to the backend until the final
- * flattened PNG is ready to upload.
+ * from the library to drop into that region, then add any number of
+ * text and image overlay LAYERS on top (see the Layer type) — each
+ * independently draggable and resizable. A layer can be free-typed
+ * text, an image picked from the same sources as the backdrop (a logo,
+ * a badge), or a generated QR code (see buildQrDataUrl). Flattens to a
+ * PNG entirely in the browser via <canvas> — this component never
+ * sends image bytes to the backend until the final flattened PNG is
+ * ready to upload.
  *
  * The Layouts are original vector frames modeled on the STRUCTURE of
  * real WVF flyer styles (see docs/x-post-audit-2026-09.md's "Recurring
